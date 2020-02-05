@@ -1,0 +1,12 @@
+<!-- Launch all nodes of RRT -->
+
+<launch>
+    <node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode" output="screen" >
+        <param name="rrt_publish_frequency" type="double" value="1" />
+        <param name="sensor_range" type="double" value="10.0" />
+        <param name="min_extend_range" type="double" value="2.0" />
+        <param name="visualize_steering" type="bool" value="true" />
+        <param name="visualize_gain_calculation" type="bool" value="true" />
+    </node>
+    <node pkg="rrt_nbv_exploration" type="rneVisualizationNode" name="rneVisualizationNode" output="screen" />
+</launch>

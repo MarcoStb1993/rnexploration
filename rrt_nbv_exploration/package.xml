@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="2">
+	<name>rrt_nbv_exploration</name>
+	<version>0.0.0</version>
+	<description>The rrt_nbv_exploration package</description>
+	<license>BSD</license>
+	<!-- url type="repository">https://github.com/MarcoStb1993/robot_statemachine</url>
+	<url type="bugtracker">https://github.com/MarcoStb1993/robot_statemachine/issues
+	</url-->
+	<maintainer email="marco.stb1993@gmail.de">Marco Steinbrink</maintainer>
+	<author email="marco.stb1993@gmail.de">Marco Steinbrink</author>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<build_depend>actionlib</build_depend>
+	<build_depend>move_base_msgs</build_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>std_msgs</build_depend>
+	<build_depend>visualization_msgs</build_depend>
+	<build_depend>rrt_nbv_exploration_msgs</build_depend>
+	<build_export_depend>actionlib</build_export_depend>
+	<build_export_depend>move_base_msgs</build_export_depend>
+	<build_export_depend>roscpp</build_export_depend>
+	<build_export_depend>std_msgs</build_export_depend>
+	<build_export_depend>visualization_msgs</build_export_depend>
+	<exec_depend>actionlib</exec_depend>
+	<exec_depend>move_base_msgs</exec_depend>
+	<exec_depend>roscpp</exec_depend>
+	<exec_depend>std_msgs</exec_depend>
+	<exec_depend>visualization_msgs</exec_depend>
+	<exec_depend>rrt_nbv_exploration_msgs</exec_depend>
+</package>
+

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="2">
+	<name>rn_exploration</name>
+	<version>0.0.0</version>
+	<description>The rn exploration package bundles all functionalities and
+		the robot statemachine plugin</description>
+	<license>BSD</license>
+	<!-- url type="repository">https://github.com/MarcoStb1993/robot_statemachine</url>
+	<url type="bugtracker">https://github.com/MarcoStb1993/robot_statemachine/issues
+	</url-->
+	<maintainer email="marco.stb1993@gmail.de">Marco Steinbrink</maintainer>
+	<author email="marco.stb1993@gmail.de">Marco Steinbrink</author>
+
+	<buildtool_depend>catkin</buildtool_depend>
+	<exec_depend>rrt_nbv_exploration</exec_depend>
+	<exec_depend>rrt_nbv_exploration_msgs</exec_depend>
+	<exec_depend>rrt_nbv_exploration_plugins</exec_depend>
+
+	<export>
+		<metapackage />
+	</export>
+</package>
