@@ -26,10 +26,10 @@ public:
      */
     TreeConstructor();
     /**
-     * @brief Constructor that places the trees seed at the given point
+     * @brief Initialization for ROS and tree TreeConstructor, called by the constructors
      * @param Seed position for the tree
      */
-    TreeConstructor(geometry_msgs::Point seed);
+    void initialization(geometry_msgs::Point seed = geometry_msgs::Point());
     /**
      * @brief Starts the tree TreeConstructor when stopped
      */
@@ -38,6 +38,11 @@ public:
      * @brief Stops the tree TreeConstructor when running
      */
     void stop_rrt_construction();
+    /**
+     * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
+     * @param kd-tree for faster nearest neighbour queries
+     */
+    void run_rrt_construction();
 
 private:
     ros::NodeHandle _nh;
@@ -93,16 +98,6 @@ private:
      */
     double _radius_search_range;
 
-    /**
-     * @brief Initialization for ROS and tree TreeConstructor, called by the constructors
-     * @param Seed position for the tree
-     */
-    void initialization(geometry_msgs::Point seed);
-    /**
-     * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
-     * @param kd-tree for faster nearest neighbour queries
-     */
-    void run_rrt_construction();
     /**
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point

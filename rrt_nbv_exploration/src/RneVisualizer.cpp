@@ -4,15 +4,9 @@ namespace rrt_nbv_exploration
 {
 RneVisualizer::RneVisualizer()
 {
-    _loop_rate = new ros::Rate(20);
     _rrt_tree_sub = _nh.subscribe("rrt_tree", 1000, &RneVisualizer::visualize_rrt_tree, this);
     _rrt_tree_visualization_pub = _nh.advertise<visualization_msgs::Marker>("rrt_tree_visualization_marker", 1000);
     _rrt_tree_text_info_visualization_pub = _nh.advertise<visualization_msgs::MarkerArray>("rrt_tree_text_info_visualization_marker", 1000);
-    initialize_visualization();
-    while (ros::ok())
-    {
-        ros::spin();
-    }
 }
 
 RneVisualizer::~RneVisualizer() {

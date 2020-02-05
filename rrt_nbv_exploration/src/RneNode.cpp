@@ -4,7 +4,7 @@
 boost::shared_ptr<rrt_nbv_exploration::TreeConstructor> tree_constructor;
 
 void loopCallback(const ros::TimerEvent&) {
-	//tree_constructor->publishTopics();
+	tree_constructor->run_rrt_construction();
 }
 
 int main(int argc, char **argv) {
@@ -15,6 +15,8 @@ int main(int argc, char **argv) {
 	ros::Timer loop_timer = private_nh.createTimer(ros::Duration(1 / loop_rate),
 			loopCallback);
 	tree_constructor.reset(new rrt_nbv_exploration::TreeConstructor());
+	tree_constructor->initialization();
+	tree_constructor->start_rrt_construction();
 	ros::spin();
 	tree_constructor.reset();
 	return 0;
