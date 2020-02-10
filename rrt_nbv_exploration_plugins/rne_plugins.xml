@@ -1,0 +1,6 @@
+<library path="lib/librne_plugins">
+	<class type="rsm::RnExplorationState"
+		base_class_type="rsm::BaseState">
+		<description>This is a state for deciding on the next goal for exploration.</description>
+	</class>
+</library>

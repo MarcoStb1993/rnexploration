@@ -22,9 +22,9 @@ public:
      * @param Node which gain needs to be calculated
      * @param Pointer to octree for raytracing
      */
-    void calculate_gain(rrt_nbv_exploration_msgs::Node &node, octomap::OcTree *octree);
+    void calculate_gain(rrt_nbv_exploration_msgs::Node &node, boost::shared_ptr<octomap::OcTree> octree);
 
-    void recalculate_gain(rrt_nbv_exploration_msgs::rrt &rrt, std::vector<int> nodes, octomap::OcTree *octree);
+    void recalculate_gain(rrt_nbv_exploration_msgs::rrt &rrt, std::vector<int> nodes, boost::shared_ptr<octomap::OcTree> octree);
 private:
     ros::NodeHandle _nh;
     ros::Publisher _raycast_visualization;

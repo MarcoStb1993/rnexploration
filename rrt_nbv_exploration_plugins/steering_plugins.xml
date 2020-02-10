@@ -1,5 +1,0 @@
-<library path="lib/libsteering_plugins">
-  <class type="steering_plugins::Steering_husky" base_class_type="steering_base::Steering_base">
-    <description>This plugin creates edges for an RRT that a Clearpath Robotics Husky UGV can access.</description>
-  </class>
-</library>

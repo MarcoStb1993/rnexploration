@@ -4,9 +4,10 @@ namespace rrt_nbv_exploration
 {
 RneVisualizer::RneVisualizer()
 {
-    _rrt_tree_sub = _nh.subscribe("rrt_tree", 1000, &RneVisualizer::visualize_rrt_tree, this);
-    _rrt_tree_visualization_pub = _nh.advertise<visualization_msgs::Marker>("rrt_tree_visualization_marker", 1000);
-    _rrt_tree_text_info_visualization_pub = _nh.advertise<visualization_msgs::MarkerArray>("rrt_tree_text_info_visualization_marker", 1000);
+	ros::NodeHandle nh("rne");
+    _rrt_tree_sub = nh.subscribe("rrt_tree", 1000, &RneVisualizer::visualize_rrt_tree, this);
+    _rrt_tree_visualization_pub = nh.advertise<visualization_msgs::Marker>("rrt_tree_vis", 1000);
+    _rrt_tree_text_info_visualization_pub = nh.advertise<visualization_msgs::MarkerArray>("rrt_tree_vis_info", 1000);
 }
 
 RneVisualizer::~RneVisualizer() {

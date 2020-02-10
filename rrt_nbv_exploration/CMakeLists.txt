@@ -6,6 +6,8 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
     actionlib
     pluginlib
+  	rsm_core
+  	rsm_msgs
     move_base_msgs
     roscpp
     std_msgs
@@ -30,10 +32,10 @@ add_executable(rneNode src/RneNode.cpp
 				src/TreeConstructor.cpp
 				src/TreeSearcher.cpp
 				src/GainCalculator.cpp
-				src/Navigator.cpp
 				src/CollisionChecker.cpp)
 add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 				src/RneVisualizer.cpp)
+
 
 target_link_libraries(rneNode
     ${catkin_LIBRARIES}

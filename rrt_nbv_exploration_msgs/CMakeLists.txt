@@ -5,7 +5,6 @@ add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
-    rospy
     std_msgs
     visualization_msgs
     geometry_msgs
@@ -18,23 +17,23 @@ find_package(catkin REQUIRED COMPONENTS
    rrt.msg
    Node.msg
    )
+   
+add_service_files(
+  FILES
+  RequestGoal.srv
+)
 
- generate_messages(
+generate_messages(
    DEPENDENCIES
    std_msgs
    geometry_msgs
- )
+)
 
 catkin_package(
     CATKIN_DEPENDS message_runtime
-    )
+)
 
 include_directories(
-    # include
-    ${catkin_INCLUDE_DIRS}
-    ../../devel/include
-    )
-
-install(DIRECTORY config launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# include
+  ${catkin_INCLUDE_DIRS}
 )

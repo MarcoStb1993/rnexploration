@@ -27,7 +27,7 @@ public:
      * @param Pointer to octree for raytracing
      * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
      */
-    bool steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node, geometry_msgs::Point rand_sample, double min_distance, octomap::OcTree *octree);
+    bool steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node, geometry_msgs::Point rand_sample, double min_distance, boost::shared_ptr<octomap::OcTree> octree);
 private:
     ros::NodeHandle _nh;
     ros::Publisher _steering_visualization;

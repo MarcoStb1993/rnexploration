@@ -4,13 +4,13 @@
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
-#include "rrt_nbv_exploration_msgs/rrt.h"
-#include "rrt_nbv_exploration_msgs/Node.h"
+#include <rrt_nbv_exploration_msgs/rrt.h>
+#include <rrt_nbv_exploration_msgs/Node.h>
+#include <rrt_nbv_exploration_msgs/RequestGoal.h>
 #include <limits.h>
 #include <random>
 #include "math.h"
 #include "rrt_nbv_exploration/CollisionChecker.h"
-#include "rrt_nbv_exploration/Navigator.h"
 #include "rrt_nbv_exploration/GainCalculator.h"
 #include "rrt_nbv_exploration/TreeSearcher.h"
 
@@ -25,6 +25,7 @@ public:
      * @brief Constructor that places the trees seed at (0,0,0)
      */
     TreeConstructor();
+    ~TreeConstructor();
     /**
      * @brief Initialization for ROS and tree TreeConstructor, called by the constructors
      * @param Seed position for the tree
@@ -46,25 +47,24 @@ public:
 
 private:
     ros::NodeHandle _nh;
-    ros::Rate* _loop_rate;
     ros::Publisher _rrt_publisher;
     ros::Subscriber _octomap_sub;
-    Navigator _navigator;
+    ros::ServiceServer _request_goal_service;
     std::default_random_engine _generator;
-    octomap::AbstractOcTree* _abstract_octree;
-    octomap::OcTree* _octree;
+    boost::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
+    boost::shared_ptr<octomap::OcTree> _octree;
     /**
      * @brief Helper class for calculating a viable path between two nodes
      */
-    CollisionChecker _collision_checker;
+    boost::shared_ptr<CollisionChecker> _collision_checker;
     /**
      * @brief Helper class for calculating gain of a node
      */
-    GainCalculator _gain_calculator;
+    boost::shared_ptr<GainCalculator> _gain_calculator;
     /**
      * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
      */
-    TreeSearcher _tree_searcher;
+    boost::shared_ptr<TreeSearcher> _tree_searcher;
     /**
      * @brief Current tree being built as a RRT
      */
@@ -139,5 +139,8 @@ private:
      * @brief Updates the current goal and publishes it to navigation
      */
     void update_current_goal();
+
+    bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
+    		rrt_nbv_exploration_msgs::RequestGoal::Response &res);
 };
 }

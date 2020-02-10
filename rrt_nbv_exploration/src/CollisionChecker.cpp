@@ -7,11 +7,12 @@ namespace rrt_nbv_exploration
     ros::NodeHandle private_nh("~");
     private_nh.param("min_extend_range", _min_extend_range, 2.0);
     private_nh.param("visualize_steering",_visualize_steering, false);
-    _steering_visualization = _nh.advertise<visualization_msgs::Marker>("steering_visualization", 1000);
+    ros::NodeHandle nh("rne");
+    _steering_visualization = nh.advertise<visualization_msgs::Marker>("steering_visualization", 1000);
 }
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node,
-                                               geometry_msgs::Point rand_sample, double min_distance, octomap::OcTree *octree)
+                                               geometry_msgs::Point rand_sample, double min_distance, boost::shared_ptr<octomap::OcTree> octree)
 {
     visualization_msgs::Marker _node_points;
     _node_points.header.frame_id = "/map";

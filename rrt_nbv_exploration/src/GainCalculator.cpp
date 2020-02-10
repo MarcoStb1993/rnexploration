@@ -8,10 +8,11 @@ GainCalculator::GainCalculator()
     ros::NodeHandle private_nh("~");
     private_nh.param("sensor_range", _sensor_range, 5.0);
     private_nh.param("visualize_gain_calculation", _visualize_gain_calculation, false);
-    _raycast_visualization = _nh.advertise<visualization_msgs::Marker>("raycast_visualization", 1000);
+    ros::NodeHandle nh("rne");
+    _raycast_visualization = nh.advertise<visualization_msgs::Marker>("raycast_visualization", 1000);
 }
 
-void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node, octomap::OcTree *octree)
+void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node, boost::shared_ptr<octomap::OcTree> octree)
 {
     visualization_msgs::Marker _node_points;
     _node_points.header.frame_id = "/map";
