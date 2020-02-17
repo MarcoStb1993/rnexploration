@@ -22,10 +22,20 @@ include_directories(include
     ${catkin_INCLUDE_DIRS}
     )
 		
-add_library(rne_plugins src/RnExplorationState.cpp)		
+add_library(rne_plugins src/RnExplorationState.cpp)	
+
+add_executable(rneServiceProviderNode
+	src/RneServiceProviderNode.cpp
+	src/RneServiceProvider.cpp)	
 	
 target_link_libraries(rne_plugins
   ${catkin_LIBRARIES}
   )
   
+target_link_libraries(rneServiceProviderNode
+  ${catkin_LIBRARIES}
+  )
+  
 add_dependencies(rne_plugins ${catkin_EXPORTED_TARGETS})
+
+add_dependencies(rneServiceProviderNode ${catkin_EXPORTED_TARGETS})

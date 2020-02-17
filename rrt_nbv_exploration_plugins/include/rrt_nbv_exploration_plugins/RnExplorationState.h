@@ -81,27 +81,13 @@ public:
 	 */
 	void onInterrupt(int interrupt);
 
-	/**
-	 * @brief Checks if a point is different from a previously failed goals including a small tolerance
-	 * @param Point that is checked against previously failed goals
-	 * @return Returns if the given point is different from the previously failed goals
-	 */
-	bool differentFromFailedGoals(geometry_msgs::Point point);
-
 private:
 
 	ros::NodeHandle _nh;
-	ros::Subscriber _goal_sub;
-	ros::ServiceClient _get_failed_goals_service;
 	ros::ServiceClient _set_navigation_goal_service;
 	ros::ServiceClient _request_goal_service;
 	ros::ServiceClient _get_robot_pose_service;
 
-
-	/**
-	 * List of previously failed goals
-	 */
-	std::vector<geometry_msgs::Pose> _failed_goals;
 	/**
 	 * Chosen goal to be forwarded to navigation
 	 */

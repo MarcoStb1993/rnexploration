@@ -16,8 +16,6 @@ void RnExplorationState::onSetup() {
 			rrt_nbv_exploration_msgs::RequestGoal>("requestGoal");
 
 	ros::NodeHandle nh_rsm("rsm");
-	_get_failed_goals_service = nh_rsm.serviceClient<rsm_msgs::GetFailedGoals>(
-			"getFailedGoals");
 	_set_navigation_goal_service = nh_rsm.serviceClient<
 			rsm_msgs::SetNavigationGoal>("setNavigationGoal");
 	_get_robot_pose_service = nh_rsm.serviceClient<rsm_msgs::GetRobotPose>(
@@ -28,20 +26,13 @@ void RnExplorationState::onSetup() {
 }
 
 void RnExplorationState::onEntry() {
-	//Request list of failed goals from Service Provider
-	rsm_msgs::GetFailedGoals srv;
-	if (_get_failed_goals_service.call(srv)) {
-		_failed_goals = srv.response.failedGoals.poses;
-	} else {
-		ROS_ERROR("Failed to call Get Failed Goals service");
-	}
+
 }
 
 void RnExplorationState::onActive() {
 	rrt_nbv_exploration_msgs::RequestGoal srv;
 	if (_request_goal_service.call(srv)) {
 		_goal.position = srv.response.goal;
-		//TODO: regard failed goalsc
 		rsm_msgs::GetRobotPose srv2;
 		if (_get_robot_pose_service.call(srv2)) {
 			geometry_msgs::Pose current_pose = srv2.response.pose;
@@ -116,18 +107,6 @@ void RnExplorationState::onInterrupt(int interrupt) {
 		_interrupt_occured = true;
 		break;
 	}
-}
-
-bool RnExplorationState::differentFromFailedGoals(geometry_msgs::Point point) {
-	double tolerance = 0.05;
-	for (auto iterator : _failed_goals) {
-		double x_dif = abs(point.x - iterator.position.x);
-		double y_dif = abs(point.y - iterator.position.y);
-		if (x_dif <= tolerance && y_dif <= tolerance) {
-			return false;
-		}
-	}
-	return true;
 }
 
 void RnExplorationState::abortRnExplorationGoal() {

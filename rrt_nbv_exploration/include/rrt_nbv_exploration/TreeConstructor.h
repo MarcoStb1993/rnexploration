@@ -7,6 +7,7 @@
 #include <rrt_nbv_exploration_msgs/rrt.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
+#include <rrt_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <limits.h>
 #include <random>
 #include "math.h"
@@ -47,9 +48,12 @@ public:
 
 private:
     ros::NodeHandle _nh;
+
     ros::Publisher _rrt_publisher;
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
+    ros::ServiceServer _update_current_goal_service;
+
     std::default_random_engine _generator;
     boost::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
     boost::shared_ptr<octomap::OcTree> _octree;
@@ -102,7 +106,7 @@ private:
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point
      */
-    geometry_msgs::Point sample_point();
+     bool sample_point(geometry_msgs::Point& rand_sample);
     /**
      * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
      * @param Randomly sampled point
@@ -142,5 +146,8 @@ private:
 
     bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
     		rrt_nbv_exploration_msgs::RequestGoal::Response &res);
+
+    bool updateCurrentGoal(rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
+        		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res);
 };
 }

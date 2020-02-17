@@ -359,21 +359,21 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/rrt_tree_vis_info
       Name: RRT Subtexts
       Namespaces:
-        rrt_tree: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/raycast_visualization
       Name: RRT Raycasting
       Namespaces:
-        raycast_visualization: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -513,6 +513,7 @@ Visualization Manager:
     - Class: rviz/PublishPoint
       Single click: true
       Topic: /clicked_point
+    - ~
   Value: true
   Views:
     Current:

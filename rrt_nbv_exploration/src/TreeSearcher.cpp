@@ -18,7 +18,7 @@ void TreeSearcher::rebuildIndex(rrt_nbv_exploration_msgs::rrt &rrt)
 
 void TreeSearcher::find_nearest_neighbour(geometry_msgs::Point rand_sample, double &min_distance, int &nearest_node)
 {
-	ROS_INFO_STREAM("Find nearest neighbor");
+	//ROS_INFO_STREAM("Find nearest neighbor");
     const size_t num_results = 1;
     size_t ret_index;
     nanoflann::KNNResultSet<double> resultSet(num_results);
@@ -26,12 +26,12 @@ void TreeSearcher::find_nearest_neighbour(geometry_msgs::Point rand_sample, doub
     double rand_sample_point[3] = {rand_sample.x, rand_sample.y, rand_sample.z};
     _kd_tree_index.findNeighbors(resultSet, &rand_sample_point[0], nanoflann::SearchParams(10));
     nearest_node = ret_index;
-    ROS_INFO_STREAM("Find nearest neighbor finished");
+    //ROS_INFO_STREAM("Find nearest neighbor finished");
 }
 
 std::vector<int> TreeSearcher::search_in_radius(geometry_msgs::Point node_position, double radius)
 {
-	ROS_INFO_STREAM("search in radius");
+	//ROS_INFO_STREAM("search in radius");
     const double search_radius = static_cast<double>(radius);
     std::vector<std::pair<size_t,double> >   ret_matches;
     nanoflann::SearchParams params;
@@ -43,11 +43,11 @@ std::vector<int> TreeSearcher::search_in_radius(geometry_msgs::Point node_positi
         nodes_in_radius.push_back(it.first);
     }
     //nodes_in_radius.erase(nodes_in_radius.begin()); //delete first node from list because it is the starting position for the radius search
-    ROS_INFO("Matches found: %lu", nMatches);
-    ROS_INFO("Nodes in radius %3.3f: ", sqrt(search_radius));
+    //ROS_INFO("Matches found: %lu", nMatches);
+    //ROS_INFO("Nodes in radius %3.3f: ", sqrt(search_radius));
     for(auto it : nodes_in_radius)
     {
-        ROS_INFO("Node %i", it);
+        //ROS_INFO("Node %i", it);
     }
     return nodes_in_radius;
 }
