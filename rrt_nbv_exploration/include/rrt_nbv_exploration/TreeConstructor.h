@@ -6,6 +6,7 @@
 #include "octomap_ros/conversions.h"
 #include <rrt_nbv_exploration_msgs/rrt.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
+#include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
 #include <rrt_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <limits.h>
@@ -50,6 +51,7 @@ private:
     ros::NodeHandle _nh;
 
     ros::Publisher _rrt_publisher;
+    ros::Publisher _best_and_current_goal_publisher;
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
     ros::ServiceServer _update_current_goal_service;

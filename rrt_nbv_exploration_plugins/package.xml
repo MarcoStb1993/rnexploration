@@ -30,6 +30,12 @@
 	<build_depend>tf</build_depend>
 	<build_export_depend>tf</build_export_depend>
 	<exec_depend>tf</exec_depend>
+	<build_depend>std_msgs</build_depend>
+	<build_export_depend>std_msgs</build_export_depend>
+	<exec_depend>std_msgs</exec_depend>
+	<build_depend>std_srvs</build_depend>
+	<build_export_depend>std_srvs</build_export_depend>
+	<exec_depend>std_srvs</exec_depend>
 
 	<export>
 		<rsm_core plugin="${prefix}/rne_plugins.xml" />

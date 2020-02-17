@@ -11,15 +11,15 @@ find_package(catkin REQUIRED COMPONENTS
     message_generation
     )
 
-
  add_message_files(
    FILES
    rrt.msg
    Node.msg
+   BestAndCurrentNode.msg
    )
    
 add_service_files(
-  FILES
+  FILES  
   RequestGoal.srv
   UpdateCurrentGoal.srv
 )

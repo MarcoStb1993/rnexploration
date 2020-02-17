@@ -23,6 +23,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::rrt>("rrt_tree", 1);
+	_best_and_current_goal_publisher = nh.advertise<rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal", 1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&TreeConstructor::requestGoal, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
@@ -81,7 +82,7 @@ void TreeConstructor::run_rrt_construction() {
 					nearest_node);
 			place_new_node(rand_sample, min_distance, nearest_node);
 		}
-		//publish_node_with_best_gain();
+		publish_node_with_best_gain();
 		//update_current_goal();
 	}
 	_rrt_publisher.publish(_rrt);
@@ -127,38 +128,10 @@ void TreeConstructor::place_new_node(geometry_msgs::Point rand_sample,
 }
 
 void TreeConstructor::publish_node_with_best_gain() {
-	//ROS_INFO_STREAM("Publish best gain");
-//change to iterations!
-	if (_nodes_ordered_by_gain.size() > 5) //only start exploration after constructing a few nodes to prevent blocking exploration with a suboptimal goal
-			{
-		switch (_rrt.nodes[_current_goal_node].status) {
-		case rrt_nbv_exploration_msgs::Node::EXPLORED:
-			//ROS_INFO("goal explored");
-			_nodes_ordered_by_gain.erase(_current_goal_node);
-			update_nodes(_rrt.nodes[_current_goal_node]);
-			update_current_goal();
-			break;
-		case rrt_nbv_exploration_msgs::Node::ABORTED: //update all nodes? around robot?
-			//ROS_INFO("goal aborted");
-			_nodes_ordered_by_gain.erase(_current_goal_node);
-			update_nodes(_rrt.nodes[_current_goal_node]);
-			_gain_calculator->calculate_gain(_rrt.nodes[_current_goal_node],
-					_octree);
-			_nodes_ordered_by_gain.insert(_current_goal_node);
-			update_current_goal();
-			break;
-		case rrt_nbv_exploration_msgs::Node::FAILED:
-			//ROS_INFO("goal failed");
-			_nodes_ordered_by_gain.erase(_current_goal_node);
-			update_nodes(_rrt.nodes[_current_goal_node]);
-			//erase failed node from tree
-			update_current_goal();
-			break;
-		default:    //active or waiting
-
-			break;
-		}
-	}
+	rrt_nbv_exploration_msgs::BestAndCurrentNode msg;
+	msg.best_node = *_nodes_ordered_by_gain.rbegin();
+	msg.current_goal = _current_goal_node;
+	_best_and_current_goal_publisher.publish(msg);
 }
 
 void TreeConstructor::update_nodes(
