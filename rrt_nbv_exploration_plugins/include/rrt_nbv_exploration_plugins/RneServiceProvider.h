@@ -23,6 +23,7 @@ class RneServiceProvider {
 public:
 	RneServiceProvider();
 	virtual ~RneServiceProvider();
+	void publishTopics();
 
 private:
 	ros::NodeHandle _nh;
@@ -32,11 +33,21 @@ private:
 	ros::ServiceClient _update_current_goal_service;
 	ros::Subscriber _best_and_current_goal_subscriber;
 	ros::Subscriber _exploration_mode_subscriber;
+	ros::Publisher _goal_obsolete_publisher;
 
 	/**
 	 * Mode of exploration (0=complete goal, 1=interrupt goal when exploration goals vanished)
 	 */
 	bool _exploration_mode;
+	/**
+	 * Is navigation goal still an exploration goal
+	 */
+	bool _goal_obsolete;
+
+	/**
+	 * Publish if current exploration goal is obsolete if exploration mode is set to interrupt
+	 */
+	void publishGoalObsolete();
 
 	bool explorationGoalCompleted(
 			rsm_msgs::ExplorationGoalCompleted::Request &req,

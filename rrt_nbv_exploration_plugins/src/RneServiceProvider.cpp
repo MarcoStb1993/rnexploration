@@ -23,10 +23,23 @@ RneServiceProvider::RneServiceProvider() {
 			rrt_nbv_exploration_msgs::UpdateCurrentGoal>("updateCurrentGoal");
 
 	_exploration_mode = 0;
+	_goal_obsolete = false;
 }
 
 RneServiceProvider::~RneServiceProvider() {
 
+}
+
+void RneServiceProvider::publishTopics() {
+	if (_exploration_mode) {
+		publishGoalObsolete();
+	}
+}
+
+void RneServiceProvider::publishGoalObsolete() {
+	std_msgs::Bool msg;
+	msg.data = _goal_obsolete;
+	_goal_obsolete_publisher.publish(msg);
 }
 
 bool RneServiceProvider::explorationGoalCompleted(
@@ -53,10 +66,15 @@ void RneServiceProvider::explorationModeCallback(
 		_exploration_mode = exploration_mode->data;
 		if (exploration_mode) {
 			ros::NodeHandle rne_nh("rne");
-			_best_and_current_goal_subscriber = rne_nh.subscribe("bestGoal", 1,
+			_best_and_current_goal_subscriber = rne_nh.subscribe(
+					"bestAndCurrentGoal", 1,
 					&RneServiceProvider::bestGoalCallback, this);
+			ros::NodeHandle nh("rsm");
+			_goal_obsolete_publisher = nh.advertise<std_msgs::Bool>(
+					"goalObsolete", 1);
 		} else {
 			_best_and_current_goal_subscriber.shutdown();
+			_goal_obsolete_publisher.shutdown();
 		}
 	}
 }
@@ -64,13 +82,9 @@ void RneServiceProvider::explorationModeCallback(
 void RneServiceProvider::bestGoalCallback(
 		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal) {
 	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
-		std_srvs::Trigger srv;
-		if (!_set_goal_obsolete_service.call(srv)) {
-			ROS_ERROR("Failed to call Set Goal Obsolete service");
-		} else {
-			ROS_INFO_STREAM(
-					"Goal obsolete! Switch from " << best_goal->current_goal << " to " << best_goal->best_node);
-		}
+		_goal_obsolete = true;
+	} else {
+		_goal_obsolete = false;
 	}
 }
 

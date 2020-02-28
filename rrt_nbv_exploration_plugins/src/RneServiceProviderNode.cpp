@@ -5,7 +5,7 @@
 boost::shared_ptr<rsm::RneServiceProvider> service_provider;
 
 void loopCallback(const ros::TimerEvent&) {
-	//service_provider->publishTopics();
+	service_provider->publishTopics();
 }
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "rneServiceProvider");
