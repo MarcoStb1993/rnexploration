@@ -3,10 +3,15 @@
 <launch>
     <node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode" output="screen" >
         <param name="rrt_publish_frequency" type="double" value="1" />
-        <param name="sensor_range" type="double" value="5.0" />
-        <param name="min_extend_range" type="double" value="2.0" />
+        <param name="sensor_max_range" type="double" value="5.0" />
+        <param name="sensor_min_range" type="double" value="0.5" />
+        <param name="delta_radius" type="double" value="0.1" />
+        <param name="delta_phi" type="int" value="10" />
+        <param name="delta_theta" type="int" value="10" />
+        <param name="sensor_horizontal_fov" type="int" value="208" /> <!-- Swivelling Kinect with 60 degree hFoV and joint limits +/-74 degrees -->
+        <param name="sensor_vertical_fov" type="int" value="45" />        
         <param name="visualize_steering" type="bool" value="false" />
-        <param name="visualize_gain_calculation" type="bool" value="false" />
+        <param name="visualize_gain_calculation" type="bool" value="true" />
     </node>
     <node pkg="rrt_nbv_exploration" type="rneVisualizationNode" name="rneVisualizationNode" output="screen" />
 </launch>
