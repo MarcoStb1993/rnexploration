@@ -27,17 +27,17 @@ GainCalculator::~GainCalculator() {
 void GainCalculator::precalculateGainPollPoints() {
 	std::vector<StepStruct> theta_steps;
 	std::vector<StepStruct> phi_steps;
-	ROS_INFO_STREAM("Theta steps:");
+	//ROS_INFO_STREAM("Theta steps:");
 	for (int theta = 0; theta <= 360; theta += _delta_theta) {
 		double rad = theta * M_PI / 180;
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
-		ROS_INFO_STREAM(rad);
+		//ROS_INFO_STREAM(rad);
 	}
 	ROS_INFO_STREAM("Phi steps:");
 	for (int phi = -_sensor_vertical_fov / 2; phi <= _sensor_vertical_fov / 2;
 			phi += _delta_phi) {
-		double rad = phi * M_PI / 180;
+		double rad = (phi + 90) * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 		ROS_INFO_STREAM(rad);
@@ -114,7 +114,8 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 					if (octree->isNodeOccupied(ocnode)) {
 						color.r = 1.0f;
 						color.b = 0.0f;
-						//break; //end raycast for this ray because of an obstacle in the way
+						_node_points.colors.push_back(color);
+						break; //end raycast for this ray because of an obstacle in the way
 					} else {
 						color.g = 1.0f;
 						color.b = 0.0f;
