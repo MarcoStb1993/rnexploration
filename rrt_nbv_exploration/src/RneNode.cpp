@@ -16,7 +16,6 @@ int main(int argc, char **argv) {
 			loopCallback);
 	tree_constructor.reset(new rrt_nbv_exploration::TreeConstructor());
 	tree_constructor->initialization();
-	tree_constructor->start_rrt_construction();
 	ros::spin();
 	tree_constructor.reset();
 	return 0;

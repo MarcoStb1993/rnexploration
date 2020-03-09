@@ -16,6 +16,8 @@
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <std_srvs/Trigger.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/String.h>
+#include "std_srvs/SetBool.h"
 
 namespace rsm {
 
@@ -31,8 +33,10 @@ private:
 	ros::ServiceServer _exploration_goal_completed_service;
 	ros::ServiceClient _set_goal_obsolete_service;
 	ros::ServiceClient _update_current_goal_service;
+    ros::ServiceClient _set_rrt_state_service;
 	ros::Subscriber _best_and_current_goal_subscriber;
 	ros::Subscriber _exploration_mode_subscriber;
+	ros::Subscriber _state_info_subscriber;
 	ros::Publisher _goal_obsolete_publisher;
 
 	/**
@@ -43,6 +47,10 @@ private:
 	 * Is navigation goal still an exploration goal
 	 */
 	bool _goal_obsolete;
+	/**
+	 * Is exploration in started or stopped state
+	 */
+	bool _exploration_running;
 
 	/**
 	 * Publish if current exploration goal is obsolete if exploration mode is set to interrupt
@@ -55,6 +63,8 @@ private:
 
 	void bestGoalCallback(
 			const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal);
+
+	void stateInfoCallback(const std_msgs::String::ConstPtr& state_info);
 
 	/**
 	 * Callback for exploration mode

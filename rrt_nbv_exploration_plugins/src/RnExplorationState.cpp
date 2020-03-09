@@ -22,7 +22,7 @@ void RnExplorationState::onSetup() {
 			"getRobotPose");
 
 	//initialize variables
-	_name = "RN Exploration";
+	_name = "E: RN Exploration";
 }
 
 void RnExplorationState::onEntry() {

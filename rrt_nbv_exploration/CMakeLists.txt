@@ -8,9 +8,10 @@ find_package(catkin REQUIRED COMPONENTS
     pluginlib
   	rsm_core
   	rsm_msgs
+  	std_msgs
+  	std_srvs
     move_base_msgs
     roscpp
-    std_msgs
     geometry_msgs
     visualization_msgs
     rrt_nbv_exploration_msgs

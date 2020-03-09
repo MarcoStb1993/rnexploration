@@ -29,8 +29,8 @@
 		<arg name="teleoperation_cmd_vel_topic"
 			value="$(arg teleoperation_cmd_vel_topic)" />
 		<arg name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
-		<arg name="joystick_used" default="$(arg joystick_used)" />
-		<arg name="joystick_topic" default="$(arg joystick_topic)" />
+		<arg name="joystick_used" value="$(arg joystick_used)" />
+		<arg name="joystick_topic" value="$(arg joystick_topic)" />
 		<arg name="calculate_goal_plugin"
 			value="$(arg calculate_goal_plugin)" />
 		<arg name="navigation_plugin" value="$(arg navigation_plugin)" />
@@ -139,7 +139,19 @@
 
 	<!-- RN Exploration -->
 	<include
-		file="$(find rrt_nbv_exploration)/launch/simple.launch" />
+		file="$(find rrt_nbv_exploration)/launch/simple.launch" >
+		<arg name="rrt_publish_frequency" value="1" />
+		<arg name="using_robot" value="true" />
+		<arg name="sensor_max_range" value="5" />
+		<arg name="sensor_min_range" value="0.5" />
+		<arg name="delta_radius" value="0.1" />
+		<arg name="delta_phi" value="10" />
+		<arg name="delta_theta" value="10" />
+		<arg name="sensor_horizontal_fov" value="208" /> <!-- Swivelling Kinect with 60 degree hFoV and joint limits +/-74 degrees -->
+		<arg name="sensor_vertical_fov" value="45" />
+		<arg name="visualize_steering" value="false" />
+		<arg name="visualize_gain_calculation" value="true" />
+	</include>
 
 	<!-- RViz für Exploration -->
 	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"

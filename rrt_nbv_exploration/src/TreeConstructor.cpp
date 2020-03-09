@@ -23,11 +23,20 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::rrt>("rrt_tree", 1);
-	_best_and_current_goal_publisher = nh.advertise<rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal", 1);
+	_best_and_current_goal_publisher = nh.advertise<
+			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
+			1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&TreeConstructor::requestGoal, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&TreeConstructor::updateCurrentGoal, this);
+
+	_set_rrt_state_service = nh.advertiseService("setRrtState",
+			&TreeConstructor::setRrtState, this);
+	_get_rrt_state_service = nh.advertiseService("getRrtState",
+			&TreeConstructor::getRrtState, this);
+	_reset_rrt_state_service = nh.advertiseService("resetRrtState",
+			&TreeConstructor::resetRrtState, this);
 
 	_octomap_sub = _nh.subscribe("octomap_binary", 1,
 			&TreeConstructor::convert_octomap_msg_to_octree, this);
@@ -37,28 +46,26 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 
 	_running = false;
+	initRrt(seed);
+	//ROS_INFO_STREAM("Init finished");
+}
 
+void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 	_rrt.header.frame_id = "/map";
 	_rrt.ns = "rrt_tree";
 	_rrt.node_counter = 0;
-
 	rrt_nbv_exploration_msgs::Node root;
 	root.position = seed;
 	root.children_counter = 0;
 	root.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
-
 	_rrt.nodes.push_back(root);
 	_rrt.node_counter++;
 	_rrt.root = 0;
-
 	_current_goal_node = 0;
 	_last_goal_node = 0;
 	_nodes_ordered_by_gain.insert(_current_goal_node);
 	_tree_searcher->initialize(_rrt);
 	_generator.seed(time(NULL));
-	_running = true;
-	//ROS_INFO_STREAM("Init finished");
-	run_rrt_construction();
 }
 
 void TreeConstructor::start_rrt_construction() {
@@ -203,10 +210,52 @@ bool TreeConstructor::updateCurrentGoal(
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
 	_rrt.nodes[_current_goal_node].status = req.status;
-	ROS_INFO_STREAM("Changed current goal status to " << req.status);
 	update_current_goal();
 	res.success = true;
 	res.message = "Changed current goal's status";
 	return true;
 }
+
+bool TreeConstructor::setRrtState(std_srvs::SetBool::Request &req,
+		std_srvs::SetBool::Response &res) {
+	if (req.data) {
+		if (_running) {
+			res.success = false;
+			res.message = "Tree construction already running";
+		} else {
+			start_rrt_construction();
+			res.success = true;
+			res.message = "Tree construction started";
+		}
+	} else {
+		if (!_running) {
+			res.success = false;
+			res.message = "Tree construction already stopped";
+		} else {
+			stop_rrt_construction();
+			res.success = true;
+			res.message = "Tree construction stopped";
+		}
+	}
+	return true;
+}
+
+bool TreeConstructor::getRrtState(std_srvs::Trigger::Request &req,
+		std_srvs::Trigger::Response &res) {
+	res.success = _running;
+	res.message = "Tree construction status sent";
+	return true;
+}
+
+bool TreeConstructor::resetRrtState(std_srvs::Trigger::Request &req,
+		std_srvs::Trigger::Response &res) {
+	_running = false;
+	_rrt.nodes.clear();
+	_nodes_ordered_by_gain.clear();
+	initRrt(geometry_msgs::Point());
+	res.message = true;
+	res.message = "Tree reset";
+	return true;
+}
+
 }

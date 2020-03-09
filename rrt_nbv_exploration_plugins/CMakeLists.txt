@@ -9,6 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
     pluginlib
   	rsm_core
   	rsm_msgs
+  	std_msgs
+  	std_srvs
   	geometry_msgs
   	rrt_nbv_exploration_msgs
   	tf

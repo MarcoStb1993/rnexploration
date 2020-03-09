@@ -18,12 +18,17 @@ RneServiceProvider::RneServiceProvider() {
 			&RneServiceProvider::explorationGoalCompleted, this);
 	_exploration_mode_subscriber = nh.subscribe("explorationMode", 1,
 			&RneServiceProvider::explorationModeCallback, this);
+	_state_info_subscriber = nh.subscribe("stateInfo", 10,
+			&RneServiceProvider::stateInfoCallback, this);
 	ros::NodeHandle rne_nh("rne");
 	_update_current_goal_service = rne_nh.serviceClient<
 			rrt_nbv_exploration_msgs::UpdateCurrentGoal>("updateCurrentGoal");
+	_set_rrt_state_service = rne_nh.serviceClient<std_srvs::SetBool>(
+			"setRrtState");
 
 	_exploration_mode = 0;
 	_goal_obsolete = false;
+	_exploration_running = false;
 }
 
 RneServiceProvider::~RneServiceProvider() {
@@ -85,6 +90,29 @@ void RneServiceProvider::bestGoalCallback(
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;
+	}
+}
+
+void RneServiceProvider::stateInfoCallback(
+		const std_msgs::String::ConstPtr& state_info) {
+	bool changed = false;
+	if (state_info->data.rfind("E:") == 0) {
+		if (!_exploration_running) {
+			_exploration_running = true;
+			changed = true;
+		}
+	} else {
+		if (_exploration_running) {
+			_exploration_running = false;
+			changed = true;
+		}
+	}
+	if (changed) {
+		std_srvs::SetBool srv;
+		srv.request.data = _exploration_running;
+		if (!_set_rrt_state_service.call(srv)) {
+			ROS_ERROR("Failed to call Set RRT State service");
+		}
 	}
 }
 

@@ -1,5 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "std_srvs/SetBool.h"
+#include "std_srvs/Trigger.h"
 #include "geometry_msgs/Point.h"
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
@@ -55,6 +57,9 @@ private:
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
     ros::ServiceServer _update_current_goal_service;
+    ros::ServiceServer _set_rrt_state_service;
+    ros::ServiceServer _get_rrt_state_service;
+    ros::ServiceServer _reset_rrt_state_service;
 
     std::default_random_engine _generator;
     boost::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
@@ -105,6 +110,10 @@ private:
     double _radius_search_range;
 
     /**
+     * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
+     */
+	void initRrt(const geometry_msgs::Point& seed);
+    /**
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point
      */
@@ -151,5 +160,11 @@ private:
 
     bool updateCurrentGoal(rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
         		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res);
+
+    bool setRrtState(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+
+    bool getRrtState(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+
+    bool resetRrtState(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 };
 }
