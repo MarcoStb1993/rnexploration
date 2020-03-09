@@ -22,7 +22,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_radius_search_range = pow(2 * _sensor_range, 2);
 
 	ros::NodeHandle nh("rne");
-	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::rrt>("rrt_tree", 1);
+	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree", 1);
 	_best_and_current_goal_publisher = nh.advertise<
 			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
 			1);

@@ -2,7 +2,7 @@
 #include "std_msgs/String.h"
 #include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
-#include "rrt_nbv_exploration_msgs/rrt.h"
+#include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
 #include "stdlib.h"
 #include "sstream"
@@ -45,7 +45,7 @@ private:
 	 * @brief Visualization function that publishes the RRT-visualization in the topic "rrt_tree_visualization_marker" and is called when receiving new input from topic "rrt_tree"
 	 * @param Received message from topic "rrt_tree"
 	 */
-	void visualize_rrt_tree(const rrt_nbv_exploration_msgs::rrt::ConstPtr& rrt);
+	void visualize_rrt_tree(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt);
 	/**
 	 * @brief Adds info text for each node to the visualization consisting of it's number and gain
 	 * @param Position of the particular node

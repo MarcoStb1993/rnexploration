@@ -1,6 +1,7 @@
 # A node in the RRT constructed tree
 geometry_msgs/Point position
 float64 gain    # Calculated information gain at this position for exploration
+int32 best_yaw	# Yaw in degrees with best gain
 uint8 status    # Nodes current status regarding the exploration
 
 uint8 WAITING = 0       # Node is waiting to be explored

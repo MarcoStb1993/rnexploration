@@ -1,6 +1,6 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
-#include "rrt_nbv_exploration_msgs/rrt.h"
+#include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
 #include "nanoflann.hpp"
 
@@ -17,12 +17,12 @@ public:
      * @brief Initializes the kd-tree index and update the tree
      * @param RRT with nodes that act as nodes for the kd tree
      */
-    void initialize(rrt_nbv_exploration_msgs::rrt &rrt);
+    void initialize(rrt_nbv_exploration_msgs::Tree &rrt);
     /**
      * @brief Rebuilds the kd-tree if necessary
      * @param RRT with nodes that act as nodes for the kd tree
      */
-    void rebuildIndex(rrt_nbv_exploration_msgs::rrt &rrt);
+    void rebuildIndex(rrt_nbv_exploration_msgs::Tree &rrt);
     /**
      * @brief Find the nearest neighbour in the current kd-tree to the randomly sampled point given as parameter
      * @param Randomly sampled 3D point
@@ -43,7 +43,7 @@ private:
      * @brief The rrt_adaptor struct serves as an adaptor for nanoflann, using the nodes in rrt
      */
     struct rrt_adaptor {
-        rrt_nbv_exploration_msgs::rrt rrt;
+        rrt_nbv_exploration_msgs::Tree rrt;
         inline size_t kdtree_get_point_count() const { return rrt.node_counter; }
         inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
             if(dim==0) return rrt.nodes[idx].position.x;

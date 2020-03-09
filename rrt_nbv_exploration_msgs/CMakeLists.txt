@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 
  add_message_files(
    FILES
-   rrt.msg
+   Tree.msg
    Node.msg
    BestAndCurrentNode.msg
    )

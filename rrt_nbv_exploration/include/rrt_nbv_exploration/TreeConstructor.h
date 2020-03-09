@@ -79,7 +79,7 @@ private:
     /**
      * @brief Current tree being built as a RRT
      */
-    rrt_nbv_exploration_msgs::rrt _rrt;
+    rrt_nbv_exploration_msgs::Tree _rrt;
     /**
      * @brief State of the tree TreeConstructor (running or stopped)
      */

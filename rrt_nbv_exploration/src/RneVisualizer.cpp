@@ -38,7 +38,7 @@ void RneVisualizer::initialize_visualization()  {
     _edge_line_list.color.a = 1.0f;
 }
 
-void RneVisualizer::visualize_rrt_tree(const rrt_nbv_exploration_msgs::rrt::ConstPtr& rrt)  {
+void RneVisualizer::visualize_rrt_tree(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt)  {
     _node_points.header.stamp = ros::Time::now();
     _node_points.points.clear();
     _edge_line_list.points.clear();

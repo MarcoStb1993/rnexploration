@@ -5,13 +5,13 @@ TreeSearcher::TreeSearcher()    :
 {
 }
 
-void TreeSearcher::initialize(rrt_nbv_exploration_msgs::rrt &rrt)
+void TreeSearcher::initialize(rrt_nbv_exploration_msgs::Tree &rrt)
 {
     _rrt_kd_adaptor.rrt = rrt;
     _kd_tree_index.buildIndex();
 }
 
-void TreeSearcher::rebuildIndex(rrt_nbv_exploration_msgs::rrt &rrt)
+void TreeSearcher::rebuildIndex(rrt_nbv_exploration_msgs::Tree &rrt)
 {
     initialize(rrt);
 }
