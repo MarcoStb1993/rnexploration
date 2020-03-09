@@ -18,8 +18,6 @@ void RnExplorationState::onSetup() {
 	ros::NodeHandle nh_rsm("rsm");
 	_set_navigation_goal_service = nh_rsm.serviceClient<
 			rsm_msgs::SetNavigationGoal>("setNavigationGoal");
-	_get_robot_pose_service = nh_rsm.serviceClient<rsm_msgs::GetRobotPose>(
-			"getRobotPose");
 
 	//initialize variables
 	_name = "E: RN Exploration";
@@ -32,22 +30,20 @@ void RnExplorationState::onEntry() {
 void RnExplorationState::onActive() {
 	rrt_nbv_exploration_msgs::RequestGoal srv;
 	if (_request_goal_service.call(srv)) {
-		_goal.position = srv.response.goal;
-		rsm_msgs::GetRobotPose srv2;
-		if (_get_robot_pose_service.call(srv2)) {
-			geometry_msgs::Pose current_pose = srv2.response.pose;
-			double yaw = atan2(_goal.position.y - current_pose.position.y,
-					_goal.position.x - current_pose.position.x);
-			_goal.orientation = tf::createQuaternionMsgFromYaw(yaw);
+		if (srv.response.goal_available) {
+			_goal.position = srv.response.goal;
+			ROS_INFO_STREAM("Best yaw: " << srv.response.best_yaw);
+			_goal.orientation = tf::createQuaternionMsgFromYaw(
+			M_PI * srv.response.best_yaw / 180.0);
+			ROS_INFO_STREAM("created quaternion");
 			if (!_interrupt_occured) {
 				_stateinterface->transitionToVolatileState(
 						_stateinterface->getPluginState(NAVIGATION_STATE));
 			}
-		} else {
-			ROS_ERROR("Failed to call Get Robot Pose service");
-			abortRnExplorationGoal();
 		}
-
+		else {
+			ROS_INFO("No goal available");
+		}
 	} else {
 		ROS_ERROR("Failed to call Request Goal service");
 		abortRnExplorationGoal();

@@ -14,7 +14,7 @@
 	<arg name="visualize_gain_calculation" default="false" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen">
+		output="screen" >
 		<param name="rrt_publish_frequency" type="double" value="$(arg rrt_publish_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />

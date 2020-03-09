@@ -22,7 +22,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_radius_search_range = pow(2 * _sensor_range, 2);
 
 	ros::NodeHandle nh("rne");
-	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree", 1);
+	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
+			1);
 	_best_and_current_goal_publisher = nh.advertise<
 			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
 			1);
@@ -88,9 +89,11 @@ void TreeConstructor::run_rrt_construction() {
 			_tree_searcher->find_nearest_neighbour(rand_sample, min_distance,
 					nearest_node);
 			place_new_node(rand_sample, min_distance, nearest_node);
+			if(_current_goal_node == -1){
+				_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+			}
 		}
 		publish_node_with_best_gain();
-		//update_current_goal();
 	}
 	_rrt_publisher.publish(_rrt);
 }
@@ -136,8 +139,10 @@ void TreeConstructor::place_new_node(geometry_msgs::Point rand_sample,
 
 void TreeConstructor::publish_node_with_best_gain() {
 	rrt_nbv_exploration_msgs::BestAndCurrentNode msg;
-	msg.best_node = *_nodes_ordered_by_gain.rbegin();
 	msg.current_goal = _current_goal_node;
+	msg.best_node =
+			_current_goal_node == -1 ?
+					_current_goal_node : *_nodes_ordered_by_gain.rbegin();
 	_best_and_current_goal_publisher.publish(msg);
 }
 
@@ -159,7 +164,12 @@ void TreeConstructor::update_current_goal() {
 		ROS_INFO("goal explored");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
 		update_nodes(_rrt.nodes[_current_goal_node]);
-		_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		if (!_nodes_ordered_by_gain.empty()) {
+			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		} else {
+			ROS_INFO_STREAM("Nodes ordered by gain is empty");
+			_current_goal_node = -1;
+		}
 		break;
 	case rrt_nbv_exploration_msgs::Node::ABORTED: //update all nodes? around robot?
 		ROS_INFO("goal aborted");
@@ -168,14 +178,24 @@ void TreeConstructor::update_current_goal() {
 		_gain_calculator->calculate_gain(_rrt.nodes[_current_goal_node],
 				_octree);
 		_nodes_ordered_by_gain.insert(_current_goal_node);
-		_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		if (!_nodes_ordered_by_gain.empty()) {
+			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		} else {
+			ROS_INFO_STREAM("Nodes ordered by gain is empty");
+			_current_goal_node = -1;
+		}
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
 		update_nodes(_rrt.nodes[_current_goal_node]);
 		//erase failed node from tree
-		_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		if (!_nodes_ordered_by_gain.empty()) {
+			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+		} else {
+			ROS_INFO_STREAM("Nodes ordered by gain is empty");
+			_current_goal_node = -1;
+		}
 		break;
 	default:    //active or waiting
 		break;
@@ -202,7 +222,11 @@ void TreeConstructor::update_map_dimensions() {
 bool TreeConstructor::requestGoal(
 		rrt_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrt_nbv_exploration_msgs::RequestGoal::Response &res) {
-	res.goal = _rrt.nodes[_current_goal_node].position;
+	res.goal_available = _current_goal_node != -1;
+	if (res.goal_available) {
+		res.goal = _rrt.nodes[_current_goal_node].position;
+		res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
+	}
 	return true;
 }
 

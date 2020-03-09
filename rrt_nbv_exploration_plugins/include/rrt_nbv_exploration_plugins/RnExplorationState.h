@@ -7,10 +7,7 @@
 #include <rsm_core/EmergencyStopState.h>
 #include <rsm_core/TeleoperationState.h>
 #include <rsm_core/StateInterface.h>
-#include <geometry_msgs/PoseArray.h>
 #include <rsm_msgs/SetNavigationGoal.h>
-#include <rsm_msgs/GetFailedGoals.h>
-#include <rsm_msgs/GetRobotPose.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
 #include <tf/transform_listener.h>
 
@@ -86,7 +83,6 @@ private:
 	ros::NodeHandle _nh;
 	ros::ServiceClient _set_navigation_goal_service;
 	ros::ServiceClient _request_goal_service;
-	ros::ServiceClient _get_robot_pose_service;
 
 	/**
 	 * Chosen goal to be forwarded to navigation

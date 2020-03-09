@@ -40,12 +40,11 @@ void GainCalculator::precalculateGainPollPoints() {
 		double rad = (phi + 90) * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
-		ROS_INFO_STREAM(rad);
+//		ROS_INFO_STREAM(rad);
 	}
 	int radius_steps = (int) ((_sensor_max_range - _sensor_min_range)
 			/ _delta_radius);
-	ROS_INFO_STREAM(
-			"Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
+//	ROS_INFO_STREAM("Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
 	_gain_poll_points.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()][radius_steps]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -79,13 +78,14 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 
 	node.gain = 0;
 
+	std::map<int, int> gain_per_yaw;
+
 	double x = node.position.x;
 	double y = node.position.y;
 	double z = node.position.z;
 
-	int overlap = 0;
-	std::map<int, double> gain_per_yaw;
-	ROS_INFO_STREAM("Raycasting:");
+	//int overlap = 0;
+//	ROS_INFO_STREAM("Raycasting:");
 	for (multi_array_index theta = 0; theta < _gain_poll_points.shape()[0];
 			theta++) {
 //		ROS_INFO_STREAM(
@@ -94,7 +94,7 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 				phi++) {
 //			ROS_INFO_STREAM(
 //					"Phi angle: " << _gain_poll_points[theta][phi][0].phi);
-			int raygain = 0;
+//			int raygain = 0;
 			for (multi_array_index radius = 0;
 					radius < _gain_poll_points.shape()[2]; radius++) {
 				PollPoint point = _gain_poll_points[theta][phi][radius];
@@ -121,15 +121,51 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 						color.b = 0.0f;
 					}
 				} else {
-					raygain++;
+					gain_per_yaw[point.theta]++;
+//					raygain++;
 				}
 				_node_points.colors.push_back(color);
 			}
-			node.gain += (float) raygain;
+			//node.gain += (float) raygain;
 		}
 	}
 
-	ROS_INFO("Gain: %i", (int )node.gain);
+	int best_yaw = 0;
+	int best_yaw_score = 0;
+	for (int yaw = 0; yaw < 360; yaw++) {
+		double yaw_score = 0;
+		for (int fov = -_sensor_horizontal_fov / 2;
+				fov < _sensor_horizontal_fov / 2; fov++) {
+			int theta = yaw + fov;
+			if (theta < 0)
+				theta += 360;
+			if (theta >= 360)
+				theta -= 360;
+			yaw_score += gain_per_yaw[theta];
+		}
+//		ROS_INFO_STREAM("Yaw: " << yaw << " Gain: " << yaw_score);
+		if (best_yaw_score < yaw_score) {
+			best_yaw_score = yaw_score;
+			best_yaw = yaw;
+		}
+	}
+
+	node.gain = (float) best_yaw_score;
+	node.best_yaw = best_yaw;
+
+	geometry_msgs::Point vis_point;
+	vis_point.x = x + (_sensor_max_range + _delta_radius) * cos(M_PI*best_yaw/180.0);
+	vis_point.y = y + (_sensor_max_range + _delta_radius) * sin(M_PI*best_yaw/180.0);
+	vis_point.z = z;
+	std_msgs::ColorRGBA color;
+	color.r = 1.0f;
+	color.g = 1.0f;
+	color.b = 0.0f;
+	color.a = 1.0f;
+	_node_points.points.push_back(vis_point);
+	_node_points.colors.push_back(color);
+
+//	ROS_INFO_STREAM("Gain: " << (int )node.gain << " at yaw: " << node.best_yaw);
 	if (_visualize_gain_calculation) {
 		_raycast_visualization.publish(_node_points);
 	}
