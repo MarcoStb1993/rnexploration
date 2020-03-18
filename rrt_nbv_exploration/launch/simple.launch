@@ -2,8 +2,8 @@
 
 <launch>
 	<arg name="rrt_publish_frequency" default="1" />
-	<arg name="using_robot" default="false" />
 	<arg name="sensor_max_range" default="10" />
+	<arg name="sensor_height" default="0.5" />
 	<arg name="sensor_min_range" default="0.5" />
 	<arg name="delta_radius" default="0.1" />
 	<arg name="delta_phi" default="10" />
@@ -25,6 +25,7 @@
 		<param name="sensor_vertical_fov" type="int" value="$(arg sensor_vertical_fov)" />
 		<param name="visualize_steering" type="bool" value="$(arg visualize_steering)" />
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
+		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
 	</node>
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"
 		name="rneVisualizationNode" output="screen" />

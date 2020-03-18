@@ -5,7 +5,7 @@ namespace rrt_nbv_exploration
 RneVisualizer::RneVisualizer()
 {
 	ros::NodeHandle nh("rne");
-    _rrt_tree_sub = nh.subscribe("rrt_tree", 1000, &RneVisualizer::visualize_rrt_tree, this);
+    _rrt_tree_sub = nh.subscribe("rrt_tree", 1000, &RneVisualizer::visualizeRrtTree, this);
     _rrt_tree_visualization_pub = nh.advertise<visualization_msgs::Marker>("rrt_tree_vis", 1000);
     _rrt_tree_text_info_visualization_pub = nh.advertise<visualization_msgs::MarkerArray>("rrt_tree_vis_info", 1000);
 }
@@ -14,7 +14,7 @@ RneVisualizer::~RneVisualizer() {
 
 }
 
-void RneVisualizer::initialize_visualization()  {
+void RneVisualizer::initializeVisualization()  {
     _node_points.header.frame_id = "/map";
     _node_points.ns = "rrt_tree";
     _node_points.id = 0;
@@ -38,14 +38,14 @@ void RneVisualizer::initialize_visualization()  {
     _edge_line_list.color.a = 1.0f;
 }
 
-void RneVisualizer::visualize_rrt_tree(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt)  {
+void RneVisualizer::visualizeRrtTree(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt)  {
     _node_points.header.stamp = ros::Time::now();
     _node_points.points.clear();
     _edge_line_list.points.clear();
     for (int i=0; i<rrt->node_counter; i++)
     {
         _node_points.points.push_back(rrt->nodes[i].position);
-        add_info_text_visualization(rrt->nodes[i].position, i, rrt->nodes[i].gain);
+        addInfoTextVisualization(rrt->nodes[i].position, i, rrt->nodes[i].gain);
         for(int j=0; j<rrt->nodes[i].children_counter; j++)
         {
             _edge_line_list.points.push_back(rrt->nodes[i].position);
@@ -57,7 +57,7 @@ void RneVisualizer::visualize_rrt_tree(const rrt_nbv_exploration_msgs::Tree::Con
     _rrt_tree_text_info_visualization_pub.publish(_node_info_texts);
 }
 
-void RneVisualizer::add_info_text_visualization(const geometry_msgs::Point node_position, int node, int gain)
+void RneVisualizer::addInfoTextVisualization(const geometry_msgs::Point node_position, int node, int gain)
 {
     visualization_msgs::Marker node_info_text;
     node_info_text.header.frame_id = "/map";

@@ -29,14 +29,14 @@ public:
      * @param Link to minimum distance calculated between a node in the tree and the randomly sampled point
      * @param Link to the nearest node in the tree from the randomly sampled point
      */
-    void find_nearest_neighbour(geometry_msgs::Point rand_sample, double &min_distance, int &nearest_node);
+    void findNearestNeighbour(geometry_msgs::Point rand_sample, double &min_distance, int &nearest_node);
     /**
      * @brief Finds all nodes in the current kd-tree in the given (squared) radius around a provided point, radius is squared because Euclidean distance is squared as well
      * @param 3D Point
      * @param Search radius (needs to be squared)
      * @return List of the indices of all nodes in this radius
      */
-    std::vector<int> search_in_radius(geometry_msgs::Point node_position, double radius);
+    std::vector<int> searchInRadius(geometry_msgs::Point node_position, double radius);
 
 private:
     /**

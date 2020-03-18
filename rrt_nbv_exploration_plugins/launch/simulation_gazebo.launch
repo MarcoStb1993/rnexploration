@@ -141,7 +141,7 @@
 	<include
 		file="$(find rrt_nbv_exploration)/launch/simple.launch" >
 		<arg name="rrt_publish_frequency" value="1" />
-		<arg name="using_robot" value="true" />
+		<arg name="sensor_height" value="0.887" />
 		<arg name="sensor_max_range" value="5" />
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="0.1" />

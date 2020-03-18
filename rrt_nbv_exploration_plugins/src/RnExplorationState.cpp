@@ -12,12 +12,12 @@ RnExplorationState::~RnExplorationState() {
 void RnExplorationState::onSetup() {
 	//initialize services, publisher and subscriber
 	ros::NodeHandle nh("rne");
-	_request_goal_service = nh.serviceClient<
-			rrt_nbv_exploration_msgs::RequestGoal>("requestGoal");
+	_request_goal_service = nh.serviceClient
+			< rrt_nbv_exploration_msgs::RequestGoal > ("requestGoal");
 
 	ros::NodeHandle nh_rsm("rsm");
-	_set_navigation_goal_service = nh_rsm.serviceClient<
-			rsm_msgs::SetNavigationGoal>("setNavigationGoal");
+	_set_navigation_goal_service = nh_rsm.serviceClient
+			< rsm_msgs::SetNavigationGoal > ("setNavigationGoal");
 
 	//initialize variables
 	_name = "E: RN Exploration";
@@ -32,17 +32,15 @@ void RnExplorationState::onActive() {
 	if (_request_goal_service.call(srv)) {
 		if (srv.response.goal_available) {
 			_goal.position = srv.response.goal;
-			ROS_INFO_STREAM("Best yaw: " << srv.response.best_yaw);
-			_goal.orientation = tf::createQuaternionMsgFromYaw(
+			tf2::Quaternion quaternion;
+			quaternion.setRPY(0, 0,
 			M_PI * srv.response.best_yaw / 180.0);
-			ROS_INFO_STREAM("created quaternion");
+			quaternion.normalize();
+			_goal.orientation = tf2::toMsg(quaternion);
 			if (!_interrupt_occured) {
 				_stateinterface->transitionToVolatileState(
 						_stateinterface->getPluginState(NAVIGATION_STATE));
 			}
-		}
-		else {
-			ROS_INFO("No goal available");
 		}
 	} else {
 		ROS_ERROR("Failed to call Request Goal service");

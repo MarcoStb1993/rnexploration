@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   	std_srvs
   	geometry_msgs
   	rrt_nbv_exploration_msgs
-  	tf
+  	tf2_geometry_msgs
 )
 
 catkin_package(

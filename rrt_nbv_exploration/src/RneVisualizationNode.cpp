@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
 	//private_nh.param("update_frequency", loop_rate, 20.0);
 	//ros::Timer loop_timer = private_nh.createTimer(ros::Duration(1 / loop_rate),	loopCallback);
 	rne_visualizer.reset(new rrt_nbv_exploration::RneVisualizer());
-	rne_visualizer->initialize_visualization();
+	rne_visualizer->initializeVisualization();
 	ros::spin();
 	rne_visualizer.reset();
 	return 0;

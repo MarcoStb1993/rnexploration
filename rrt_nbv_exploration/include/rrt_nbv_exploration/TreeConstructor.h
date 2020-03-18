@@ -38,16 +38,16 @@ public:
     /**
      * @brief Starts the tree TreeConstructor when stopped
      */
-    void start_rrt_construction();
+    void startRrtConstruction();
     /**
      * @brief Stops the tree TreeConstructor when running
      */
-    void stop_rrt_construction();
+    void stopRrtConstruction();
     /**
      * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
      * @param kd-tree for faster nearest neighbour queries
      */
-    void run_rrt_construction();
+    void runRrtConstruction();
 
 private:
     ros::NodeHandle _nh;
@@ -108,6 +108,10 @@ private:
      * @brief Doubled and squared sensor range for radius search in kd-tree
      */
     double _radius_search_range;
+	/**
+	 * @brief Distance on z-axis between base footprint and sensor frame
+	 */
+	double _sensor_height;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -117,14 +121,14 @@ private:
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point
      */
-     bool sample_point(geometry_msgs::Point& rand_sample);
+     bool samplePoint(geometry_msgs::Point& rand_sample);
     /**
      * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
      * @param Randomly sampled point
      * @param Minimum distance calculated between a node in the tree and the randomly sampled point
      * @param Nearest node in the tree from the randomly sampled point
      */
-    void place_new_node(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
+    void placeNewNode(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
     /**
      * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot
      * @param Randomly sampled point that serves as a base for the new node's position
@@ -135,25 +139,25 @@ private:
     /**
      * @brief publish_node_with_best_gain
      */
-    void publish_node_with_best_gain();
+    void publishNodeWithBestGain();
     /**
      * @brief Updates all nodes' gains in the doubled sensor range around the specified center node
      * @param Node in the center of the update spheroid
      */
-    void update_nodes(rrt_nbv_exploration_msgs::Node& center_node);
+    void updateNodes(geometry_msgs::Point center_node);
     /**
      * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
      * @param "octomap_binary" message
      */
-    void convert_octomap_msg_to_octree(const octomap_msgs::Octomap::ConstPtr& map_msg);
+    void convertOctomapMsgToCctree(const octomap_msgs::Octomap::ConstPtr& map_msg);
     /**
      * @brief Updates the map's dimension (x,y,z) after a new octomap was received
      */
-    void update_map_dimensions();
+    void updateMapDimensions();
     /**
      * @brief Updates the current goal and publishes it to navigation
      */
-    void update_current_goal();
+    void updateCurrentGoal();
 
     bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
     		rrt_nbv_exploration_msgs::RequestGoal::Response &res);

@@ -4,7 +4,7 @@
 boost::shared_ptr<rrt_nbv_exploration::TreeConstructor> tree_constructor;
 
 void loopCallback(const ros::TimerEvent&) {
-	tree_constructor->run_rrt_construction();
+	tree_constructor->runRrtConstruction();
 }
 
 int main(int argc, char **argv) {

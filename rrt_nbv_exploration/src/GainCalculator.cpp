@@ -17,6 +17,7 @@ GainCalculator::GainCalculator() :
 	ros::NodeHandle nh("rne");
 	_raycast_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raycast_visualization", 1000);
+
 	precalculateGainPollPoints();
 }
 
@@ -34,7 +35,7 @@ void GainCalculator::precalculateGainPollPoints() {
 		theta_steps.push_back(step);
 		//ROS_INFO_STREAM(rad);
 	}
-	ROS_INFO_STREAM("Phi steps:");
+	//ROS_INFO_STREAM("Phi steps:");
 	for (int phi = -_sensor_vertical_fov / 2; phi <= _sensor_vertical_fov / 2;
 			phi += _delta_phi) {
 		double rad = (phi + 90) * M_PI / 180;
@@ -61,7 +62,7 @@ void GainCalculator::precalculateGainPollPoints() {
 	}
 }
 
-void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
+void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		boost::shared_ptr<octomap::OcTree> octree) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
@@ -85,11 +86,11 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 	double z = node.position.z;
 
 	//int overlap = 0;
-//	ROS_INFO_STREAM("Raycasting:");
+	//ROS_INFO_STREAM("Raycasting:");
 	for (multi_array_index theta = 0; theta < _gain_poll_points.shape()[0];
 			theta++) {
 //		ROS_INFO_STREAM(
-		//"Theta angle: " << _gain_poll_points[theta][0][0].theta);
+//		"Theta angle: " << _gain_poll_points[theta][0][0].theta);
 		for (multi_array_index phi = 0; phi < _gain_poll_points.shape()[1];
 				phi++) {
 //			ROS_INFO_STREAM(
@@ -154,8 +155,12 @@ void GainCalculator::calculate_gain(rrt_nbv_exploration_msgs::Node &node,
 	node.best_yaw = best_yaw;
 
 	geometry_msgs::Point vis_point;
-	vis_point.x = x + (_sensor_max_range + _delta_radius) * cos(M_PI*best_yaw/180.0);
-	vis_point.y = y + (_sensor_max_range + _delta_radius) * sin(M_PI*best_yaw/180.0);
+	vis_point.x = x
+			+ (_sensor_max_range + _delta_radius)
+					* cos(M_PI * best_yaw / 180.0);
+	vis_point.y = y
+			+ (_sensor_max_range + _delta_radius)
+					* sin(M_PI * best_yaw / 180.0);
 	vis_point.z = z;
 	std_msgs::ColorRGBA color;
 	color.r = 1.0f;

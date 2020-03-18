@@ -9,7 +9,7 @@
 #include <rsm_core/StateInterface.h>
 #include <rsm_msgs/SetNavigationGoal.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
-#include <tf/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 namespace rsm {
 
