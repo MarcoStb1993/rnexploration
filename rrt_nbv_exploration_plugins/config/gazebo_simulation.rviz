@@ -367,13 +367,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/raycast_visualization
       Name: RRT Raycasting
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true

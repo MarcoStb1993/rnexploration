@@ -10,7 +10,7 @@
 
 #include <ros/ros.h>
 
-#include <rsm_msgs/ExplorationGoalCompleted.h>
+#include <rsm_msgs/GoalStatus.h>
 #include <rrt_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
@@ -18,6 +18,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
 #include "std_srvs/SetBool.h"
+#include <geometry_msgs/Pose.h>
 
 namespace rsm {
 
@@ -30,7 +31,7 @@ public:
 private:
 	ros::NodeHandle _nh;
 
-	ros::ServiceServer _exploration_goal_completed_service;
+	ros::Subscriber _exploration_goal_subscriber;
 	ros::ServiceClient _set_goal_obsolete_service;
 	ros::ServiceClient _update_current_goal_service;
     ros::ServiceClient _set_rrt_state_service;
@@ -51,15 +52,25 @@ private:
 	 * Is exploration in started or stopped state
 	 */
 	bool _exploration_running;
+	/**
+	 * Currently active goal
+	 */
+	geometry_msgs::Pose _current_goal;
 
 	/**
 	 * Publish if current exploration goal is obsolete if exploration mode is set to interrupt
 	 */
 	void publishGoalObsolete();
 
-	bool explorationGoalCompleted(
-			rsm_msgs::ExplorationGoalCompleted::Request &req,
-			rsm_msgs::ExplorationGoalCompleted::Response &res);
+	/**
+	 * Check if the given goal is a new one
+	 * @param goal Goal pose to be checked
+	 * @return If the goal is new
+	 */
+	bool newGoal(geometry_msgs::Pose goal);
+
+	void explorationGoalCallback(
+			const rsm_msgs::GoalStatus::ConstPtr& goal_status);
 
 	void bestGoalCallback(
 			const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal);

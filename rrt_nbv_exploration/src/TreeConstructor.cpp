@@ -7,11 +7,12 @@ TreeConstructor::TreeConstructor() :
 }
 
 TreeConstructor::~TreeConstructor() {
-	_tree_searcher.reset();
-	_gain_calculator.reset();
-	_collision_checker.reset();
-	_abstract_octree.reset();
-	_octree.reset();
+	//test for double free error
+//	_tree_searcher.reset();
+//	_gain_calculator.reset();
+//	_collision_checker.reset();
+//	_octree.reset();
+//	_abstract_octree.reset();
 }
 
 void TreeConstructor::initialization(geometry_msgs::Point seed) {
@@ -55,6 +56,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 	_rrt.node_counter = 0;
 	rrt_nbv_exploration_msgs::Node root;
 	root.position = seed;
+	root.position.z = _sensor_height;
 	root.children_counter = 0;
 	root.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 	_rrt.nodes.push_back(root);
@@ -103,10 +105,10 @@ bool TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
 	std::uniform_real_distribution<double> y_distribution(
 			-_map_dimensions[1] / 2, _map_dimensions[1] / 2);
 	std::uniform_real_distribution<double> z_distribution(
-			-_map_dimensions[2] / 2, _map_dimensions[2] / 2);
+			0, _sensor_height);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
-	rand_sample.z = _sensor_height;
+	rand_sample.z = z_distribution(_generator);
 	octomap::point3d rand_point(rand_sample.x, rand_sample.y, rand_sample.z);
 	octomap::OcTreeNode* octree_node = _octree->search(rand_point);
 	if (octree_node != NULL && !_octree->isNodeOccupied(octree_node)) {
@@ -139,14 +141,33 @@ void TreeConstructor::publishNodeWithBestGain() {
 	_best_and_current_goal_publisher.publish(msg);
 }
 
-void TreeConstructor::updateNodes(
-		geometry_msgs::Point center_node) {
+void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 	//ROS_INFO("start updating nodes");
 	std::vector<int> updatable_nodes = _tree_searcher->searchInRadius(
 			center_node, _radius_search_range);
+	ROS_INFO_STREAM("Nodes ordered by gain:");
+	for (auto it : _nodes_ordered_by_gain) {
+		ROS_INFO_STREAM("Node " << it << " with gain " << _rrt.nodes[it].gain);
+	}
+	ROS_INFO_STREAM("Updating nodes:");
 	for (auto iterator : updatable_nodes) {
 		//ROS_INFO("update node %i", iterator);
-		_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
+		if (_rrt.nodes[iterator].status
+				!= rrt_nbv_exploration_msgs::Node::EXPLORED && _rrt.nodes[iterator].status
+				!= rrt_nbv_exploration_msgs::Node::FAILED) {
+			ROS_INFO_STREAM("Node " << iterator);
+			_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
+			if (_nodes_ordered_by_gain.find(iterator)
+					!= _nodes_ordered_by_gain.end()) {
+				ROS_INFO_STREAM("already present -> erase before new insertion");
+				_nodes_ordered_by_gain.erase(iterator);
+			}
+			_nodes_ordered_by_gain.insert(iterator);
+		}
+	}
+	ROS_INFO_STREAM("Nodes ordered by gain after update:");
+	for (auto it : _nodes_ordered_by_gain) {
+		ROS_INFO_STREAM("Node " << it << " with gain " << _rrt.nodes[it].gain);
 	}
 }
 
@@ -157,42 +178,25 @@ void TreeConstructor::updateCurrentGoal() {
 		ROS_INFO("goal explored");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
 		updateNodes(_rrt.nodes[_current_goal_node].position);
-		if (!_nodes_ordered_by_gain.empty()) {
-			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
-		} else {
-			ROS_INFO_STREAM("Nodes ordered by gain is empty");
-			_current_goal_node = -1;
-		}
+		_current_goal_node = -1;
 		break;
 	case rrt_nbv_exploration_msgs::Node::ABORTED: //update all nodes? around robot?
 		ROS_INFO("goal aborted");
-		_nodes_ordered_by_gain.erase(_current_goal_node);
-		updateNodes(_rrt.nodes[_current_goal_node].position);
-		_gain_calculator->calculateGain(_rrt.nodes[_current_goal_node],
-				_octree);
-		_nodes_ordered_by_gain.insert(_current_goal_node);
-		if (!_nodes_ordered_by_gain.empty()) {
-			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
-		} else {
-			ROS_INFO_STREAM("Nodes ordered by gain is empty");
-			_current_goal_node = -1;
-		}
+		//_nodes_ordered_by_gain.erase(_current_goal_node);
+		updateNodes(_collision_checker->getRobotPose().position);
+		_current_goal_node = -1;
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
-		updateNodes(_rrt.nodes[_current_goal_node].position);
+		updateNodes(_collision_checker->getRobotPose().position);
+		_current_goal_node = -1;
 		//erase failed node from tree
-		if (!_nodes_ordered_by_gain.empty()) {
-			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
-		} else {
-			ROS_INFO_STREAM("Nodes ordered by gain is empty");
-			_current_goal_node = -1;
-		}
 		break;
 	default:    //active or waiting
 		break;
 	}
+
 	//ROS_INFO("Set current goal to %i", _current_goal_node);
 }
 

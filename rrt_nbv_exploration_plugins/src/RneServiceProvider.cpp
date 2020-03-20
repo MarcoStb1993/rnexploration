@@ -13,9 +13,8 @@ RneServiceProvider::RneServiceProvider() {
 	ros::NodeHandle nh("rsm");
 	_set_goal_obsolete_service = nh.serviceClient<std_srvs::Trigger>(
 			"setGoalObsolete");
-	_exploration_goal_completed_service = nh.advertiseService(
-			"explorationGoalCompleted",
-			&RneServiceProvider::explorationGoalCompleted, this);
+	_exploration_goal_subscriber = nh.subscribe("explorationGoalStatus", 1,
+			&RneServiceProvider::explorationGoalCallback, this);
 	_exploration_mode_subscriber = nh.subscribe("explorationMode", 1,
 			&RneServiceProvider::explorationModeCallback, this);
 	_state_info_subscriber = nh.subscribe("stateInfo", 10,
@@ -47,22 +46,37 @@ void RneServiceProvider::publishGoalObsolete() {
 	_goal_obsolete_publisher.publish(msg);
 }
 
-bool RneServiceProvider::explorationGoalCompleted(
-		rsm_msgs::ExplorationGoalCompleted::Request &req,
-		rsm_msgs::ExplorationGoalCompleted::Response &res) {
-	rrt_nbv_exploration_msgs::UpdateCurrentGoal srv;
-	if (req.goal_reached) {
-		srv.request.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
-		res.message = "Node set to explored";
+bool RneServiceProvider::newGoal(geometry_msgs::Pose goal) {
+	if (goal.position.x == _current_goal.position.x
+			&& goal.position.y == _current_goal.position.y
+			&& goal.position.z == _current_goal.position.z
+			&& goal.orientation.x == _current_goal.orientation.x
+			&& goal.orientation.y == _current_goal.orientation.y
+			&& goal.orientation.z == _current_goal.orientation.z
+			&& goal.orientation.w == _current_goal.orientation.w) {
+		return false;
 	} else {
-		srv.request.status = rrt_nbv_exploration_msgs::Node::FAILED;
-		res.message = "Node set to failed";
+		_current_goal = goal;
+		return true;
 	}
-	if (!_update_current_goal_service.call(srv)) {
-		ROS_ERROR("Failed to call Update Current Goal service");
+}
+
+void RneServiceProvider::explorationGoalCallback(
+		const rsm_msgs::GoalStatus::ConstPtr& goal_status) {
+	if (goal_status->goal_status != rsm_msgs::GoalStatus::ACTIVE
+			&& newGoal(goal_status->goal)) {
+		rrt_nbv_exploration_msgs::UpdateCurrentGoal srv;
+		if (goal_status->goal_status == rsm_msgs::GoalStatus::REACHED) {
+			srv.request.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::FAILED) {
+			srv.request.status = rrt_nbv_exploration_msgs::Node::FAILED;
+		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::ABORTED) {
+			srv.request.status = rrt_nbv_exploration_msgs::Node::ABORTED;
+		}
+		if (!_update_current_goal_service.call(srv)) {
+			ROS_ERROR("Failed to call Update Current Goal service");
+		}
 	}
-	res.success = 1;
-	return true;
 }
 
 void RneServiceProvider::explorationModeCallback(

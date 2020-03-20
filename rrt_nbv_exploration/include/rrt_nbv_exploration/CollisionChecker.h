@@ -6,6 +6,8 @@
 #include "octomap_ros/conversions.h"
 #include "visualization_msgs/Marker.h"
 #include "geometry_msgs/Point.h"
+#include <geometry_msgs/Pose.h>
+#include <tf2_ros/transform_listener.h>
 
 namespace rrt_nbv_exploration
 {
@@ -28,9 +30,19 @@ public:
      * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
      */
     bool steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node, geometry_msgs::Point rand_sample, double min_distance, boost::shared_ptr<octomap::OcTree> octree);
+
+    /**
+     * @brief Returns the robot's pose in the map frame
+     * @return Robot pose
+     */
+    geometry_msgs::Pose getRobotPose();
+
 private:
     ros::NodeHandle _nh;
     ros::Publisher _steering_visualization;
+    tf2_ros::Buffer _tf_buffer;
+    tf2_ros::TransformListener _tf_listener;
+
     /**
      * @brief Required minimum distance between two nodes
      */
@@ -39,5 +51,9 @@ private:
      * @brief Show raycasting for steering
      */
     bool _visualize_steering;
+    /**
+     * @brief Name of the robot's tf frame
+     */
+    std::string _robot_frame;
 };
 }
