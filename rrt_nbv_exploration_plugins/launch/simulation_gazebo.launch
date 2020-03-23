@@ -17,7 +17,7 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="false" />
 
-	<include file="$(find rsm_additions)/launch/gazebo.launch">
+	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
 	</include>
 
