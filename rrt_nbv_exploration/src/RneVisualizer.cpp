@@ -51,15 +51,17 @@ void RneVisualizer::visualizeRrtTree(
 		color.a = 1.0f;
 		switch (rrt->nodes[i].status) {
 		case rrt_nbv_exploration_msgs::Node::EXPLORED:
+			color.g = 0.6f;
+			break;
+		case rrt_nbv_exploration_msgs::Node::VISITED:
 			color.g = 1.0f;
 			break;
 		case rrt_nbv_exploration_msgs::Node::FAILED:
 			color.r = 1.0f;
 			break;
-		case rrt_nbv_exploration_msgs::Node::ABORTED:
-			color.r = 0.5f;
-			color.g = 0.5f;
-			color.b = 0.5f;
+		case rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED:
+			color.r = 1.0f;
+			color.g = 0.6f;
 			break;
 		case rrt_nbv_exploration_msgs::Node::ACTIVE:
 			color.r = 1.0f;

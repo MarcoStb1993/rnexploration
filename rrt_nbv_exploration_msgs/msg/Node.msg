@@ -4,12 +4,13 @@ float64 gain    				# Calculated information gain at this position for explorati
 int32 best_yaw					# Yaw in degrees with best gain
 uint8 status    				# Nodes current status regarding the exploration
 
-uint8 WAITING = 0       		# Node is waiting to be explored
+uint8 INITIAL = 0       		# Node is waiting to be explored
 uint8 ACTIVE = 1        		# Node is currently targeted as navigation goal
-uint8 RECALCULATING = 2 		# Gain will be recalculated
-uint8 EXPLORED = 3      		# Node was already explored
-uint8 ABORTED = 4       		# Node's exploration was aborted
+uint8 VISITED = 2 				# Node was visited but not completely explored
+uint8 ACTIVE_VISITED = 3 		# Node is currently active and was visited but not completely explored before
+uint8 EXPLORED = 4      		# Node was already explored
 uint8 FAILED = 5        		# Node's exploration failed
+uint8 ABORTED = 6        		# Node's exploration aborted
 
 
 int32[] children     			# Position of the node's children in the nodes array of the RRT msg

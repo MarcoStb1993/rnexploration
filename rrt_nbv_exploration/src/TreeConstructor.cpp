@@ -58,7 +58,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 	root.position = seed;
 	root.position.z = _sensor_height;
 	root.children_counter = 0;
-	root.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+	root.status = rrt_nbv_exploration_msgs::Node::VISITED;
 	_rrt.nodes.push_back(root);
 	_rrt.node_counter++;
 	_rrt.root = 0;
@@ -104,11 +104,9 @@ bool TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
 			-_map_dimensions[0] / 2, _map_dimensions[0] / 2);
 	std::uniform_real_distribution<double> y_distribution(
 			-_map_dimensions[1] / 2, _map_dimensions[1] / 2);
-	std::uniform_real_distribution<double> z_distribution(
-			0, _sensor_height);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
-	rand_sample.z = z_distribution(_generator);
+	rand_sample.z = 0.2;
 	octomap::point3d rand_point(rand_sample.x, rand_sample.y, rand_sample.z);
 	octomap::OcTreeNode* octree_node = _octree->search(rand_point);
 	if (octree_node != NULL && !_octree->isNodeOccupied(octree_node)) {
@@ -145,57 +143,57 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 	//ROS_INFO("start updating nodes");
 	std::vector<int> updatable_nodes = _tree_searcher->searchInRadius(
 			center_node, _radius_search_range);
-	ROS_INFO_STREAM("Nodes ordered by gain:");
-	for (auto it : _nodes_ordered_by_gain) {
-		ROS_INFO_STREAM("Node " << it << " with gain " << _rrt.nodes[it].gain);
-	}
-	ROS_INFO_STREAM("Updating nodes:");
 	for (auto iterator : updatable_nodes) {
-		//ROS_INFO("update node %i", iterator);
 		if (_rrt.nodes[iterator].status
-				!= rrt_nbv_exploration_msgs::Node::EXPLORED && _rrt.nodes[iterator].status
-				!= rrt_nbv_exploration_msgs::Node::FAILED) {
-			ROS_INFO_STREAM("Node " << iterator);
-			_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
+				!= rrt_nbv_exploration_msgs::Node::EXPLORED
+				&& _rrt.nodes[iterator].status
+						!= rrt_nbv_exploration_msgs::Node::FAILED) {
 			if (_nodes_ordered_by_gain.find(iterator)
 					!= _nodes_ordered_by_gain.end()) {
-				ROS_INFO_STREAM("already present -> erase before new insertion");
 				_nodes_ordered_by_gain.erase(iterator);
 			}
-			_nodes_ordered_by_gain.insert(iterator);
+			_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
+			if (_rrt.nodes[iterator].status
+					!= rrt_nbv_exploration_msgs::Node::EXPLORED) {
+				_nodes_ordered_by_gain.insert(iterator);
+			}
 		}
 	}
-	ROS_INFO_STREAM("Nodes ordered by gain after update:");
 	for (auto it : _nodes_ordered_by_gain) {
-		ROS_INFO_STREAM("Node " << it << " with gain " << _rrt.nodes[it].gain);
+		ROS_INFO_STREAM(
+				"Node " << it << " with gain " << _rrt.nodes[it].gain << " and status " << _rrt.nodes[it].status);
 	}
 }
 
 void TreeConstructor::updateCurrentGoal() {
 	ROS_INFO_STREAM("Update current goal " << _current_goal_node);
+	geometry_msgs::Point update_center;
 	switch (_rrt.nodes[_current_goal_node].status) {
 	case rrt_nbv_exploration_msgs::Node::EXPLORED:
 		ROS_INFO("goal explored");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
-		updateNodes(_rrt.nodes[_current_goal_node].position);
-		_current_goal_node = -1;
+		update_center = _rrt.nodes[_current_goal_node].position;
 		break;
-	case rrt_nbv_exploration_msgs::Node::ABORTED: //update all nodes? around robot?
+	case rrt_nbv_exploration_msgs::Node::VISITED:
+		ROS_INFO("goal visited");
+		update_center = _rrt.nodes[_current_goal_node].position;
+		break;
+	case rrt_nbv_exploration_msgs::Node::ABORTED:
 		ROS_INFO("goal aborted");
-		//_nodes_ordered_by_gain.erase(_current_goal_node);
-		updateNodes(_collision_checker->getRobotPose().position);
-		_current_goal_node = -1;
+		_rrt.nodes[_current_goal_node].status =
+				rrt_nbv_exploration_msgs::Node::VISITED;
+		update_center = _collision_checker->getRobotPose().position;
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.erase(_current_goal_node);
-		updateNodes(_collision_checker->getRobotPose().position);
-		_current_goal_node = -1;
-		//erase failed node from tree
+		update_center = _collision_checker->getRobotPose().position;
 		break;
 	default:    //active or waiting
 		break;
 	}
+	updateNodes(update_center);
+	_current_goal_node = -1;
 
 	//ROS_INFO("Set current goal to %i", _current_goal_node);
 }
@@ -221,6 +219,14 @@ bool TreeConstructor::requestGoal(
 		rrt_nbv_exploration_msgs::RequestGoal::Response &res) {
 	res.goal_available = _current_goal_node != -1;
 	if (res.goal_available) {
+		if (_rrt.nodes[_current_goal_node].status
+				== rrt_nbv_exploration_msgs::Node::VISITED) {
+			_rrt.nodes[_current_goal_node].status =
+					rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED;
+		} else {
+			_rrt.nodes[_current_goal_node].status =
+					rrt_nbv_exploration_msgs::Node::ACTIVE;
+		}
 		res.goal = _rrt.nodes[_current_goal_node].position;
 		res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
 	}

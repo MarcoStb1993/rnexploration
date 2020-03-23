@@ -14,6 +14,7 @@ GainCalculator::GainCalculator() :
 	private_nh.param("sensor_vertical_fov", _sensor_vertical_fov, 180);
 	private_nh.param("visualize_gain_calculation", _visualize_gain_calculation,
 			false);
+	private_nh.param("sensor_height", _sensor_height, 0.5);
 	ros::NodeHandle nh("rne");
 	_raycast_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raycast_visualization", 1000);
@@ -83,7 +84,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 
 	double x = node.position.x;
 	double y = node.position.y;
-	double z = node.position.z;
+	double z = node.position.z + _sensor_height;
 
 	//int overlap = 0;
 	//ROS_INFO_STREAM("Raycasting:");
@@ -151,9 +152,16 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		}
 	}
 
-	node.gain = (float) best_yaw_score;
-	node.best_yaw = best_yaw;
+	if (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+			&& node.best_yaw <= best_yaw + 5 && node.best_yaw >= best_yaw - 5) {
+		//no use exploring similar yaw again, sensor position approximation flawed in this case
+		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+	} else {
+		node.gain = (float) best_yaw_score;
+		node.best_yaw = best_yaw;
+	}
 
+	//Visualize best yaw direction
 	geometry_msgs::Point vis_point;
 	vis_point.x = x
 			+ (_sensor_max_range + _delta_radius)

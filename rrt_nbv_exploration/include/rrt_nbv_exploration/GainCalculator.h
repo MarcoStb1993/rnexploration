@@ -92,6 +92,10 @@ private:
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
 	 */
 	multi_array _gain_poll_points;
+	/**
+	 * @brief Distance on z-axis between base footprint and sensor frame
+	 */
+	double _sensor_height;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps

@@ -96,7 +96,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 				new_node.position.y = last_coords.y;
 				new_node.position.z = last_coords.z;
 				new_node.children_counter = 0;
-				new_node.status = rrt_nbv_exploration_msgs::Node::WAITING;
+				new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 				if (_visualize_steering) {
 					_steering_visualization.publish(_node_points);
 				}
@@ -107,7 +107,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 			new_node.position.y = last_coords.y;
 			new_node.position.z = last_coords.z;
 			new_node.children_counter = 0;
-			new_node.status = rrt_nbv_exploration_msgs::Node::WAITING;
+			new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 			if (_visualize_steering) {
 				_steering_visualization.publish(_node_points);
 			}

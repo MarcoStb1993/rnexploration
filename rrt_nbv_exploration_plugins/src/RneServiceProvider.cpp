@@ -67,7 +67,7 @@ void RneServiceProvider::explorationGoalCallback(
 			&& newGoal(goal_status->goal)) {
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal srv;
 		if (goal_status->goal_status == rsm_msgs::GoalStatus::REACHED) {
-			srv.request.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+			srv.request.status = rrt_nbv_exploration_msgs::Node::VISITED;
 		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::FAILED) {
 			srv.request.status = rrt_nbv_exploration_msgs::Node::FAILED;
 		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::ABORTED) {
