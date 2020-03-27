@@ -3,6 +3,8 @@
 <launch>
 	<arg name="world_file"
 		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+	<arg name="kinect_enabled" default="false" />
+	<arg name="fd_scanner_enabled" default="false" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -35,20 +37,33 @@
 			command="$(find xacro)/xacro '$(find rrt_nbv_exploration_plugins)/urdf/husky.urdf.xacro'
 		    --inorder
 		    robot_namespace:=$(arg robot_namespace)
+		    kinect_enabled:=$(arg kinect_enabled)
+		    fd_scanner_enabled:=$(arg fd_scanner_enabled)
 		    urdf_extras:=$(arg urdf_extras)
 		    " />
 
 		<!-- Load controller configuration -->
 		<rosparam command="load"
 			file="$(find husky_control)/config/control.yaml" />
-		<!-- Load kinect controller config -->
-		<rosparam command="load"
-			file="$(find rrt_nbv_exploration_plugins)/config/kinect_config.yaml" />
+		<group if="$(arg kinect_enabled)">
+			<!-- Load kinect controller config -->
+			<rosparam command="load"
+				file="$(find rrt_nbv_exploration_plugins)/config/kinect_config.yaml" />
+			<node name="kinect_controller_spawner" pkg="controller_manager"
+				type="spawner"
+				args="kinect_joint_state_controller kinect_controller" />
+		</group>
+		<group if="$(arg fd_scanner_enabled)">
+			<rosparam command="load"
+				file="$(find fd_scanner)/config/fd_scanner_control.yaml" />
+			<node name="fd_scanner_controller_spawner"
+				pkg="controller_manager" type="spawner"
+				args="fd_scanner_state_controller fd_scanner_controller" />
+		</group>
 
 		<!-- Spawn controllers -->
 		<node name="base_controller_spawner" pkg="controller_manager"
-			type="spawner"
-			args="husky_joint_publisher husky_velocity_controller kinect_joint_state_controller kinect_controller" />
+			type="spawner" args="husky_joint_publisher husky_velocity_controller" />
 
 		<!-- Start EKF for localization -->
 		<node pkg="robot_localization" type="ekf_localization_node"

@@ -29,7 +29,7 @@
 	<xacro:arg name="laser_rpy"
 		default="$(optenv HUSKY_LMS1XX_RPY 0.0 0.0 0.0)" />
 
-	<xacro:arg name="kinect_enabled" default="true" />
+	<xacro:arg name="kinect_enabled" default="false" />
 	<xacro:arg name="kinect_xyz"
 		default="$(optenv HUSKY_KINECT_XYZ 0 0 0)" />
 	<xacro:arg name="kinect_rpy"
@@ -39,6 +39,12 @@
 		value="$(optenv HUSKY_FRONT_BUMPER_EXTEND 0)" />
 	<xacro:property name="husky_rear_bumper_extend"
 		value="$(optenv HUSKY_REAR_BUMPER_EXTEND 0)" />
+
+	<xacro:arg name="fd_scanner_enabled" default="false" />
+	<xacro:arg name="fd_scanner_xyz"
+		default="$(optenv HUSKY_FD_SCANNER_XYZ -0.3 0 0)" />
+	<xacro:arg name="fd_scanner_rpy"
+		default="$(optenv HUSKY_FD_SCANNER_RPY 0 0 0)" />
 
 	<xacro:arg name="robot_namespace" default="/" />
 	<xacro:arg name="urdf_extras" default="empty.urdf" />
@@ -55,6 +61,8 @@
 		filename="$(find husky_description)/urdf/accessories/sick_lms1xx_mount.urdf.xacro" />
 	<xacro:include
 		filename="$(find rrt_nbv_exploration_plugins)/urdf/sensor_arch.urdf.xacro" />
+	<xacro:include
+		filename="$(find fd_scanner)/urdf/fd_scanner.urdf.xacro" />
 
 	<xacro:property name="M_PI" value="3.14159" />
 
@@ -182,7 +190,7 @@
 
 		<joint name="camera_swivel" type="revolute">
 			<axis xyz="0 0 1" />
-			<limit upper="1.3" lower="-1.3" velocity="0.87" effort="1"/>
+			<limit upper="1.3" lower="-1.3" velocity="0.87" effort="1" />
 			<origin xyz="$(arg kinect_xyz)" rpy="$(arg kinect_rpy)" />
 			<parent link="sensor_arch_mount_link" />
 			<child link="camera_link" />
@@ -200,6 +208,20 @@
 
 		<xacro:kinect_camera prefix="camera"
 			robot_namespace="$(arg robot_namespace)" />
+	</xacro:if>
+
+	<xacro:if value="$(arg fd_scanner_enabled)">
+
+		<fd_scanner prefix="fd_scanner"
+			robot_namespace="$(arg robot_namespace)"
+			simulated_velodyne="true" />
+
+		<joint name="fd_scanner_joint" type="fixed">
+			<origin xyz="$(arg fd_scanner_xyz)"
+				rpy="$(arg fd_scanner_rpy)" />
+			<parent link="top_plate_link" />
+			<child link="fd_scanner_link" />
+		</joint>
 	</xacro:if>
 
 	<gazebo>

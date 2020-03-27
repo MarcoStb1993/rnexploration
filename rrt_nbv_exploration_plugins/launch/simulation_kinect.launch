@@ -1,4 +1,4 @@
-<!-- Simulation of Husky UGV in Gazebo running Robot Statemachine with GMapping 
+<!-- Simulation of Husky UGV with Kinect camera in Gazebo running Robot Statemachine with GMapping 
 	and RN Exploration -->
 
 <launch>
@@ -19,6 +19,7 @@
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
+		<arg name="kinect_enabled" value="true" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
