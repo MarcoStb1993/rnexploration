@@ -13,7 +13,7 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::KinectMappingState" />
+	<arg name="mapping_plugin" default="rsm::FdScannerMappingState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="false" />
 
@@ -134,7 +134,7 @@
 		<param name="step_size" type="int" value="64" />
 		<param name="idle_position" type="int" value="2048" />
 		<param name="simulation" type="bool" value="true" />
-		<param name="sensor_frame" type="string" value="fd_scanner_link" />
+		<param name="sensor_frame" type="string" value="map" />
 		<param name="velodyne_frame" type="string" value="velodyne" />		
 		<param name="pointcloud_topic" type="string"
 			value="velodyne_points" />
