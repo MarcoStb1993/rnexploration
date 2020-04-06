@@ -21,15 +21,20 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(octomap REQUIRED)
 
+find_package(fcl REQUIRED)
+
 catkin_package(
 	INCLUDE_DIRS include
     )
 
 include_directories(include
     ${catkin_INCLUDE_DIRS}
+    ${OCTOMAP_INCLUDE_DIRS}
+    ${fcl_INCLUDE_DIRS}
     )
 
-link_libraries(${OCTOMAP_LIBRARIES})
+link_libraries(${OCTOMAP_LIBRARIES} ${fcl_LIBRARY_DIRS}
+)
 
 add_executable(rneNode src/RneNode.cpp
 				src/TreeConstructor.cpp
@@ -42,6 +47,8 @@ add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 
 target_link_libraries(rneNode
     ${catkin_LIBRARIES}
+    ${fcl_LIBRARIES}
+    fcl
     )
 target_link_libraries(rneVisualizationNode
     ${catkin_LIBRARIES}

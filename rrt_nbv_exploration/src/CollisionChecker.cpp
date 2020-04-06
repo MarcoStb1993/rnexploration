@@ -15,7 +15,7 @@ CollisionChecker::CollisionChecker() :
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double min_distance,
-		boost::shared_ptr<octomap::OcTree> octree) {
+		std::shared_ptr<octomap::OcTree> octree) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "steering_visualization";
@@ -23,11 +23,45 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
 	_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-	_node_points.scale.x = 0.1;
-	_node_points.scale.y = 0.1;
-	_node_points.scale.z = 0.1;
 	_node_points.color.a = 1.0f;
 	_node_points.header.stamp = ros::Time::now();
+
+	fcl::OcTree* tree = new fcl::OcTree(octree);
+	std::shared_ptr<fcl::CollisionGeometry> tree_obj = std::shared_ptr
+			< fcl::CollisionGeometry > (tree);
+	double radius = 0.5;
+	std::shared_ptr<fcl::CollisionGeometry> sphere(new fcl::Sphere(radius));
+	fcl::Transform3f tf_tree, tf_sphere;
+	tf_sphere.setTranslation(fcl::Vec3f(0,0, 0));
+	fcl::CollisionObject tree_collision(tree_obj, tf_tree);
+	fcl::CollisionObject sphere_collision(sphere, tf_sphere);
+	fcl::CollisionResult result;
+	fcl::CollisionRequest request;
+	std::size_t res_1 = fcl::collide(&tree_collision, &sphere_collision,
+			request, result);
+
+	fcl::DistanceResult dresult;
+	dresult.clear();
+	fcl::DistanceRequest drequest(true);
+	double distance = fcl::distance(&tree_collision, &sphere_collision,
+			drequest, dresult);
+	ROS_INFO_STREAM(
+			"Collision with sphere at " << tf_sphere.getTranslation()[0] << ",  " << tf_sphere.getTranslation()[1] << ",  " << tf_sphere.getTranslation()[2] << " and radius " << radius << " detected: " << res_1 << " distance is: " << distance);
+
+	geometry_msgs::Point point;
+	point.x = tf_sphere.getTranslation()[0];
+	point.y = tf_sphere.getTranslation()[1];
+	point.z = tf_sphere.getTranslation()[2];
+	_node_points.scale.x = radius;
+	_node_points.scale.y = radius;
+	_node_points.scale.z = radius;
+	std_msgs::ColorRGBA color;
+	color.r = 0.0f;
+	color.g = 0.0f;
+	color.b = 1.0f;
+	color.a = 1.0f;
+	_node_points.points.push_back(point);
+	_node_points.points.push_back(point);
 
 	min_distance = sqrt(min_distance);
 	if (min_distance >= _min_extend_range) {
@@ -65,7 +99,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 				color.g = 0.0f;
 				color.b = 1.0f;
 				color.a = 1.0f;
-				_node_points.points.push_back(point);
+//				_node_points.points.push_back(point);
 				if (ocnode != NULL) {
 					bool occupied = octree->isNodeOccupied(ocnode);
 					if (occupied) {
@@ -78,7 +112,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 						color.b = 0.0f;
 					}
 				}
-				_node_points.colors.push_back(color);
+//				_node_points.colors.push_back(color);
 				if (!blocked) {
 					last_coords.x = coords.x();
 					last_coords.y = coords.y();
@@ -97,9 +131,9 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 				new_node.position.z = last_coords.z;
 				new_node.children_counter = 0;
 				new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-				if (_visualize_steering) {
-					_steering_visualization.publish(_node_points);
-				}
+//				if (_visualize_steering) {
+				_steering_visualization.publish(_node_points);
+//				}
 				return true;
 			}
 		} else {
@@ -108,9 +142,9 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 			new_node.position.z = last_coords.z;
 			new_node.children_counter = 0;
 			new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-			if (_visualize_steering) {
-				_steering_visualization.publish(_node_points);
-			}
+//			if (_visualize_steering) {
+			_steering_visualization.publish(_node_points);
+//			}
 			return true;
 		}
 	}

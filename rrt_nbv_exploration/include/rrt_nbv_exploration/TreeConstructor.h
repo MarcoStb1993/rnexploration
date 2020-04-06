@@ -6,7 +6,7 @@
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
-#include <rrt_nbv_exploration_msgs/rrt.h>
+#include <rrt_nbv_exploration_msgs/Tree.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
@@ -62,20 +62,20 @@ private:
     ros::ServiceServer _reset_rrt_state_service;
 
     std::default_random_engine _generator;
-    boost::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
-    boost::shared_ptr<octomap::OcTree> _octree;
+    std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
+    std::shared_ptr<octomap::OcTree> _octree;
     /**
      * @brief Helper class for calculating a viable path between two nodes
      */
-    boost::shared_ptr<CollisionChecker> _collision_checker;
+    std::shared_ptr<CollisionChecker> _collision_checker;
     /**
      * @brief Helper class for calculating gain of a node
      */
-    boost::shared_ptr<GainCalculator> _gain_calculator;
+    std::shared_ptr<GainCalculator> _gain_calculator;
     /**
      * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
      */
-    boost::shared_ptr<TreeSearcher> _tree_searcher;
+    std::shared_ptr<TreeSearcher> _tree_searcher;
     /**
      * @brief Current tree being built as a RRT
      */
@@ -149,7 +149,7 @@ private:
      * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
      * @param "octomap_binary" message
      */
-    void convertOctomapMsgToCctree(const octomap_msgs::Octomap::ConstPtr& map_msg);
+    void convertOctomapMsgToOctree(const octomap_msgs::Octomap::ConstPtr& map_msg);
     /**
      * @brief Updates the map's dimension (x,y,z) after a new octomap was received
      */

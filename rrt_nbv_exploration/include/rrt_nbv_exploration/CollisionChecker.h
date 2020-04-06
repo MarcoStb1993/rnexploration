@@ -1,13 +1,21 @@
 #include "ros/ros.h"
-#include "rrt_nbv_exploration_msgs/rrt.h"
-#include "rrt_nbv_exploration_msgs/Node.h"
+#include <rrt_nbv_exploration_msgs/Tree.h>
+#include <rrt_nbv_exploration_msgs/Node.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
+#include <octomap/octomap.h>
 #include "visualization_msgs/Marker.h"
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
 #include <tf2_ros/transform_listener.h>
+#include "fcl/config.h"
+#include "fcl/octree.h"
+#include "fcl/traversal/traversal_node_octree.h"
+#include "fcl/collision.h"
+#include "fcl/distance.h"
+#include "fcl/broadphase/broadphase.h"
+#include "fcl/math/transform.h"
 
 namespace rrt_nbv_exploration
 {
@@ -29,7 +37,7 @@ public:
      * @param Pointer to octree for raytracing
      * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
      */
-    bool steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node, geometry_msgs::Point rand_sample, double min_distance, boost::shared_ptr<octomap::OcTree> octree);
+    bool steer(rrt_nbv_exploration_msgs::Node &new_node, rrt_nbv_exploration_msgs::Node &nearest_node, geometry_msgs::Point rand_sample, double min_distance, std::shared_ptr<octomap::OcTree> octree);
 
     /**
      * @brief Returns the robot's pose in the map frame

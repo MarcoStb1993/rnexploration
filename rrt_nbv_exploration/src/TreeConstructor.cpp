@@ -40,7 +40,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 			&TreeConstructor::resetRrtState, this);
 
 	_octomap_sub = _nh.subscribe("octomap_binary", 1,
-			&TreeConstructor::convertOctomapMsgToCctree, this);
+			&TreeConstructor::convertOctomapMsgToOctree, this);
 
 	_tree_searcher.reset(new TreeSearcher());
 	_gain_calculator.reset(new GainCalculator());
@@ -198,12 +198,12 @@ void TreeConstructor::updateCurrentGoal() {
 	//ROS_INFO("Set current goal to %i", _current_goal_node);
 }
 
-void TreeConstructor::convertOctomapMsgToCctree(
+void TreeConstructor::convertOctomapMsgToOctree(
 		const octomap_msgs::Octomap::ConstPtr& map_msg) {
 	//ROS_INFO_STREAM("Receive octomap");
 	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
 	//ROS_INFO_STREAM("first abstract octomap");
-	_octree = boost::dynamic_pointer_cast<octomap::OcTree>(_abstract_octree);
+	_octree = std::dynamic_pointer_cast<octomap::OcTree>(_abstract_octree);
 	//ROS_INFO_STREAM("dynamic cast octomap");
 	updateMapDimensions();
 }

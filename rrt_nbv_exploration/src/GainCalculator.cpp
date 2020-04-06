@@ -64,7 +64,7 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
-		boost::shared_ptr<octomap::OcTree> octree) {
+		std::shared_ptr<octomap::OcTree> octree) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raycast_visualization";

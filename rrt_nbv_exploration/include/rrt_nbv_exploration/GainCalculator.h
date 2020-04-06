@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include "rrt_nbv_exploration_msgs/rrt.h"
+#include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
@@ -48,10 +48,10 @@ public:
 	 * @param Pointer to octree for raytracing
 	 */
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node,
-			boost::shared_ptr<octomap::OcTree> octree);
+			std::shared_ptr<octomap::OcTree> octree);
 
-	void recalculateGain(rrt_nbv_exploration_msgs::rrt &rrt,
-			std::vector<int> nodes, boost::shared_ptr<octomap::OcTree> octree);
+	void recalculateGain(rrt_nbv_exploration_msgs::Tree &rrt,
+			std::vector<int> nodes, std::shared_ptr<octomap::OcTree> octree);
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _raycast_visualization;
