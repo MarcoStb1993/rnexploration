@@ -119,7 +119,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		double min_distance, int nearest_node) {
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
-			min_distance, _octree)) {
+			min_distance)) {
 		_gain_calculator->calculateGain(node, _octree);
 		_rrt.nodes.push_back(node);
 		_nodes_ordered_by_gain.insert(_rrt.node_counter);

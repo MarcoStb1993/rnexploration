@@ -344,7 +344,7 @@ Visualization Manager:
       Max. Octree Depth: 16
       Min. Height Display: -3.40282347e+38
       Name: OccupancyGrid
-      Octomap Topic: /octomap_binary
+      Octomap Topic: /octomap_binary_wo_ground
       Queue Size: 5
       Value: true
       Voxel Alpha: 1

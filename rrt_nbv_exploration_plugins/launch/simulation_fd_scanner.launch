@@ -159,7 +159,7 @@
 		<param name="frame_id" type="string" value="map" />
 		<param name="sensor_model/max_range" value="20.0" />
 		<param name="latch" value="false" />
-		<param name="filter_ground" value="false" />
+		<param name="filter_ground" value="true" />
 		<remap from="cloud_in" to="fd_scanner_points" />
 	</node>
 
