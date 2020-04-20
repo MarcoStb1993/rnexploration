@@ -3,7 +3,8 @@
 namespace rrt_nbv_exploration {
 TreeConstructor::TreeConstructor() :
 		_map_dimensions { 0.0, 0.0, 0.0 }, _nodes_ordered_by_gain(
-				[this](int node1, int node2) {return _rrt.nodes[node1].gain < _rrt.nodes[node2].gain;}) {
+				[this](int node1, int node2)
+				{	return (_rrt.nodes[node1].gain *_rrt.nodes[node1].distance) > (_rrt.nodes[node2].gain *_rrt.nodes[node2].distance);}) {
 }
 
 TreeConstructor::~TreeConstructor() {
@@ -39,7 +40,10 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_reset_rrt_state_service = nh.advertiseService("resetRrtState",
 			&TreeConstructor::resetRrtState, this);
 
-	_octomap_sub = _nh.subscribe("octomap_binary", 1,
+	std::string octomap_topic;
+	private_nh.param<std::string>("octomap_topic", octomap_topic,
+			"octomap_binary");
+	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&TreeConstructor::convertOctomapMsgToOctree, this);
 
 	_tree_searcher.reset(new TreeSearcher());
@@ -121,6 +125,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
 			min_distance)) {
 		_gain_calculator->calculateGain(node, _octree);
+		node.distance = _collision_checker->getDistanceToNode(node.position);
 		_rrt.nodes.push_back(node);
 		_nodes_ordered_by_gain.insert(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
@@ -153,6 +158,8 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 				_nodes_ordered_by_gain.erase(iterator);
 			}
 			_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
+			_rrt.nodes[iterator].distance = _collision_checker->getDistanceToNode(
+					_rrt.nodes[iterator].position);
 			if (_rrt.nodes[iterator].status
 					!= rrt_nbv_exploration_msgs::Node::EXPLORED) {
 				_nodes_ordered_by_gain.insert(iterator);
@@ -161,7 +168,7 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 	}
 	for (auto it : _nodes_ordered_by_gain) {
 		ROS_INFO_STREAM(
-				"Node " << it << " with gain " << _rrt.nodes[it].gain << " and status " << _rrt.nodes[it].status);
+				"Node " << it << " with gain*distance " << _rrt.nodes[it].gain * _rrt.nodes[it].distance << " and status " << _rrt.nodes[it].status);
 	}
 }
 
@@ -203,7 +210,7 @@ void TreeConstructor::convertOctomapMsgToOctree(
 	//ROS_INFO_STREAM("Receive octomap");
 	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
 	//ROS_INFO_STREAM("first abstract octomap");
-	_octree = std::dynamic_pointer_cast<octomap::OcTree>(_abstract_octree);
+	_octree = std::dynamic_pointer_cast < octomap::OcTree > (_abstract_octree);
 	//ROS_INFO_STREAM("dynamic cast octomap");
 	updateMapDimensions();
 }

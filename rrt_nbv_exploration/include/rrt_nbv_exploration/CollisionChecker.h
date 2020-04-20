@@ -47,6 +47,13 @@ public:
 	 */
 	geometry_msgs::Pose getRobotPose();
 
+	/**
+	 * @brief Returns distance from the robot's current position to the given node
+	 * @param Position of the node
+	 * @return Distance between current position and provided node in m
+	 */
+	double getDistanceToNode(geometry_msgs::Point node);
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;

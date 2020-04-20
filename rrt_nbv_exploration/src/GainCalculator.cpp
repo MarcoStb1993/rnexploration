@@ -61,6 +61,8 @@ void GainCalculator::precalculateGainPollPoints() {
 			}
 		}
 	}
+	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
+//	ROS_INFO_STREAM("Maximum reachable gain: " << _max_gain_points);
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
@@ -78,7 +80,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 	_node_points.color.a = 1.0f;
 	_node_points.header.stamp = ros::Time::now();
 
-	node.gain = 0;
+	node.gain = 0.0;
 
 	std::map<int, int> gain_per_yaw;
 
@@ -157,7 +159,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 	} else {
-		node.gain = (float) best_yaw_score;
+		node.gain = 1 - (float) best_yaw_score / (float) _max_gain_points;
 		node.best_yaw = best_yaw;
 	}
 

@@ -53,6 +53,6 @@ private:
 	 * @param Gain of the node
 	 */
 	void addInfoTextVisualization(const geometry_msgs::Point node_position,
-			int node, int gain);
+			int node, double gain);
 };
 }

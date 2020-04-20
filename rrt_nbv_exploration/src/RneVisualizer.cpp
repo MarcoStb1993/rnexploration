@@ -85,7 +85,7 @@ void RneVisualizer::visualizeRrtTree(
 }
 
 void RneVisualizer::addInfoTextVisualization(
-		const geometry_msgs::Point node_position, int node, int gain) {
+		const geometry_msgs::Point node_position, int node, double gain) {
 	visualization_msgs::Marker node_info_text;
 	node_info_text.header.frame_id = "/map";
 	node_info_text.ns = "rrt_tree";
@@ -102,7 +102,7 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = node_position.y;
 	node_info_text.pose.position.z = node_position.z + 0.5;
 	std::ostringstream oss;
-	oss << "(" << node << ")" << std::setprecision(2) << gain;
+	oss << "(" << node << ")" << std::setprecision(4) << gain;
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
 }

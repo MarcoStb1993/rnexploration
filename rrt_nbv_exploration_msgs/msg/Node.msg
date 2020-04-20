@@ -1,6 +1,7 @@
 # A node in the RRT constructed tree
 geometry_msgs/Point position	# Position of the node in the map
-float64 gain    				# Calculated information gain at this position for exploration
+float64 gain    				# Calculated information gain metrix at this position for exploration (1-gain/max_gain)
+float64 distance				# Current distance to this node from the robot
 int32 best_yaw					# Yaw in degrees with best gain
 uint8 status    				# Nodes current status regarding the exploration
 

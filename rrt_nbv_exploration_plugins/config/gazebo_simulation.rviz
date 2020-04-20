@@ -344,7 +344,7 @@ Visualization Manager:
       Max. Octree Depth: 16
       Min. Height Display: -3.40282347e+38
       Name: OccupancyGrid
-      Octomap Topic: /octomap_binary_wo_ground
+      Octomap Topic: /octomap_binary
       Queue Size: 5
       Value: true
       Voxel Alpha: 1
@@ -379,7 +379,7 @@ Visualization Manager:
       Marker Topic: /rne/steering_visualization
       Name: RRT Steering
       Namespaces:
-        {}
+        steering_visualization: true
       Queue Size: 100
       Value: true
     - Class: rviz/InteractiveMarkers
@@ -525,7 +525,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 30.5835266
+      Distance: 21.4435978
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -540,10 +540,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.795398176
+      Pitch: 0.785398185
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 6.24358368
+      Yaw: 0.785398185
     Saved: ~
 Window Geometry:
   Displays:

@@ -84,6 +84,10 @@ private:
 	 */
 	int _sensor_vertical_fov;
 	/**
+	 * Maximum number of points that can be added to calculate gain
+	 */
+	int _max_gain_points;
+	/**
 	 * Show gain calculation raycasting
 	 */
 	bool _visualize_gain_calculation;

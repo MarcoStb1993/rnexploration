@@ -9,9 +9,11 @@ CollisionChecker::CollisionChecker() :
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("visualize_collision", _visualize_collision, false);
+	std::string octomap_topic;
+	private_nh.param<std::string>("octomap_collision_topic",octomap_topic, "octomap_binary");
 	private_nh.param<std::string>("robot_frame", _robot_frame, "base_link");
 	ros::NodeHandle nh("rne");
-	_octomap_sub = _nh.subscribe("octomap_binary_wo_ground", 1,
+	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&CollisionChecker::convertOctomapMsgToOctree, this);
 	if (_visualize_collision) {
 		_collision_visualization = nh.advertise<visualization_msgs::Marker>(
@@ -180,6 +182,11 @@ geometry_msgs::Pose CollisionChecker::getRobotPose() {
 	}
 //	ROS_INFO_STREAM("Robot position: " << robot_pose.position.x << ", " << robot_pose.position.y << ", " << robot_pose.position.z);
 	return robot_pose;
+}
+
+double CollisionChecker::getDistanceToNode(geometry_msgs::Point node){
+	geometry_msgs::Point robot = getRobotPose().position;
+	return sqrt(pow(robot.x - node.x,2) + pow(robot.y - node.y,2) + pow(robot.z-node.z,2));
 }
 
 void CollisionChecker::convertOctomapMsgToOctree(

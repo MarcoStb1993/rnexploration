@@ -89,7 +89,7 @@ private:
      */
     double _map_dimensions[3];
     /**
-     * @brief All nodes (their position in the rrt node list) ordered descending by gain
+     * @brief All nodes (their position in the rrt node list) ordered ascending by (1-gain/max_gain)*distance
      */
     std::set<int, std::function<bool(int, int)>> _nodes_ordered_by_gain;
     /**
