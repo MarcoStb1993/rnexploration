@@ -9,6 +9,8 @@
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include "fcl/config.h"
 #include "fcl/octree.h"
 #include "fcl/traversal/traversal_node_octree.h"
@@ -47,7 +49,7 @@ public:
 
 private:
 	ros::NodeHandle _nh;
-	ros::Publisher _steering_visualization;
+	ros::Publisher _collision_visualization;
 	ros::Subscriber _octomap_sub;
 	tf2_ros::Buffer _tf_buffer;
 	tf2_ros::TransformListener _tf_listener;
@@ -60,9 +62,25 @@ private:
 	 */
 	double _min_extend_range;
 	/**
-	 * @brief Show raycasting for steering
+	 * Radius that includes robot's footprint in m
 	 */
-	bool _visualize_steering;
+	double _robot_radius;
+	/**
+	 * Width of the robot in m
+	 */
+	double _robot_width;
+	/**
+	 * Height of the robot in m
+	 */
+	double _robot_height;
+	/**
+	 * Minimum required distance between two nodes for a box collision object to be inserted
+	 */
+	double _path_box_distance_thres;
+	/**
+	 * @brief Show collision checking
+	 */
+	bool _visualize_collision;
 	/**
 	 * @brief Name of the robot's tf frame
 	 */
@@ -74,5 +92,21 @@ private:
 	 */
 	void convertOctomapMsgToOctree(
 			const octomap_msgs::Octomap::ConstPtr& map_msg);
+
+	/**
+	 * @brief Visualize collision objects as markers in RViz
+	 * @param Start node position
+	 * @param Goal node position
+	 * @param Center position in the middle of start and goal
+	 * @param Distance between start and goal in m
+	 * @param Yaw between positions in rad
+	 * @param Collision occured at start cylinder
+	 * @param Collision occured at goal cylinder
+	 * @param Collision occured in path box
+	 */
+	void visualizeCollisionCheck(geometry_msgs::Point start,
+			geometry_msgs::Point goal, geometry_msgs::Point center,
+			double distance, double yaw, bool collision_start,
+			bool collision_goal, bool collision_path);
 };
 }

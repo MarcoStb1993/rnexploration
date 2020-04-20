@@ -4,13 +4,16 @@
 	<arg name="rrt_publish_frequency" default="1" />
 	<arg name="sensor_max_range" default="10" />
 	<arg name="sensor_height" default="0.5" />
+	<arg name="robot_height" default="1.0" />
+	<arg name="robot_width" default="1.0" />
+	<arg name="robot_radius" default="1.0" />	
 	<arg name="sensor_min_range" default="0.5" />
 	<arg name="delta_radius" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="sensor_horizontal_fov" default="360" /> 
 	<arg name="sensor_vertical_fov" default="180" />
-	<arg name="visualize_steering" default="false" />
+	<arg name="visualize_collision" default="false" />
 	<arg name="visualize_gain_calculation" default="false" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
@@ -23,9 +26,12 @@
 		<param name="delta_theta" type="int" value="$(arg delta_theta)" />
 		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />
 		<param name="sensor_vertical_fov" type="int" value="$(arg sensor_vertical_fov)" />
-		<param name="visualize_steering" type="bool" value="$(arg visualize_steering)" />
+		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
+		<param name="robot_height" type="double" value="$(arg robot_height)" />
+		<param name="robot_width" type="double" value="$(arg robot_width)" />
+		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
 	</node>
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"
 		name="rneVisualizationNode" output="screen" />

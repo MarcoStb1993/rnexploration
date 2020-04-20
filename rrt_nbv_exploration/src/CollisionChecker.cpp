@@ -5,102 +5,165 @@ CollisionChecker::CollisionChecker() :
 		_tf_listener(_tf_buffer) {
 	ros::NodeHandle private_nh("~");
 	private_nh.param("min_extend_range", _min_extend_range, 2.0);
-	private_nh.param("visualize_steering", _visualize_steering, false);
+	private_nh.param("robot_height", _robot_height, 1.0);
+	private_nh.param("robot_width", _robot_width, 1.0);
+	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("visualize_collision", _visualize_collision, false);
 	private_nh.param<std::string>("robot_frame", _robot_frame, "base_link");
 	ros::NodeHandle nh("rne");
-	_steering_visualization = nh.advertise<visualization_msgs::Marker>(
-			"steering_visualization", 10);
 	_octomap_sub = _nh.subscribe("octomap_binary_wo_ground", 1,
 			&CollisionChecker::convertOctomapMsgToOctree, this);
+	if (_visualize_collision) {
+		_collision_visualization = nh.advertise<visualization_msgs::Marker>(
+				"steering_visualization", 10);
+	}
+	_path_box_distance_thres = 2
+			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 }
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double min_distance) {
-	if (min_distance >= _min_extend_range) {
-		visualization_msgs::Marker _node_points;
-		_node_points.header.frame_id = "/map";
-		_node_points.ns = "steering_visualization";
-		_node_points.id = 0;
-		_node_points.action = visualization_msgs::Marker::ADD;
-		_node_points.pose.orientation.w = 1.0;
-		_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-		_node_points.color.a = 1.0f;
-		_node_points.header.stamp = ros::Time::now();
-
+	double distance = sqrt(min_distance);
+	if (distance >= _min_extend_range) {
 		fcl::OcTree* tree = new fcl::OcTree(_octree);
 		std::shared_ptr<fcl::CollisionGeometry> tree_obj = std::shared_ptr
 				< fcl::CollisionGeometry > (tree);
-		double radius = 0.5;
-		double length = min_distance;
-		//std::shared_ptr<fcl::CollisionGeometry> sphere(new fcl::Sphere(radius));
-		std::shared_ptr<fcl::CollisionGeometry> capsule(
-				new fcl::Capsule(radius, length));
-		fcl::Transform3f tf_tree, tf_sphere, tf_capsule;
-		//tf_sphere.setTranslation(fcl::Vec3f(0,0, 0));
-		tf_capsule.setTranslation(
-				fcl::Vec3f((nearest_node.position.x + rand_sample.x) / 2,
-						(nearest_node.position.y + rand_sample.y) / 2, 0));
-		fcl::Matrix3f rot_capsule;
-		double yaw = atan2(rand_sample.y - nearest_node.position.y,
-				rand_sample.x - nearest_node.position.x);
-		rot_capsule.setEulerZYX(0, M_PI / 4, yaw);
-		tf_capsule.setRotation(rot_capsule);
+		std::shared_ptr<fcl::CollisionGeometry> cylinder(
+				new fcl::Cylinder(_robot_radius, _robot_height));
+
+		fcl::Transform3f tf_tree, tf_start_cylinder, tf_goal_cylinder,
+				tf_path_box;
+		tf_start_cylinder.setTranslation(
+				fcl::Vec3f(nearest_node.position.x, nearest_node.position.y,
+						_robot_height / 2));
+		tf_goal_cylinder.setTranslation(
+				fcl::Vec3f(rand_sample.x, rand_sample.y, _robot_height / 2));
+
 		fcl::CollisionObject tree_collision(tree_obj, tf_tree);
-		//fcl::CollisionObject sphere_collision(sphere, tf_sphere);
-		fcl::CollisionObject capsule_collision(capsule, tf_capsule);
-		fcl::CollisionResult result;
-		fcl::CollisionRequest request;
-		std::size_t res = fcl::collide(&tree_collision, &capsule_collision,
-				request, result);
+		fcl::CollisionObject start_cylinder_collision(cylinder,
+				tf_start_cylinder);
+		fcl::CollisionObject goal_cylinder_collision(cylinder,
+				tf_goal_cylinder);
 
-//		fcl::DistanceResult dresult;
-//		dresult.clear();
-//		fcl::DistanceRequest drequest(true);
-//		double distance = fcl::distance(&tree_collision, &capsule_collision,
-//				drequest, dresult);
+		fcl::CollisionResult result_start_cylinder, result_goal_cylinder,
+				result_path_box;
+		fcl::CollisionRequest request_start_cylinder, request_goal_cylinder,
+				request_path_box;
+		std::size_t collision_start_cylinder = fcl::collide(&tree_collision,
+				&start_cylinder_collision, request_start_cylinder,
+				result_start_cylinder);
+		std::size_t collision_goal_cylinder = fcl::collide(&tree_collision,
+				&goal_cylinder_collision, request_goal_cylinder,
+				result_goal_cylinder);
+		std::size_t collision_path_box;
 
-		geometry_msgs::Point point;
-		point.x = nearest_node.position.x;
-		point.y = nearest_node.position.y;
-		point.z = nearest_node.position.z;
-		_node_points.scale.x = 2 * radius;
-		_node_points.scale.y = 2 * radius;
-		_node_points.scale.z = 2 * radius;
-		std_msgs::ColorRGBA color;
-		color.r = 0.0f;
-		color.g = 0.0f;
-		color.b = 1.0f;
-		color.a = 1.0f;
-		_node_points.points.push_back(point);
-		_node_points.points.push_back(point);
-		point.x = rand_sample.x;
-		point.y = rand_sample.y;
-		point.z = rand_sample.z;
-		_node_points.scale.x = 2 * radius;
-		_node_points.scale.y = 2 * radius;
-		_node_points.scale.z = 2 * radius;
-		color.r = 0.0f;
-		color.g = 0.0f;
-		color.b = 1.0f;
-		color.a = 1.0f;
-		_node_points.points.push_back(point);
-		_node_points.points.push_back(point);
+		geometry_msgs::Point center;
+		double yaw;
 
-		new_node.position.x = rand_sample.x;
-		new_node.position.y = rand_sample.y;
-		new_node.position.z = rand_sample.z;
-		new_node.children_counter = 0;
-		new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
+		if (distance > _path_box_distance_thres) {
+			std::shared_ptr<fcl::CollisionGeometry> box(
+					new fcl::Box(distance - _path_box_distance_thres,
+							_robot_width, _robot_height));
+			center.x = (nearest_node.position.x + rand_sample.x) / 2;
+			center.y = (nearest_node.position.y + rand_sample.y) / 2;
+			center.z = _robot_height / 2;
+			tf_path_box.setTranslation(
+					fcl::Vec3f(center.x, center.y, center.z));
+			fcl::Matrix3f rot_path_box;
+			yaw = atan2(rand_sample.y - nearest_node.position.y,
+					rand_sample.x - nearest_node.position.x);
+			rot_path_box.setEulerZYX(0, M_PI / 4, yaw);
+			tf_path_box.setRotation(rot_path_box);
+			fcl::CollisionObject path_box_collision(box, tf_path_box);
+			collision_path_box = fcl::collide(&tree_collision,
+					&path_box_collision, request_path_box, result_path_box);
+		}
 
-		if (!res) {
+		if (_collision_visualization) {
+			visualizeCollisionCheck(nearest_node.position, rand_sample, center,
+					distance, yaw, collision_start_cylinder,
+					collision_goal_cylinder, collision_path_box);
+		}
+
+		if (!collision_start_cylinder && !collision_goal_cylinder
+				&& !collision_path_box) {
+			new_node.position.x = rand_sample.x;
+			new_node.position.y = rand_sample.y;
+			new_node.position.z = rand_sample.z;
+			new_node.children_counter = 0;
+			new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 //			ROS_INFO_STREAM(
 //					"Collision with capsule at " << tf_capsule.getTranslation()[0] << ",  " << tf_capsule.getTranslation()[1] << ",  " << tf_capsule.getTranslation()[2] << " detected: " << res << " distance is: " << distance);
-			_steering_visualization.publish(_node_points);
 			return true;
 		}
 	}
 	return false;
+}
+
+void CollisionChecker::visualizeCollisionCheck(geometry_msgs::Point start,
+		geometry_msgs::Point goal, geometry_msgs::Point center, double distance,
+		double yaw, bool collision_start, bool collision_goal,
+		bool collision_path) {
+	visualization_msgs::Marker marker;
+	marker.header.frame_id = "/map";
+	marker.ns = "steering_visualization";
+	marker.id = 0;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.pose.orientation.w = 1.0;
+	marker.type = visualization_msgs::Marker::CYLINDER;
+	marker.color.a = 0.6f;
+	marker.color.r = 0.0f;
+	marker.color.g = 0.0f;
+	marker.color.b = 0.0f;
+	marker.header.stamp = ros::Time::now();
+	marker.pose.position.x = start.x;
+	marker.pose.position.y = start.y;
+	marker.pose.position.z = _robot_height / 2;
+	marker.scale.x = 2 * _robot_radius;
+	marker.scale.y = 2 * _robot_radius;
+	marker.scale.z = _robot_height;
+	if (collision_start) {
+		marker.color.r = 1.0f;
+		marker.color.g = 0.0f;
+	} else {
+		marker.color.g = 1.0f;
+		marker.color.r = 0.0f;
+	}
+	_collision_visualization.publish(marker);
+	marker.id = 1;
+	marker.pose.position.x = goal.x;
+	marker.pose.position.y = goal.y;
+	marker.pose.position.z = _robot_height / 2;
+	if (collision_goal) {
+		marker.color.r = 1.0f;
+		marker.color.g = 0.0f;
+	} else {
+		marker.color.g = 1.0f;
+		marker.color.r = 0.0f;
+	}
+	_collision_visualization.publish(marker);
+	if (distance > _path_box_distance_thres) {
+		marker.id = 2;
+		marker.type = visualization_msgs::Marker::CUBE;
+		marker.pose.position.x = center.x;
+		marker.pose.position.y = center.y;
+		marker.pose.position.z = center.z;
+		tf2::Quaternion quat_tf;
+		quat_tf.setRPY(0, 0, yaw);
+		marker.pose.orientation = tf2::toMsg(quat_tf);
+		marker.scale.x = distance - _path_box_distance_thres;
+		marker.scale.y = _robot_width;
+		marker.scale.z = _robot_height;
+		if (collision_path) {
+			marker.color.r = 1.0f;
+			marker.color.g = 0.0f;
+		} else {
+			marker.color.g = 1.0f;
+			marker.color.r = 0.0f;
+		}
+		_collision_visualization.publish(marker);
+	}
 }
 
 geometry_msgs::Pose CollisionChecker::getRobotPose() {

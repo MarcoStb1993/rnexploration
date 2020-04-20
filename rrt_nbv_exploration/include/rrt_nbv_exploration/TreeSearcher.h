@@ -26,7 +26,7 @@ public:
     /**
      * @brief Find the nearest neighbour in the current kd-tree to the randomly sampled point given as parameter
      * @param Randomly sampled 3D point
-     * @param Link to minimum distance calculated between a node in the tree and the randomly sampled point
+     * @param Link to minimum squared distance calculated between a node in the tree and the randomly sampled point
      * @param Link to the nearest node in the tree from the randomly sampled point
      */
     void findNearestNeighbour(geometry_msgs::Point rand_sample, double &min_distance, int &nearest_node);
