@@ -13,6 +13,9 @@ uint8 EXPLORED = 4      		# Node was already explored
 uint8 FAILED = 5        		# Node's exploration failed
 uint8 ABORTED = 6        		# Node's exploration aborted
 
-
+int32 parent					# Position of the node's parent in the nodes array of the RRT msg (-1 for root)
 int32[] children     			# Position of the node's children in the nodes array of the RRT msg
 int32 children_counter  		# Number of children nodes in the children array
+
+float64 distance_to_parent		# Squared euclidean distance from this node to this node's parent
+float64[] distance_to_children	# Squared euclidean distances to the node's respective child node 

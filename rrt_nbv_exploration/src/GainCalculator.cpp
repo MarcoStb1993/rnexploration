@@ -159,7 +159,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 	} else {
-		node.gain = 1 - (float) best_yaw_score / (float) _max_gain_points;
+		node.gain = best_yaw_score;
 		node.best_yaw = best_yaw;
 	}
 

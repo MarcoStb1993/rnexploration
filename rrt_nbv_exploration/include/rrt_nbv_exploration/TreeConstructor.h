@@ -125,14 +125,14 @@ private:
     /**
      * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
      * @param Randomly sampled point
-     * @param Minimum distance calculated between a node in the tree and the randomly sampled point
+     * @param Minimum squared distance calculated between a node in the tree and the randomly sampled point
      * @param Nearest node in the tree from the randomly sampled point
      */
     void placeNewNode(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
     /**
      * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot
      * @param Randomly sampled point that serves as a base for the new node's position
-     * @param Distance to the nearest neighbour in the RRT
+     * @param Squared distance to the nearest neighbour in the RRT
      * @param Index of the nearest node in the RRT
      */
     void steering(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
