@@ -89,9 +89,9 @@ private:
      */
     double _map_dimensions[3];
     /**
-     * @brief All nodes (their position in the rrt node list) ordered ascending by (1-gain/max_gain)*distance
+     * @brief All nodes (their position in the rrt node list) ordered ascending by a gain function
      */
-    std::set<int, std::function<bool(int, int)>> _nodes_ordered_by_gain;
+    std::list<int> _nodes_ordered_by_gain;
     /**
      * @brief The node that is currently being pursued as a navigation goal
      */
@@ -135,7 +135,18 @@ private:
      * @param Squared distance to the nearest neighbour in the RRT
      * @param Index of the nearest node in the RRT
      */
-    void steering(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
+    //void steering(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
+    /**
+     * @brief Compares the two given nodes and returns true if the first node's gain function is better than the second node's
+     * @param Position in the node list of the first node
+     * @param Position in the node list of the second node
+     * @param Returns if the first node's gain is better than the second node's gain
+     */
+    bool compareNodeGains(const int& node_one, const int& node_two);
+    /**
+     * @brief Sorts list nodes_ordered_by_gain by gain function, the node with the best gain comes first
+     */
+    void sortNodesByGain();
     /**
      * @brief publish_node_with_best_gain
      */

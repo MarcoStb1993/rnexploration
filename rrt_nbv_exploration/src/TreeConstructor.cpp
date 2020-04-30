@@ -2,9 +2,7 @@
 
 namespace rrt_nbv_exploration {
 TreeConstructor::TreeConstructor() :
-		_map_dimensions { 0.0, 0.0, 0.0 }, _nodes_ordered_by_gain(
-				[this](int node1, int node2)
-				{	return (_rrt.nodes[node1].gain * exp(-_rrt.nodes[node1].distance)) < (_rrt.nodes[node2].gain * exp(-_rrt.nodes[node2].distance));}) {
+		_map_dimensions { 0.0, 0.0, 0.0 } {
 }
 
 TreeConstructor::~TreeConstructor() {
@@ -96,7 +94,7 @@ void TreeConstructor::runRrtConstruction() {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
-			_current_goal_node = *_nodes_ordered_by_gain.rbegin();
+			_current_goal_node = *_nodes_ordered_by_gain.begin();
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
@@ -130,7 +128,8 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.distance_to_parent = min_distance;
 		node.distance = _collision_checker->getDistanceToNode(node.position);
 		_rrt.nodes.push_back(node);
-		_nodes_ordered_by_gain.insert(_rrt.node_counter);
+		_nodes_ordered_by_gain.push_back(_rrt.node_counter);
+		sortNodesByGain();
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].distance_to_children.push_back(min_distance);
 		_rrt.nodes[nearest_node].children_counter++;
@@ -139,12 +138,24 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 	}
 }
 
+void TreeConstructor::sortNodesByGain() {
+	_nodes_ordered_by_gain.sort(
+			[this](int node_one, int node_two) {return compareNodeGains(node_one, node_two);});
+
+}
+
+bool TreeConstructor::compareNodeGains(const int& node_one,
+		const int& node_two) {
+	return (_rrt.nodes[node_one].gain * exp(-_rrt.nodes[node_one].distance))
+			>= (_rrt.nodes[node_two].gain * exp(-_rrt.nodes[node_two].distance));
+}
+
 void TreeConstructor::publishNodeWithBestGain() {
 	rrt_nbv_exploration_msgs::BestAndCurrentNode msg;
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
 			_nodes_ordered_by_gain.empty() ?
-					_current_goal_node : *_nodes_ordered_by_gain.rbegin();
+					_current_goal_node : *_nodes_ordered_by_gain.begin();
 	_best_and_current_goal_publisher.publish(msg);
 }
 
@@ -157,22 +168,20 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrt_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrt.nodes[iterator].status
 						!= rrt_nbv_exploration_msgs::Node::FAILED) {
-			if (_nodes_ordered_by_gain.find(iterator)
-					!= _nodes_ordered_by_gain.end()) {
-				_nodes_ordered_by_gain.erase(iterator);
-			}
 			_gain_calculator->calculateGain(_rrt.nodes[iterator], _octree);
-			_rrt.nodes[iterator].distance = _collision_checker->getDistanceToNode(
-					_rrt.nodes[iterator].position);
 			if (_rrt.nodes[iterator].status
-					!= rrt_nbv_exploration_msgs::Node::EXPLORED) {
-				_nodes_ordered_by_gain.insert(iterator);
+					== rrt_nbv_exploration_msgs::Node::EXPLORED) {
+				_nodes_ordered_by_gain.remove(iterator);
 			}
+			_rrt.nodes[iterator].distance =
+					_collision_checker->getDistanceToNode(
+							_rrt.nodes[iterator].position);
 		}
 	}
+	sortNodesByGain();
 	for (auto it : _nodes_ordered_by_gain) {
 		ROS_INFO_STREAM(
-				"Node " << it << " with gain*distance " << _rrt.nodes[it].gain * exp(-_rrt.nodes[it].distance) << " and status " << _rrt.nodes[it].status);
+				"Node " << it << " with gain*distance " << _rrt.nodes[it].gain * exp(-_rrt.nodes[it].distance) << " and status " << (int) _rrt.nodes[it].status);
 	}
 }
 
@@ -182,7 +191,7 @@ void TreeConstructor::updateCurrentGoal() {
 	switch (_rrt.nodes[_current_goal_node].status) {
 	case rrt_nbv_exploration_msgs::Node::EXPLORED:
 		ROS_INFO("goal explored");
-		_nodes_ordered_by_gain.erase(_current_goal_node);
+		_nodes_ordered_by_gain.remove(_current_goal_node);
 		update_center = _rrt.nodes[_current_goal_node].position;
 		break;
 	case rrt_nbv_exploration_msgs::Node::VISITED:
@@ -197,7 +206,7 @@ void TreeConstructor::updateCurrentGoal() {
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
-		_nodes_ordered_by_gain.erase(_current_goal_node);
+		_nodes_ordered_by_gain.remove(_current_goal_node);
 		update_center = _collision_checker->getRobotPose().position;
 		break;
 	default:    //active or waiting
