@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+<launch>
+
+	<arg name="robot_frame" default="base_footprint" />
+	<arg name="autonomy_cmd_vel_topic" default="/husky_velocity_controller/cmd_vel" />
+	<arg name="teleoperation_cmd_vel_topic"
+		default="/teleoperation/cmd_vel" />
+	<arg name="cmd_vel_topic" default="/cmd_vel" />
+	<arg name="joystick_used" default="false" />
+	<arg name="joystick_topic" default="/joy" />
+	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
+	<arg name="navigation_plugin" default="rsm::NavigationState" />
+	<arg name="mapping_plugin" default="rsm::KinectMappingState" />
+	<arg name="waypoint_routines" default="['Reversing']" />
+	<arg name="rviz" default="true" />
+
+<include file="$(find rsm_core)/launch/rsm.launch">
+		<arg name="update_frequency" value="20" />
+		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="autonomy_cmd_vel_topic"
+			value="$(arg autonomy_cmd_vel_topic)" />
+		<arg name="teleoperation_cmd_vel_topic"
+			value="$(arg teleoperation_cmd_vel_topic)" />
+		<arg name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
+		<arg name="joystick_used" value="$(arg joystick_used)" />
+		<arg name="joystick_topic" value="$(arg joystick_topic)" />
+		<arg name="calculate_goal_plugin"
+			value="$(arg calculate_goal_plugin)" />
+		<arg name="navigation_plugin" value="$(arg navigation_plugin)" />
+		<arg name="mapping_plugin" value="$(arg mapping_plugin)" />
+		<arg name="waypoint_routines" value="$(arg waypoint_routines)" />
+	</include>
+
+	<node pkg="rsm_additions" type="bootUpNode" name="bootUpNode"
+		output="screen">
+		<param name="wait_time" value="2" />
+	</node>
+
+	<node pkg="rsm_additions" type="additionsServiceProviderNode"
+		name="additionsServiceProviderNode">
+		<param name="update_frequency" value="20" />
+		<param name="autonomy_cmd_vel_topic"
+			value="$(arg autonomy_cmd_vel_topic)" />
+		<param name="navigation_plugin" value="$(arg navigation_plugin)" />
+		<param name="mapping_plugin" value="$(arg mapping_plugin)" />
+		<param name="calculate_goal_plugin"
+			value="$(arg calculate_goal_plugin)" />
+		<param name="exploration_goal_tolerance" value="0.05" />
+	</node>
+
+	<node pkg="rrt_nbv_exploration_plugins"
+		type="rneServiceProviderNode" name="rneServiceProviderNode"
+		output="screen">
+		<param name="update_frequency" value="20" />
+	</node>
+
+  <node pkg="move_base" type="move_base" respawn="false"
+		name="move_base" output="screen">
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			command="load" ns="global_costmap" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			command="load" ns="local_costmap" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
+			command="load" />
+		<param name="global_costmap/robot_base_frame"
+			value="$(arg 
+		robot_frame)" />
+		<param name="local_costmap/robot_base_frame"
+			value="$(arg 
+		robot_frame)" />
+		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
+	</node>
+
+	<node pkg="move_base" type="move_base" respawn="false"
+		name="move_base_reverse" output="screen">
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			command="load" ns="global_costmap" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			command="load" ns="local_costmap" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
+			command="load" />
+		<param name="global_costmap/robot_base_frame"
+			value="$(arg robot_frame)_reverse" />
+		<param name="local_costmap/robot_base_frame"
+			value="$(arg robot_frame)_reverse" />
+		<remap from="/cmd_vel"
+			to="$(arg autonomy_cmd_vel_topic)_reverse" />
+		<remap from="move_base/goal" to="move_base_reverse/goal" />
+		<remap from="move_base/cancel" to="move_base_reverse/cancel" />
+		<remap from="move_base/feedback" to="move_base_reverse/feedback" />
+		<remap from="move_base/status" to="move_base_reverse/status" />
+		<remap from="move_base/result" to="move_base_reverse/result" />
+	</node>
+
+	<node pkg="tf" type="static_transform_publisher"
+		name="base_footprint_reverse"
+		args="0 0 0 0 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+
+	<!-- Octomap -->
+
+	<node pkg="octomap_server" type="octomap_server_node"
+		name="octomap_server">
+		<param name="resolution" value="0.1" />
+		<param name="frame_id" type="string" value="map" />
+		<param name="sensor_model/max_range" value="5.0" />
+		<param name="latch" value="false" />
+		<param name="filter_ground" value="false" />
+		<remap from="cloud_in" to="/puck_rear/velodyne_points" />
+	</node>
+
+	<node pkg="octomap_server" type="octomap_server_node"
+		name="octomap_server_wo_ground">
+		<param name="resolution" value="0.1" />
+		<param name="frame_id" type="string" value="map" />
+		<param name="sensor_model/max_range" value="5.0" />
+		<param name="latch" value="false" />
+		<param name="filter_ground" value="true" />
+		<remap from="cloud_in" to="/velodyne_points" />
+		<remap from="octomap_binary" to="octomap_binary_wo_ground" />
+	</node>
+
+	<!-- RN Exploration -->
+	<include
+		file="$(find rrt_nbv_exploration)/launch/simple.launch">
+		<arg name="rrt_publish_frequency" value="1" />
+		<arg name="robot_height" value="1.0" />
+		<arg name="robot_width" value="0.7" />
+		<arg name="robot_radius" value="0.7" />
+		<arg name="sensor_height" value="0.887" />
+		<arg name="sensor_max_range" value="5" />
+		<arg name="sensor_min_range" value="0.5" />
+		<arg name="delta_radius" value="0.1" />
+		<arg name="delta_phi" value="10" />
+		<arg name="delta_theta" value="10" />
+		<arg name="sensor_horizontal_fov" value="208" /> <!-- Swivelling Kinect with 60 degree hFoV and joint limits +/-74 degrees -->
+		<arg name="sensor_vertical_fov" value="45" />
+		<arg name="visualize_collision" value="true" />
+		<arg name="visualize_gain_calculation" value="true" />
+	</include>
+
+	<!-- RViz für Exploration -->
+	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"
+		args="-d $(find rrt_nbv_exploration_plugins)/config/gazebo_simulation.rviz">
+		<remap from="/move_base_simple/goal" to="/rsm/simpleGoal" />
+	</node>
+	<include if="$(arg rviz)"
+		file="$(find rsm_rviz_plugins)/launch/rsm_rviz_plugins.launch">
+		<arg name="update_frequency" value="20" />
+	</include>
+
+  </launch>
