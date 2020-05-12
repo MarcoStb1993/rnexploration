@@ -36,8 +36,21 @@
 	<build_depend>std_srvs</build_depend>
 	<build_export_depend>std_srvs</build_export_depend>
 	<exec_depend>std_srvs</exec_depend>
+	<build_depend>nav_core</build_depend>
+	<build_export_depend>nav_core</build_export_depend>
+	<exec_depend>nav_core</exec_depend>
+	<build_depend>angle</build_depend>
+	<build_export_depend>angle</build_export_depend>
+	<exec_depend>angle</exec_depend>
+	<build_depend>costmap_2d</build_depend>
+	<build_export_depend>costmap_2d</build_export_depend>
+	<exec_depend>costmap_2d</exec_depend>
+	<build_depend>nav_msgs</build_depend>
+	<build_export_depend>nav_msgs</build_export_depend>
+	<exec_depend>nav_msgs</exec_depend>
 
 	<export>
 		<rsm_core plugin="${prefix}/rne_plugins.xml" />
+		<nav_core plugin="${prefix}/rne_global_planner.xml" />
 	</export>
 </package>

@@ -14,6 +14,11 @@ find_package(catkin REQUIRED COMPONENTS
   	geometry_msgs
   	rrt_nbv_exploration_msgs
   	tf2_geometry_msgs
+  	costmap_2d
+  	nav_core
+  	base_local_planner
+  	angles
+  	nav_msgs
 )
 
 catkin_package(
@@ -26,6 +31,8 @@ include_directories(include
 		
 add_library(rne_plugins src/RnExplorationState.cpp)	
 
+add_library(rne_global_planner src/RneGlobalPlanner.cpp)
+
 add_executable(rneServiceProviderNode
 	src/RneServiceProviderNode.cpp
 	src/RneServiceProvider.cpp)	
@@ -34,10 +41,16 @@ target_link_libraries(rne_plugins
   ${catkin_LIBRARIES}
   )
   
+target_link_libraries(rne_global_planner
+  ${catkin_LIBRARIES}
+  )
+  
 target_link_libraries(rneServiceProviderNode
   ${catkin_LIBRARIES}
   )
   
 add_dependencies(rne_plugins ${catkin_EXPORTED_TARGETS})
+
+add_dependencies(rne_global_planner ${catkin_EXPORTED_TARGETS})
 
 add_dependencies(rneServiceProviderNode ${catkin_EXPORTED_TARGETS})
