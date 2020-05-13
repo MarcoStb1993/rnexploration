@@ -100,10 +100,6 @@ private:
      */
     int _current_goal_node;
     /**
-     * @brief The node that was previously being pursued as a navigation goal
-     */
-    int _previous_goal_node;
-    /**
      * @brief Previously visited goal node
      */
     int _last_goal_node;
