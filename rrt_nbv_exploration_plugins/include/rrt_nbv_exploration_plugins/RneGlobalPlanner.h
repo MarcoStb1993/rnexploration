@@ -19,6 +19,7 @@
 #include <angles/angles.h>
 #include <base_local_planner/world_model.h>
 #include <base_local_planner/costmap_model.h>
+#include <rrt_nbv_exploration_msgs/RequestPath.h>
 
 namespace rrt_nbv_exploration {
 
@@ -35,8 +36,7 @@ private:
 	ros::NodeHandle _nh;
 	ros::Publisher _plan_publisher;
 	ros::Subscriber _rrt_tree_sub;
-
-	void rrtCallback(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt);
+	ros::ServiceClient _request_path_service;
 };
 
 } /* namespace rrt_nbv_exploration */

@@ -3,6 +3,7 @@
 #include "std_srvs/SetBool.h"
 #include "std_srvs/Trigger.h"
 #include "geometry_msgs/Point.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -10,6 +11,7 @@
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
+#include <rrt_nbv_exploration_msgs/RequestPath.h>
 #include <rrt_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <limits.h>
 #include <random>
@@ -56,6 +58,7 @@ private:
     ros::Publisher _best_and_current_goal_publisher;
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
+    ros::ServiceServer _request_path_service;
     ros::ServiceServer _update_current_goal_service;
     ros::ServiceServer _set_rrt_state_service;
     ros::ServiceServer _get_rrt_state_service;
@@ -96,6 +99,10 @@ private:
      * @brief The node that is currently being pursued as a navigation goal
      */
     int _current_goal_node;
+    /**
+     * @brief The node that was previously being pursued as a navigation goal
+     */
+    int _previous_goal_node;
     /**
      * @brief Previously visited goal node
      */
@@ -172,6 +179,9 @@ private:
 
     bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
     		rrt_nbv_exploration_msgs::RequestGoal::Response &res);
+
+	bool requestPath(rrt_nbv_exploration_msgs::RequestPath::Request &req,
+			rrt_nbv_exploration_msgs::RequestPath::Response &res);
 
     bool updateCurrentGoal(rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
         		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res);

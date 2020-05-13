@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES  
   RequestGoal.srv
+  RequestPath.srv
   UpdateCurrentGoal.srv
 )
 

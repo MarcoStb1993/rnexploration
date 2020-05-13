@@ -28,6 +28,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 			1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&TreeConstructor::requestGoal, this);
+	_request_path_service = nh.advertiseService("requestPath",
+			&TreeConstructor::requestPath, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&TreeConstructor::updateCurrentGoal, this);
 
@@ -66,6 +68,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 	_rrt.node_counter++;
 	_rrt.root = 0;
 	_current_goal_node = -1;
+	_previous_goal_node = 0;
 	_last_goal_node = 0;
 	//_nodes_ordered_by_gain.insert(_current_goal_node);
 	_tree_searcher->initialize(_rrt);
@@ -213,6 +216,7 @@ void TreeConstructor::updateCurrentGoal() {
 		break;
 	}
 	updateNodes(update_center);
+	_previous_goal_node = _current_goal_node;
 	_current_goal_node = -1;
 
 	//ROS_INFO("Set current goal to %i", _current_goal_node);
@@ -250,6 +254,16 @@ bool TreeConstructor::requestGoal(
 		res.goal = _rrt.nodes[_current_goal_node].position;
 		res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
 	}
+	return true;
+}
+
+bool TreeConstructor::requestPath(
+		rrt_nbv_exploration_msgs::RequestPath::Request &req,
+		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
+	std::vector<geometry_msgs::PoseStamped> rrt_path;
+	_collision_checker->calculatePath(rrt_path, _rrt, _previous_goal_node,
+			_current_goal_node);
+	res.path = rrt_path;
 	return true;
 }
 

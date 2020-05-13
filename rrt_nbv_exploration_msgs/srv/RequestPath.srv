@@ -1,0 +1,2 @@
+---
+geometry_msgs/PoseStamped[] path		# Path to navigate along the tree's nodes

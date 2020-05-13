@@ -8,6 +8,7 @@
 #include "visualization_msgs/Marker.h"
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -53,6 +54,9 @@ public:
 	 * @return Distance between current position and provided node in m
 	 */
 	double getDistanceToNode(geometry_msgs::Point node);
+
+	void calculatePath(std::vector<geometry_msgs::PoseStamped> &path,
+			rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node);
 
 private:
 	ros::NodeHandle _nh;
