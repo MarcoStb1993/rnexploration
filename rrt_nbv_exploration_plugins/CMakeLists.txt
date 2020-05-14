@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   	base_local_planner
   	angles
   	nav_msgs
+  	global_planner
 )
 
 catkin_package(

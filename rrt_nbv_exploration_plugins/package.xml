@@ -47,7 +47,11 @@
 	<exec_depend>costmap_2d</exec_depend>
 	<build_depend>nav_msgs</build_depend>
 	<build_export_depend>nav_msgs</build_export_depend>
-	<exec_depend>nav_msgs</exec_depend>
+	<exec_depend>nav_msgs</exec_depend>	
+	<build_depend>global_planner</build_depend>
+	<build_export_depend>global_planner</build_export_depend>
+	<exec_depend>global_planner</exec_depend>
+	
 
 	<export>
 		<rsm_core plugin="${prefix}/rne_plugins.xml" />

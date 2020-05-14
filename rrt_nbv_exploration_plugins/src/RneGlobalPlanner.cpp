@@ -9,7 +9,8 @@
 
 namespace rrt_nbv_exploration {
 
-RneGlobalPlanner::RneGlobalPlanner() {
+RneGlobalPlanner::RneGlobalPlanner() :
+		global_planner() {
 
 }
 
@@ -20,21 +21,33 @@ RneGlobalPlanner::RneGlobalPlanner(std::string name,
 
 void RneGlobalPlanner::initialize(std::string name,
 		costmap_2d::Costmap2DROS* costmap_ros) {
+	ROS_INFO_STREAM("Global planner init: " << name);
 	ros::NodeHandle private_nh("~");
-	_plan_publisher = private_nh.advertise<nav_msgs::Path>("plan", 1);
+	_plan_publisher = private_nh.advertise<nav_msgs::Path>(
+			"plan", 1);
+	ros::NodeHandle rsm_nh("rsm");
+	_state_info_subscriber = rsm_nh.subscribe("stateInfo", 10,
+			&RneGlobalPlanner::stateInfoCallback, this);
 	ros::NodeHandle rne_nh("rne");
 	_request_path_service = rne_nh.serviceClient<
 			rrt_nbv_exploration_msgs::RequestPath>("requestPath");
+	_exploration_running = false;
+	global_planner.initialize(name, costmap_ros);
 }
 
 bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 		const geometry_msgs::PoseStamped& goal,
 		std::vector<geometry_msgs::PoseStamped>& plan) {
-	rrt_nbv_exploration_msgs::RequestPath srv;
-	if (_request_path_service.call(srv)) {
-		plan = srv.response.path;
+	ROS_INFO_STREAM("Global planner make plan");
+	if (_exploration_running) {
+		rrt_nbv_exploration_msgs::RequestPath srv;
+		if (_request_path_service.call(srv)) {
+			plan = srv.response.path;
+		} else {
+			ROS_ERROR("Failed to call Request Path service");
+		}
 	} else {
-		ROS_ERROR("Failed to call Request Path service");
+		global_planner.makePlan(start, goal, plan);
 	}
 	nav_msgs::Path gui_path;
 	gui_path.header.frame_id = "map";
@@ -42,6 +55,11 @@ bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 	gui_path.poses = plan;
 	_plan_publisher.publish(gui_path);
 	return true;
+}
+
+void RneGlobalPlanner::stateInfoCallback(
+		const std_msgs::String::ConstPtr& state_info) {
+	_exploration_running = (state_info->data.rfind("E:") == 0) ? true : false;
 }
 
 }

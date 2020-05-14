@@ -379,7 +379,7 @@ Visualization Manager:
       Marker Topic: /rne/steering_visualization
       Name: RRT Steering
       Namespaces:
-        steering_visualization: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/InteractiveMarkers
@@ -426,7 +426,7 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /move_base_reverse/GlobalPlanner/plan
+      Topic: /move_base_reverse/plan
       Unreliable: false
       Value: true
     - Alpha: 1

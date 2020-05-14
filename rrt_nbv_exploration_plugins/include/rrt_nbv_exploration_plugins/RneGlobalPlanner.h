@@ -13,6 +13,7 @@
 #include <ros/ros.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <costmap_2d/costmap_2d.h>
+#include <std_msgs/String.h>
 #include <nav_core/base_global_planner.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -20,6 +21,7 @@
 #include <base_local_planner/world_model.h>
 #include <base_local_planner/costmap_model.h>
 #include <rrt_nbv_exploration_msgs/RequestPath.h>
+#include <global_planner/planner_core.h>
 
 namespace rrt_nbv_exploration {
 
@@ -35,8 +37,14 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _plan_publisher;
-	ros::Subscriber _rrt_tree_sub;
+	ros::Subscriber _state_info_subscriber;
 	ros::ServiceClient _request_path_service;
+
+	global_planner::GlobalPlanner  global_planner;
+
+	bool _exploration_running;
+
+	void stateInfoCallback(const std_msgs::String::ConstPtr& state_info);
 };
 
 } /* namespace rrt_nbv_exploration */

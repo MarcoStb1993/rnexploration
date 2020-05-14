@@ -28,7 +28,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double min_distance) {
 	double distance = sqrt(min_distance);
-	if (distance >= _min_extend_range) {
+	if (distance >= 2 * _robot_radius) {
 		fcl::OcTree* tree = new fcl::OcTree(_octree);
 		std::shared_ptr<fcl::CollisionGeometry> tree_obj = std::shared_ptr
 				< fcl::CollisionGeometry > (tree);

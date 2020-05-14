@@ -126,7 +126,7 @@
 
 	<node pkg="tf" type="static_transform_publisher"
 		name="base_footprint_reverse"
-		args="0 0 0 0 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
 
 	<!-- Octomap -->
 
