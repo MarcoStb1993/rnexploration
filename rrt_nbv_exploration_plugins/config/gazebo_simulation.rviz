@@ -57,7 +57,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /map
+      Topic: /rne/collision_visualization
       Unreliable: false
       Use Timestamp: false
       Value: true

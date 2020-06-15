@@ -9,22 +9,29 @@ CollisionChecker::CollisionChecker() :
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("visualize_collision", _visualize_collision, false);
-	std::string octomap_topic;
+	std::string octomap_topic, occupancy_grid_topic;
 	private_nh.param<std::string>("octomap_collision_topic", octomap_topic,
 			"octomap_binary");
+	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
+			"map");
 	private_nh.param<std::string>("robot_frame", _robot_frame, "base_link");
 	ros::NodeHandle nh("rne");
-	_octomap_sub = _nh.subscribe(octomap_topic, 1,
-			&CollisionChecker::convertOctomapMsgToOctree, this);
+//	_octomap_sub = _nh.subscribe(octomap_topic, 1,
+//			&CollisionChecker::convertOctomapMsgToOctree, this);
+	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
+			&CollisionChecker::occupancyGridCallback, this);
 	if (_visualize_collision) {
-		_collision_visualization = nh.advertise<visualization_msgs::Marker>(
-				"steering_visualization", 10);
+//		_collision_visualization = nh.advertise<visualization_msgs::Marker>(
+//				"steering_visualization", 10);
+		_visualization_pub = nh.advertise<nav_msgs::OccupancyGrid>(
+				"collision_visualization", 1);
 	}
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
+	received_grid = false;
 }
 
-bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
+bool CollisionChecker::steer3D(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double min_distance) {
 	double distance = sqrt(min_distance);
@@ -83,7 +90,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 					&path_box_collision, request_path_box, result_path_box);
 		}
 
-		if (_collision_visualization) {
+		if (_visualize_collision) {
 			visualizeCollisionCheck(nearest_node.position, rand_sample, center,
 					distance, yaw, collision_start_cylinder,
 					collision_goal_cylinder, collision_path_box);
@@ -100,6 +107,90 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 //					"Collision with capsule at " << tf_capsule.getTranslation()[0] << ",  " << tf_capsule.getTranslation()[1] << ",  " << tf_capsule.getTranslation()[2] << " detected: " << res << " distance is: " << distance);
 			return true;
 		}
+	}
+	return false;
+}
+
+bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
+		nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map) {
+	unsigned int map_x, map_y;
+	if (!worldToMap(center_x, center_y, map_x, map_y, map))
+		return true;
+	unsigned int radius = (int) (_robot_radius / map.info.resolution);
+	int x = radius, y = 0, err = 0;
+	bool collision = false;
+	while (x >= y) {
+		if (isLineInCollision(map_x - x, map_x + x, map_y + y, map, vis_map))
+			collision = true; //return true;
+		if (isLineInCollision(map_x - x, map_x + x, map_y - y, map, vis_map))
+			collision = true; //return true;
+		if (isLineInCollision(map_x - y, map_x + y, map_y + x, map, vis_map))
+			collision = true; //return true;
+		if (isLineInCollision(map_x - y, map_x + y, map_y - x, map, vis_map))
+			collision = true; //return true;
+		if (err <= 0) {
+			y += 1;
+			err += 2 * y + 1;
+		} else {
+			x -= 1;
+			err -= 2 * x + 1;
+		}
+	}
+	return collision; //false;
+}
+
+bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
+		nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map) {
+//	ROS_INFO_STREAM(
+//			"is line in collision? y-start: " << y_start << " y-end: " << y_end << " x: " << x);
+//	ROS_INFO_STREAM(
+//			"map width: " << map.info.width << " map height: " << map.info.width << " map data length: " << map.data.size() << "map at 0 " << (int)map.data[0]);
+	if (y_start < 0 || y_end > map.info.width || x < 0 || x > map.info.height)
+		return true;
+	bool collision = false;
+	for (int y = x * map.info.width + y_start; y <= x * map.info.width + y_end;
+			y++) {
+		if (map.data[y] == -1 || map.data[y] >= 100) {
+			collision = true; //return true;
+			vis_map.data[y] = 100;
+		} else {
+			vis_map.data[y] = 0;
+		}
+	}
+	return collision; //false;
+}
+
+bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
+		rrt_nbv_exploration_msgs::Node &nearest_node,
+		geometry_msgs::Point rand_sample, double min_distance) {
+	nav_msgs::OccupancyGrid map = _occupancy_grid;
+	if (_visualize_collision) {
+		vis_map.header.stamp = ros::Time::now();
+		vis_map.info.map_load_time = ros::Time::now();
+		if (!received_grid) {
+			vis_map.header.frame_id = "/map";
+			vis_map.info.resolution = map.info.resolution;
+			vis_map.info.width = map.info.width;
+			vis_map.info.height = map.info.height;
+			vis_map.info.origin = map.info.origin;
+			vis_map.data = std::vector<int8_t>(map.info.width * map.info.height,
+					-1);
+			received_grid = true;
+		}
+	}
+	if (!isCircleInCollision(rand_sample.x, rand_sample.y, map, vis_map)) {
+		new_node.position.x = rand_sample.x;
+		new_node.position.y = rand_sample.y;
+		new_node.position.z = rand_sample.z;
+		new_node.children_counter = 0;
+		new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
+		if (_visualize_collision) {
+			_visualization_pub.publish(vis_map);
+		}
+		return true;
+	}
+	if (_visualize_collision) {
+		_visualization_pub.publish(vis_map);
 	}
 	return false;
 }
@@ -196,6 +287,28 @@ void CollisionChecker::convertOctomapMsgToOctree(
 		const octomap_msgs::Octomap::ConstPtr& map_msg) {
 	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
 	_octree = std::dynamic_pointer_cast < octomap::OcTree > (_abstract_octree);
+}
+
+void CollisionChecker::occupancyGridCallback(
+		const nav_msgs::OccupancyGrid::ConstPtr& map_msg) {
+	ROS_INFO_STREAM("received occupancy grid");
+	_occupancy_grid = *map_msg;
+//	ROS_INFO_STREAM(
+//			"Res: " << map_msg->info.resolution << " Width: " << map_msg->info.width<< " Height: " << map_msg->info.height << " x: "<<map_msg->info.origin.position.x << " y: " << map_msg->info.origin.position.y);
+//	unsigned int mx, my;
+//	if (worldToMap(0.0, 0.0, mx, my))
+//		ROS_INFO_STREAM("Center x: " << mx << " y: " << my);
+}
+
+bool CollisionChecker::worldToMap(double wx, double wy, unsigned int& mx,
+		unsigned int& my, nav_msgs::OccupancyGrid &map) {
+	if (wx < map.info.origin.position.x || wy < map.info.origin.position.y)
+		return false;
+	mx = (int) ((wx - map.info.origin.position.x) / map.info.resolution);
+	my = (int) ((wy - map.info.origin.position.y) / map.info.resolution);
+	if (mx < map.info.height && my < map.info.width)
+		return true;
+	return false;
 }
 
 void CollisionChecker::calculatePath(

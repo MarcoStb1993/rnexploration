@@ -19,6 +19,7 @@
 #include "fcl/distance.h"
 #include "fcl/broadphase/broadphase.h"
 #include "fcl/math/transform.h"
+#include <nav_msgs/OccupancyGrid.h>
 
 namespace rrt_nbv_exploration {
 /**
@@ -31,13 +32,18 @@ public:
 	 */
 	CollisionChecker();
 	/**
-	 * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot by raytracing in the octree
+	 * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot by checking for collisions
+	 * with fcl in the octomap
 	 * @param Reference to a possible new node in the RRT
 	 * @param Reference to the node that would be the nearest neighbour for a node with the given random position
 	 * @param Randomly sampled position serving as a base for a new node's position
 	 * @param Distance between the nearest node in the RRT and the randomly sampled position
 	 * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
 	 */
+	bool steer3D(rrt_nbv_exploration_msgs::Node &new_node,
+			rrt_nbv_exploration_msgs::Node &nearest_node,
+			geometry_msgs::Point rand_sample, double min_distance);
+
 	bool steer(rrt_nbv_exploration_msgs::Node &new_node,
 			rrt_nbv_exploration_msgs::Node &nearest_node,
 			geometry_msgs::Point rand_sample, double min_distance);
@@ -61,12 +67,16 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
+	ros::Publisher _visualization_pub;
 	ros::Subscriber _octomap_sub;
+	ros::Subscriber _occupancy_grid_sub;
 	tf2_ros::Buffer _tf_buffer;
 	tf2_ros::TransformListener _tf_listener;
 
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
 	std::shared_ptr<octomap::OcTree> _octree;
+
+	nav_msgs::OccupancyGrid _occupancy_grid;
 
 	/**
 	 * @brief Required minimum distance between two nodes
@@ -97,12 +107,24 @@ private:
 	 */
 	std::string _robot_frame;
 
+	bool received_grid;
+	nav_msgs::OccupancyGrid vis_map;
+
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message
 	 */
 	void convertOctomapMsgToOctree(
 			const octomap_msgs::Octomap::ConstPtr& map_msg);
+
+	void occupancyGridCallback(
+			const nav_msgs::OccupancyGrid::ConstPtr& map_msg);
+
+	bool worldToMap(double wx, double wy, unsigned int& mx, unsigned int& my, nav_msgs::OccupancyGrid &map);
+
+	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
+
+	bool isLineInCollision(int y_start, int y_end, int x, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
 	/**
 	 * @brief Visualize collision objects as markers in RViz

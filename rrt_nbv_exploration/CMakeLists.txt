@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
     rrt_nbv_exploration_msgs
     tf2
     tf2_ros
+    nav_msgs
     )
 
 find_package(octomap REQUIRED)
