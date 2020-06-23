@@ -21,6 +21,11 @@
 #include "fcl/math/transform.h"
 #include <nav_msgs/OccupancyGrid.h>
 
+struct point {
+	unsigned int x;
+	unsigned int y;
+};
+
 namespace rrt_nbv_exploration {
 /**
  * @brief The CollisionChecker class calculates a traversable path for the robot to a new node from it's parent node.
@@ -123,6 +128,8 @@ private:
 	bool worldToMap(double wx, double wy, unsigned int& mx, unsigned int& my, nav_msgs::OccupancyGrid &map);
 
 	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
+
+	bool isRectangleInCollision(double x, double y, double yaw, double half_height, double half_width, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
 	bool isLineInCollision(int y_start, int y_end, int x, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
