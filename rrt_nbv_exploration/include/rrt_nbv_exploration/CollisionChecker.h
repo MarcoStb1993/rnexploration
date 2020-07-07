@@ -111,8 +111,13 @@ private:
 	 * @brief Name of the robot's tf frame
 	 */
 	std::string _robot_frame;
-
-	bool received_grid;
+	/**
+	 * If the occupancy map for visualization was initialized already
+	 */
+	bool _init_vis_map;
+	/**
+	 * Occupancy map for visualizing collision checking on a 2D grid
+	 */
 	nav_msgs::OccupancyGrid vis_map;
 
 	/**
@@ -121,16 +126,55 @@ private:
 	 */
 	void convertOctomapMsgToOctree(
 			const octomap_msgs::Octomap::ConstPtr& map_msg);
-
+	/**
+	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking
+	 * @param Map message
+	 */
 	void occupancyGridCallback(
 			const nav_msgs::OccupancyGrid::ConstPtr& map_msg);
 
+	/**
+	 * @brief Convert world coordinates to coordinates in the map
+	 * @param World X-coordinate
+	 * @param World Y-coordinate
+	 * @param Reference to map X-coordinate that will be set
+	 * @param Reference to map Y-coordinate that will be set
+	 * @param Reference to map for conversion
+	 */
 	bool worldToMap(double wx, double wy, unsigned int& mx, unsigned int& my, nav_msgs::OccupancyGrid &map);
 
+	/**
+	 * @brief Check if a circular area with the given center is in collision
+	 * @param X-coordinate of the circle's center
+	 * @param Y-coordinate of the circle's center
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @return True if a collision was registered, false otherwise
+	 */
 	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
+	/**
+	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
+	 * @param X-coordinate of the rectangle's center
+	 * @param Y-coordinate of the rectangle's center
+	 * @param Yaw rotation of the rectangle around its center
+	 * @param Height of the rectangle divided by 2
+	 * @param Width of the rectangle divided by 2
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @return True if a collision was registered, false otherwise
+	 */
 	bool isRectangleInCollision(double x, double y, double yaw, double half_height, double half_width, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
+	/**
+	 * @brief Check if a line from one y-coordinate to another with consistent x-coordinate is in collision
+	 * @param Starting y-coordinate
+	 * @param Ending y-coordinate
+	 * @param X-coordinate
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @return True if a collision was registered, false otherwise
+	 */
 	bool isLineInCollision(int y_start, int y_end, int x, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
 
 	/**

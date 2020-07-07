@@ -28,7 +28,7 @@ CollisionChecker::CollisionChecker() :
 	}
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
-	received_grid = false;
+	_init_vis_map = false;
 }
 
 bool CollisionChecker::steer3D(rrt_nbv_exploration_msgs::Node &new_node,
@@ -175,106 +175,104 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		bool x0_left = corners[0].x < corners[2].x;
 		ROS_INFO_STREAM("Top=x0: " << y0_top << " Left=y0: " << x0_left);
 		for (unsigned int i = (y0_top ? corners[2].y : corners[0].y);
-				i <= (y0_top ? corners[0].y : corners[2].y); i++
-			) {
+				i <= (y0_top ? corners[0].y : corners[2].y); i++) {
 //			ROS_INFO_STREAM("line at x: " << i << " from " << (x0_left ? corners[0].y : corners[2].y) << " to " << (x0_left ? corners[2].y : corners[0].y));
-				if (isLineInCollision(x0_left ? corners[0].x : corners[2].x,
-						x0_left ? corners[2].x : corners[0].x, i, map, vis_map))
-				collision = true;//return true;
-			}
-		} else {
-			//Mid point
-			auto it_bot =
-					std::min_element(std::begin(corners), std::end(corners),
-							[](const point &p1, const point &p2) {return p1.y < p2.y;});
-			std::size_t bot_corner = std::distance(std::begin(corners), it_bot);
-			auto it_left =
-					std::min_element(std::begin(corners), std::end(corners),
-							[](const point &p1, const point &p2) {return p1.x < p2.x;});
-			std::size_t left_corner = std::distance(std::begin(corners),
-					it_left);
-			std::size_t right_corner = (left_corner + 2) % 4, top_corner =
-					(bot_corner + 2) % 4;
+			if (isLineInCollision(x0_left ? corners[0].x : corners[2].x,
+					x0_left ? corners[2].x : corners[0].x, i, map, vis_map))
+				collision = true; //return true;
+		}
+	} else {
+		//Mid point
+		auto it_bot =
+				std::min_element(std::begin(corners), std::end(corners),
+						[](const point &p1, const point &p2) {return p1.y < p2.y;});
+		std::size_t bot_corner = std::distance(std::begin(corners), it_bot);
+		auto it_left =
+				std::min_element(std::begin(corners), std::end(corners),
+						[](const point &p1, const point &p2) {return p1.x < p2.x;});
+		std::size_t left_corner = std::distance(std::begin(corners), it_left);
+		std::size_t right_corner = (left_corner + 2) % 4, top_corner =
+				(bot_corner + 2) % 4;
 //		ROS_INFO_STREAM(
 //				"Bot: " << bot_corner << " left: " << left_corner<< " right: " << right_corner << " top: " << top_corner);
-			float l_m = ((float) corners[left_corner].x
-					- (float) corners[bot_corner].x)
-					/ ((float) corners[left_corner].y
-							- (float) corners[bot_corner].y);
-			float r_m = ((float) corners[right_corner].x
-					- (float) corners[bot_corner].x)
-					/ ((float) corners[right_corner].y
-							- (float) corners[bot_corner].y);
+		float l_m = ((float) corners[left_corner].x
+				- (float) corners[bot_corner].x)
+				/ ((float) corners[left_corner].y
+						- (float) corners[bot_corner].y);
+		float r_m = ((float) corners[right_corner].x
+				- (float) corners[bot_corner].x)
+				/ ((float) corners[right_corner].y
+						- (float) corners[bot_corner].y);
 //		ROS_INFO_STREAM("l_m: " << l_m << " r_m: " <<r_m);
-			unsigned int lr_y = corners[bot_corner].y;
-			float l_x = (float) corners[bot_corner].x, r_x = l_x;
-			if (isLineInCollision(l_x, r_x, lr_y, map, vis_map))
-				collision = true; //return true;
-			while (lr_y < corners[top_corner].y) {
-				if (lr_y == corners[left_corner].y) {
-					l_m = ((float) corners[top_corner].x
-							- (float) corners[left_corner].x)
-							/ ((float) corners[top_corner].y
-									- (float) corners[left_corner].y);
-					l_x = (float) corners[left_corner].x;
+		unsigned int lr_y = corners[bot_corner].y;
+		float l_x = (float) corners[bot_corner].x, r_x = l_x;
+		if (isLineInCollision(l_x, r_x, lr_y, map, vis_map))
+			collision = true; //return true;
+		while (lr_y < corners[top_corner].y) {
+			if (lr_y == corners[left_corner].y) {
+				l_m = ((float) corners[top_corner].x
+						- (float) corners[left_corner].x)
+						/ ((float) corners[top_corner].y
+								- (float) corners[left_corner].y);
+				l_x = (float) corners[left_corner].x;
 //				ROS_INFO_STREAM("new l_m: " << l_m);
-				}
-				if (lr_y == corners[right_corner].y) {
-					r_m = ((float) corners[top_corner].x
-							- (float) corners[right_corner].x)
-							/ ((float) corners[top_corner].y
-									- (float) corners[right_corner].y);
-					r_x = (float) corners[right_corner].x;
+			}
+			if (lr_y == corners[right_corner].y) {
+				r_m = ((float) corners[top_corner].x
+						- (float) corners[right_corner].x)
+						/ ((float) corners[top_corner].y
+								- (float) corners[right_corner].y);
+				r_x = (float) corners[right_corner].x;
 //				ROS_INFO_STREAM("new r_m: " <<r_m);
-				}
-				l_x += l_m;
-				r_x += r_m;
-				lr_y++;
+			}
+			l_x += l_m;
+			r_x += r_m;
+			lr_y++;
 //			ROS_INFO_STREAM(
 //					"line x: " << lr_y << " l_x: " << l_x << " r_x: " << r_x);
 //			ROS_INFO_STREAM(
 //					"line(rounded) x: " << lr_y << " l_x: " << (unsigned int) round(l_x) << " r_x: " << (unsigned int) round(r_y));
-				if (isLineInCollision((unsigned int) round(l_x),
-						(unsigned int) round(r_x), lr_y, map, vis_map))
-					collision = true; //return true;
-			}
-
+			if (isLineInCollision((unsigned int) round(l_x),
+					(unsigned int) round(r_x), lr_y, map, vis_map))
+				collision = true; //return true;
 		}
-		return collision;
-	}
 
-	bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
-			nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map) {
+	}
+	return collision;
+}
+
+bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
+		nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map) {
 //	ROS_INFO_STREAM(
 //			"is line in collision? x: " << x <<" y-start: " << y_start << " y-end: " << y_end);
 //	ROS_INFO_STREAM(
 //			"map width: " << map.info.width << " map height: " << map.info.width << " map data length: " << map.data.size() << "map at 0 " << (int)map.data[0]);
-		if (y_start < 0 || y_end > map.info.width || x < 0
-				|| x > map.info.height)
-			return true;
-		bool collision = false;
-		for (int y = x * map.info.width + y_start;
-				y <= x * map.info.width + y_end; y++) {
-			if (map.data[y] == -1 || map.data[y] >= 100) {
-				collision = true; //return true;
-				vis_map.data[y] = 100;
-			} else {
-				vis_map.data[y] = 0;
-			}
+	if (y_start < 0 || y_end > map.info.width || x < 0 || x > map.info.height)
+		return true;
+	bool collision = false;
+	for (int y = x * map.info.width + y_start; y <= x * map.info.width + y_end;
+			y++) {
+		if (map.data[y] == -1 || map.data[y] >= 100) {
+			collision = true; //return true;
+			vis_map.data[y] = 100;
+		} else {
+			vis_map.data[y] = 0;
 		}
-		return collision; //false;
 	}
+	return collision; //false;
+}
 
-	bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
-			rrt_nbv_exploration_msgs::Node &nearest_node,
-			geometry_msgs::Point rand_sample, double min_distance) {
-		nav_msgs::OccupancyGrid map = _occupancy_grid;
-		double distance = sqrt(min_distance);
+bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
+		rrt_nbv_exploration_msgs::Node &nearest_node,
+		geometry_msgs::Point rand_sample, double min_distance) {
+	nav_msgs::OccupancyGrid map = _occupancy_grid;
+	double distance = sqrt(min_distance);
+	if (distance >= 2 * _robot_radius) {
 		bool no_collision = false;
 		if (_visualize_collision) {
 			vis_map.header.stamp = ros::Time::now();
 			vis_map.info.map_load_time = ros::Time::now();
-			if (!received_grid) {
+			if (!_init_vis_map) {
 				vis_map.header.frame_id = "/map";
 				vis_map.info.resolution = map.info.resolution;
 				vis_map.info.width = map.info.width;
@@ -282,7 +280,7 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 				vis_map.info.origin = map.info.origin;
 				vis_map.data = std::vector<int8_t>(
 						map.info.width * map.info.height, -1);
-				received_grid = true;
+				_init_vis_map = true;
 			}
 		}
 //	ROS_INFO_STREAM(
@@ -316,30 +314,64 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		}
 		return no_collision;
 	}
+	return false;
+}
 
-	void CollisionChecker::visualizeCollisionCheck(geometry_msgs::Point start,
-			geometry_msgs::Point goal, geometry_msgs::Point center,
-			double distance, double yaw, bool collision_start,
-			bool collision_goal, bool collision_path) {
-		visualization_msgs::Marker marker;
-		marker.header.frame_id = "/map";
-		marker.ns = "steering_visualization";
-		marker.id = 0;
-		marker.action = visualization_msgs::Marker::ADD;
-		marker.pose.orientation.w = 1.0;
-		marker.type = visualization_msgs::Marker::CYLINDER;
-		marker.color.a = 0.6f;
-		marker.color.r = 0.0f;
+void CollisionChecker::visualizeCollisionCheck(geometry_msgs::Point start,
+		geometry_msgs::Point goal, geometry_msgs::Point center, double distance,
+		double yaw, bool collision_start, bool collision_goal,
+		bool collision_path) {
+	visualization_msgs::Marker marker;
+	marker.header.frame_id = "/map";
+	marker.ns = "steering_visualization";
+	marker.id = 0;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.pose.orientation.w = 1.0;
+	marker.type = visualization_msgs::Marker::CYLINDER;
+	marker.color.a = 0.6f;
+	marker.color.r = 0.0f;
+	marker.color.g = 0.0f;
+	marker.color.b = 0.0f;
+	marker.header.stamp = ros::Time::now();
+	marker.pose.position.x = start.x;
+	marker.pose.position.y = start.y;
+	marker.pose.position.z = _robot_height / 2;
+	marker.scale.x = 2 * _robot_radius;
+	marker.scale.y = 2 * _robot_radius;
+	marker.scale.z = _robot_height;
+	if (collision_start) {
+		marker.color.r = 1.0f;
 		marker.color.g = 0.0f;
-		marker.color.b = 0.0f;
-		marker.header.stamp = ros::Time::now();
-		marker.pose.position.x = start.x;
-		marker.pose.position.y = start.y;
-		marker.pose.position.z = _robot_height / 2;
-		marker.scale.x = 2 * _robot_radius;
-		marker.scale.y = 2 * _robot_radius;
+	} else {
+		marker.color.g = 1.0f;
+		marker.color.r = 0.0f;
+	}
+	_collision_visualization.publish(marker);
+	marker.id = 1;
+	marker.pose.position.x = goal.x;
+	marker.pose.position.y = goal.y;
+	marker.pose.position.z = _robot_height / 2;
+	if (collision_goal) {
+		marker.color.r = 1.0f;
+		marker.color.g = 0.0f;
+	} else {
+		marker.color.g = 1.0f;
+		marker.color.r = 0.0f;
+	}
+	_collision_visualization.publish(marker);
+	if (distance > _path_box_distance_thres) {
+		marker.id = 2;
+		marker.type = visualization_msgs::Marker::CUBE;
+		marker.pose.position.x = center.x;
+		marker.pose.position.y = center.y;
+		marker.pose.position.z = center.z;
+		tf2::Quaternion quat_tf;
+		quat_tf.setRPY(0, 0, yaw);
+		marker.pose.orientation = tf2::toMsg(quat_tf);
+		marker.scale.x = distance - _path_box_distance_thres;
+		marker.scale.y = _robot_width;
 		marker.scale.z = _robot_height;
-		if (collision_start) {
+		if (collision_path) {
 			marker.color.r = 1.0f;
 			marker.color.g = 0.0f;
 		} else {
@@ -347,164 +379,129 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			marker.color.r = 0.0f;
 		}
 		_collision_visualization.publish(marker);
-		marker.id = 1;
-		marker.pose.position.x = goal.x;
-		marker.pose.position.y = goal.y;
-		marker.pose.position.z = _robot_height / 2;
-		if (collision_goal) {
-			marker.color.r = 1.0f;
-			marker.color.g = 0.0f;
-		} else {
-			marker.color.g = 1.0f;
-			marker.color.r = 0.0f;
-		}
-		_collision_visualization.publish(marker);
-		if (distance > _path_box_distance_thres) {
-			marker.id = 2;
-			marker.type = visualization_msgs::Marker::CUBE;
-			marker.pose.position.x = center.x;
-			marker.pose.position.y = center.y;
-			marker.pose.position.z = center.z;
-			tf2::Quaternion quat_tf;
-			quat_tf.setRPY(0, 0, yaw);
-			marker.pose.orientation = tf2::toMsg(quat_tf);
-			marker.scale.x = distance - _path_box_distance_thres;
-			marker.scale.y = _robot_width;
-			marker.scale.z = _robot_height;
-			if (collision_path) {
-				marker.color.r = 1.0f;
-				marker.color.g = 0.0f;
-			} else {
-				marker.color.g = 1.0f;
-				marker.color.r = 0.0f;
-			}
-			_collision_visualization.publish(marker);
-		}
 	}
+}
 
-	geometry_msgs::Pose CollisionChecker::getRobotPose() {
-		geometry_msgs::Pose robot_pose;
-		try {
-			geometry_msgs::TransformStamped transformStamped =
-					_tf_buffer.lookupTransform("map", _robot_frame,
-							ros::Time(0));
-			robot_pose.position.x = transformStamped.transform.translation.x;
-			robot_pose.position.y = transformStamped.transform.translation.y;
-			robot_pose.position.z = transformStamped.transform.translation.z;
-			robot_pose.orientation = transformStamped.transform.rotation;
-		} catch (tf2::TransformException &ex) {
-			ROS_WARN("%s", ex.what());
-		}
+geometry_msgs::Pose CollisionChecker::getRobotPose() {
+	geometry_msgs::Pose robot_pose;
+	try {
+		geometry_msgs::TransformStamped transformStamped =
+				_tf_buffer.lookupTransform("map", _robot_frame, ros::Time(0));
+		robot_pose.position.x = transformStamped.transform.translation.x;
+		robot_pose.position.y = transformStamped.transform.translation.y;
+		robot_pose.position.z = transformStamped.transform.translation.z;
+		robot_pose.orientation = transformStamped.transform.rotation;
+	} catch (tf2::TransformException &ex) {
+		ROS_WARN("%s", ex.what());
+	}
 //	ROS_INFO_STREAM("Robot position: " << robot_pose.position.x << ", " << robot_pose.position.y << ", " << robot_pose.position.z);
-		return robot_pose;
-	}
+	return robot_pose;
+}
 
-	double CollisionChecker::getDistanceToNode(geometry_msgs::Point node) {
-		geometry_msgs::Point robot = getRobotPose().position;
-		return sqrt(
-				pow(robot.x - node.x, 2) + pow(robot.y - node.y, 2)
-						+ pow(robot.z - node.z, 2));
-	}
+double CollisionChecker::getDistanceToNode(geometry_msgs::Point node) {
+	geometry_msgs::Point robot = getRobotPose().position;
+	return sqrt(
+			pow(robot.x - node.x, 2) + pow(robot.y - node.y, 2)
+					+ pow(robot.z - node.z, 2));
+}
 
-	void CollisionChecker::convertOctomapMsgToOctree(
-			const octomap_msgs::Octomap::ConstPtr& map_msg) {
-		_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
-		_octree = std::dynamic_pointer_cast < octomap::OcTree
-				> (_abstract_octree);
-	}
+void CollisionChecker::convertOctomapMsgToOctree(
+		const octomap_msgs::Octomap::ConstPtr& map_msg) {
+	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
+	_octree = std::dynamic_pointer_cast < octomap::OcTree > (_abstract_octree);
+}
 
-	void CollisionChecker::occupancyGridCallback(
-			const nav_msgs::OccupancyGrid::ConstPtr& map_msg) {
+void CollisionChecker::occupancyGridCallback(
+		const nav_msgs::OccupancyGrid::ConstPtr& map_msg) {
 //	ROS_INFO_STREAM("received occupancy grid");
-		_occupancy_grid = *map_msg;
+	_occupancy_grid = *map_msg;
 //	ROS_INFO_STREAM(
 //			"Res: " << map_msg->info.resolution << " Width: " << map_msg->info.width<< " Height: " << map_msg->info.height << " x: "<<map_msg->info.origin.position.x << " y: " << map_msg->info.origin.position.y);
 //	unsigned int mx, my;
 //	if (worldToMap(0.0, 0.0, mx, my))
 //		ROS_INFO_STREAM("Center x: " << mx << " y: " << my);
-	}
+}
 
-	bool CollisionChecker::worldToMap(double wx, double wy, unsigned int& mx,
-			unsigned int& my, nav_msgs::OccupancyGrid &map) {
-		if (wx < map.info.origin.position.x || wy < map.info.origin.position.y)
-			return false;
-		mx = (int) ((wx - map.info.origin.position.x) / map.info.resolution);
-		my = (int) ((wy - map.info.origin.position.y) / map.info.resolution);
-		if (mx < map.info.height && my < map.info.width)
-			return true;
+bool CollisionChecker::worldToMap(double wx, double wy, unsigned int& mx,
+		unsigned int& my, nav_msgs::OccupancyGrid &map) {
+	if (wx < map.info.origin.position.x || wy < map.info.origin.position.y)
 		return false;
-	}
+	mx = (int) ((wx - map.info.origin.position.x) / map.info.resolution);
+	my = (int) ((wy - map.info.origin.position.y) / map.info.resolution);
+	if (mx < map.info.height && my < map.info.width)
+		return true;
+	return false;
+}
 
-	void CollisionChecker::calculatePath(
-			std::vector<geometry_msgs::PoseStamped> &path,
-			rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node) {
-		ROS_INFO_STREAM(
-				"calculate path from " << start_node << " to " << goal_node);
-		if (start_node == goal_node) {
+void CollisionChecker::calculatePath(
+		std::vector<geometry_msgs::PoseStamped> &path,
+		rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node) {
+	ROS_INFO_STREAM(
+			"calculate path from " << start_node << " to " << goal_node);
+	if (start_node == goal_node) {
+		geometry_msgs::PoseStamped path_pose;
+		path_pose.header.frame_id = "map";
+		path_pose.header.stamp = ros::Time::now();
+		path_pose.pose.position = rrt.nodes[start_node].position;
+		tf2::Quaternion quaternion;
+		quaternion.setRPY(0, 0,
+		M_PI * rrt.nodes[start_node].best_yaw / 180.0);
+		quaternion.normalize();
+		path_pose.pose.orientation = tf2::toMsg(quaternion);
+		path.push_back(path_pose);
+	} else {
+		bool continue_start = (start_node == 0 ? false : true), continue_goal =
+				(goal_node == 0 ? false : true);
+		std::vector<int> start_path, goal_path;
+		start_path.push_back(start_node);
+		goal_path.push_back(goal_node);
+		while (continue_start || continue_goal) {
+			if (continue_start) {
+				start_path.push_back(rrt.nodes[start_path.back()].parent);
+				ROS_INFO_STREAM(start_path.back() << " added to start_path");
+				if (start_path.back() == 0)
+					continue_start = false; //root node added
+				auto result = std::find(goal_path.begin(), goal_path.end(),
+						start_path.back());
+				if (result != goal_path.end()) {
+					ROS_INFO_STREAM("Found in goal_path!");
+					goal_path.erase(result, goal_path.end());
+					continue_start = false;
+					continue_goal = false;
+				}
+			}
+			if (continue_goal) {
+				goal_path.push_back(rrt.nodes[goal_path.back()].parent);
+				ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
+				if (goal_path.back() == 0)
+					continue_goal = false;	//root node added
+				auto result = std::find(start_path.begin(), start_path.end(),
+						goal_path.back());
+				if (result != start_path.end()) {
+					ROS_INFO_STREAM("Found in start_path!");
+					start_path.erase(result, start_path.end());
+					continue_start = false;
+					continue_goal = false;
+				}
+			}
+		}
+		start_path.insert(start_path.end(), goal_path.rbegin(),
+				goal_path.rend());
+		ROS_INFO_STREAM("Nodes in path:");
+		for (auto &i : start_path) {
 			geometry_msgs::PoseStamped path_pose;
 			path_pose.header.frame_id = "map";
 			path_pose.header.stamp = ros::Time::now();
-			path_pose.pose.position = rrt.nodes[start_node].position;
+			path_pose.pose.position = rrt.nodes[i].position;
 			tf2::Quaternion quaternion;
-			quaternion.setRPY(0, 0,
-			M_PI * rrt.nodes[start_node].best_yaw / 180.0);
+			quaternion.setRPY(0, 0, M_PI * rrt.nodes[i].best_yaw / 180.0);
 			quaternion.normalize();
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
-		} else {
-			bool continue_start = (start_node == 0 ? false : true),
-					continue_goal = (goal_node == 0 ? false : true);
-			std::vector<int> start_path, goal_path;
-			start_path.push_back(start_node);
-			goal_path.push_back(goal_node);
-			while (continue_start || continue_goal) {
-				if (continue_start) {
-					start_path.push_back(rrt.nodes[start_path.back()].parent);
-					ROS_INFO_STREAM(
-							start_path.back() << " added to start_path");
-					if (start_path.back() == 0)
-						continue_start = false; //root node added
-					auto result = std::find(goal_path.begin(), goal_path.end(),
-							start_path.back());
-					if (result != goal_path.end()) {
-						ROS_INFO_STREAM("Found in goal_path!");
-						goal_path.erase(result, goal_path.end());
-						continue_start = false;
-						continue_goal = false;
-					}
-				}
-				if (continue_goal) {
-					goal_path.push_back(rrt.nodes[goal_path.back()].parent);
-					ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
-					if (goal_path.back() == 0)
-						continue_goal = false;	//root node added
-					auto result = std::find(start_path.begin(),
-							start_path.end(), goal_path.back());
-					if (result != start_path.end()) {
-						ROS_INFO_STREAM("Found in start_path!");
-						start_path.erase(result, start_path.end());
-						continue_start = false;
-						continue_goal = false;
-					}
-				}
-			}
-			start_path.insert(start_path.end(), goal_path.rbegin(),
-					goal_path.rend());
-			ROS_INFO_STREAM("Nodes in path:");
-			for (auto &i : start_path) {
-				geometry_msgs::PoseStamped path_pose;
-				path_pose.header.frame_id = "map";
-				path_pose.header.stamp = ros::Time::now();
-				path_pose.pose.position = rrt.nodes[i].position;
-				tf2::Quaternion quaternion;
-				quaternion.setRPY(0, 0, M_PI * rrt.nodes[i].best_yaw / 180.0);
-				quaternion.normalize();
-				path_pose.pose.orientation = tf2::toMsg(quaternion);
-				path.push_back(path_pose);
-				ROS_INFO_STREAM(
-						i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
-			}
+			ROS_INFO_STREAM(
+					i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
 		}
 	}
+}
 
-	}
+}
