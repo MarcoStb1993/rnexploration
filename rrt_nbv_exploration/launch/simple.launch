@@ -17,7 +17,7 @@
 	<arg name="visualize_gain_calculation" default="false" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />
-	<arg name="octomap_collision_topic" default="octomap_binary_wo_ground" />	
+	<arg name="octomap_collision_topic" default="octomap_binary" />	
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen" >

@@ -60,7 +60,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 	_rrt.node_counter = 0;
 	rrt_nbv_exploration_msgs::Node root;
 	root.position = seed;
-	root.position.z = _sensor_height;
+	root.position.z = 0.2; //_sensor_height;
 	root.children_counter = 0;
 	root.parent = -1;
 	root.status = rrt_nbv_exploration_msgs::Node::VISITED;
@@ -75,6 +75,9 @@ void TreeConstructor::initRrt(const geometry_msgs::Point& seed) {
 }
 
 void TreeConstructor::startRrtConstruction() {
+	_rrt.nodes.clear();
+	_nodes_ordered_by_gain.clear();
+	initRrt(_collision_checker->getRobotPose().position);
 	_running = true;
 }
 
@@ -111,7 +114,7 @@ bool TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
 			-_map_dimensions[1] / 2, _map_dimensions[1] / 2);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
-	rand_sample.z = 0.2;
+	rand_sample.z = 0.2; //_sensor_height;
 	octomap::point3d rand_point(rand_sample.x, rand_sample.y, rand_sample.z);
 	octomap::OcTreeNode* octree_node = _octree->search(rand_point);
 	if (octree_node != NULL && !_octree->isNodeOccupied(octree_node)) {

@@ -168,12 +168,12 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 //			"Square with center " << x << ", " << y << ": 0:" << corners[0].x << ", " << corners[0].y << ", 1: " << corners[1].x << ", " << corners[1].y << ", 2: " << corners[2].x << ", " << corners[2].y << ", 3: " << corners[3].x << ", " << corners[3].y);
 	if ((corners[0].x == corners[1].x && corners[1].y == corners[2].y)
 			|| (corners[1].x == corners[2].x && corners[2].y == corners[3].y)) {
-		ROS_INFO("aligned");
-		ROS_INFO_STREAM(
-				"Square with center " << x << ", " << y << ": 0:" << corners[0].x << ", " << corners[0].y << ", 1: " << corners[1].x << ", " << corners[1].y << ", 2: " << corners[2].x << ", " << corners[2].y << ", 3: " << corners[3].x << ", " << corners[3].y);
+//		ROS_INFO("aligned");
+//		ROS_INFO_STREAM(
+//				"Square with center " << x << ", " << y << ": 0:" << corners[0].x << ", " << corners[0].y << ", 1: " << corners[1].x << ", " << corners[1].y << ", 2: " << corners[2].x << ", " << corners[2].y << ", 3: " << corners[3].x << ", " << corners[3].y);
 		bool y0_top = corners[0].y > corners[2].y;
 		bool x0_left = corners[0].x < corners[2].x;
-		ROS_INFO_STREAM("Top=x0: " << y0_top << " Left=y0: " << x0_left);
+//		ROS_INFO_STREAM("Top=x0: " << y0_top << " Left=y0: " << x0_left);
 		for (unsigned int i = (y0_top ? corners[2].y : corners[0].y);
 				i <= (y0_top ? corners[0].y : corners[2].y); i++) {
 //			ROS_INFO_STREAM("line at x: " << i << " from " << (x0_left ? corners[0].y : corners[2].y) << " to " << (x0_left ? corners[2].y : corners[0].y));

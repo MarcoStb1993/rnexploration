@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Kinect
+    SyncSource: ""
   - Class: rsm::RSMControlPanel
     Name: RSMControlPanel
 Toolbars:
@@ -344,7 +344,7 @@ Visualization Manager:
       Max. Octree Depth: 16
       Min. Height Display: -3.40282347e+38
       Name: OccupancyGrid
-      Octomap Topic: /octomap_binary_wo_ground
+      Octomap Topic: /octomap_full
       Queue Size: 5
       Value: true
       Voxel Alpha: 1
@@ -525,7 +525,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 15.8024349
+      Distance: 22.5241699
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
