@@ -70,7 +70,7 @@
 					</image>
 					<clip>
 						<near>0.9</near>
-						<far>8.0</far>
+						<far>20.0</far>
 					</clip>
 				</camera>
 				<plugin name="kinect_${prefix}_controller"
@@ -90,7 +90,8 @@
 					<distortion_k3>0.0</distortion_k3>
 					<distortion_t1>0.0</distortion_t1>
 					<distortion_t2>0.0</distortion_t2>
-					<pointCloudCutoff>0.4</pointCloudCutoff>
+					<pointCloudCutoff>0.9</pointCloudCutoff>
+					<pointCloudCutoffMax>20.0</pointCloudCutoffMax>
 					<robotNamespace>${robot_namespace}</robotNamespace>
 				</plugin>
 			</sensor>

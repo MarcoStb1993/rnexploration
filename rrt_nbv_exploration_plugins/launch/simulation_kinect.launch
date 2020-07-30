@@ -3,7 +3,7 @@
 
 <launch>
 	<arg name="world"
-		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" /> <!--"/home/marco/test.world"-->
 	<arg name="robot_frame" default="base_footprint" />
 	<arg name="autonomy_cmd_vel_topic" default="/autonomy/cmd_vel" />
 	<arg name="teleoperation_cmd_vel_topic"
@@ -138,6 +138,8 @@
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
 		<remap from="cloud_in" to="/camera/depth/points" />
+		<param name="publish_free_space" value="true"/>
+    	<param name="sensor_model/max_range" value="8"/>
 	</node>
 
 	<!-- nodee pkg="octomap_server" type="octomap_server_node"
