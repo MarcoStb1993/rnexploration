@@ -218,6 +218,7 @@ void TreeConstructor::updateCurrentGoal() {
 		break;
 	}
 	updateNodes(update_center);
+	_last_goal_node = (_current_goal_node == -1 ? 0 : _current_goal_node);
 	_current_goal_node = -1;
 
 	//ROS_INFO("Set current goal to %i", _current_goal_node);
@@ -262,13 +263,13 @@ bool TreeConstructor::requestPath(
 		rrt_nbv_exploration_msgs::RequestPath::Request &req,
 		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
 	//TODO: Check robot position & get nearest node
-	double min_distance;
-	int nearest_node;
-	_tree_searcher->findNearestNeighbour(
-			_collision_checker->getRobotPose().position, min_distance,
-			nearest_node);
+//	double min_distance;
+//	int nearest_node;
+//	_tree_searcher->findNearestNeighbour(
+//			_collision_checker->getRobotPose().position, min_distance,
+//			nearest_node);
 	std::vector<geometry_msgs::PoseStamped> rrt_path;
-	_collision_checker->calculatePath(rrt_path, _rrt, nearest_node,
+	_collision_checker->calculatePath(rrt_path, _rrt, _last_goal_node,
 			_current_goal_node);
 	res.path = rrt_path;
 	return true;

@@ -511,44 +511,44 @@ void CollisionChecker::calculatePath(
 			path.push_back(path_pose);
 			ROS_INFO_STREAM(
 					i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
-			if (&i != &start_path.back()) { //add in between node
-				geometry_msgs::PoseStamped path_pose_int;
-				path_pose_int.header.frame_id = "map";
-				path_pose_int.header.stamp = timestmap;
-				geometry_msgs::Point position;
-				position.x = (rrt.nodes[*(&i + 1)].position.x
-						+ rrt.nodes[i].position.x) / 2;
-				position.y = (rrt.nodes[*(&i + 1)].position.y
-						+ rrt.nodes[i].position.y) / 2;
-				position.z = 0.2;
-				path_pose_int.pose.position = position;
-				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-				path.push_back(path_pose_int);
-
-				path_pose_int.header.frame_id = "map";
-				path_pose_int.header.stamp = timestmap;
-				position.x = (rrt.nodes[*(&i + 1)].position.x * 3
-						+ rrt.nodes[i].position.x) / 4;
-				position.y = (rrt.nodes[*(&i + 1)].position.y * 3
-						+ rrt.nodes[i].position.y) / 4;
-				position.z = 0.2;
-				path_pose_int.pose.position = position;
-				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-				path.push_back(path_pose_int);
-
-				path_pose_int.header.frame_id = "map";
-				path_pose_int.header.stamp = timestmap;
-				position.x = (rrt.nodes[*(&i + 1)].position.x
-						+ rrt.nodes[i].position.x * 3) / 4;
-				position.y = (rrt.nodes[*(&i + 1)].position.y
-						+ rrt.nodes[i].position.y * 3) / 4;
-				position.z = 0.2;
-				path_pose_int.pose.position = position;
-				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-				path.push_back(path_pose_int);
-			}
+//			if (&i != &start_path.back()) { //add in between node
+//				geometry_msgs::PoseStamped path_pose_int;
+//				path_pose_int.header.frame_id = "map";
+//				path_pose_int.header.stamp = timestmap;
+//				geometry_msgs::Point position;
+//				position.x = (rrt.nodes[*(&i + 1)].position.x
+//						+ rrt.nodes[i].position.x) / 2;
+//				position.y = (rrt.nodes[*(&i + 1)].position.y
+//						+ rrt.nodes[i].position.y) / 2;
+//				position.z = 0.2;
+//				path_pose_int.pose.position = position;
+//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
+//				path.push_back(path_pose_int);
+//
+//				path_pose_int.header.frame_id = "map";
+//				path_pose_int.header.stamp = timestmap;
+//				position.x = (rrt.nodes[*(&i + 1)].position.x * 3
+//						+ rrt.nodes[i].position.x) / 4;
+//				position.y = (rrt.nodes[*(&i + 1)].position.y * 3
+//						+ rrt.nodes[i].position.y) / 4;
+//				position.z = 0.2;
+//				path_pose_int.pose.position = position;
+//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
+//				path.push_back(path_pose_int);
+//
+//				path_pose_int.header.frame_id = "map";
+//				path_pose_int.header.stamp = timestmap;
+//				position.x = (rrt.nodes[*(&i + 1)].position.x
+//						+ rrt.nodes[i].position.x * 3) / 4;
+//				position.y = (rrt.nodes[*(&i + 1)].position.y
+//						+ rrt.nodes[i].position.y * 3) / 4;
+//				position.z = 0.2;
+//				path_pose_int.pose.position = position;
+//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
+//				path.push_back(path_pose_int);
+//			}
 		}
-		path.erase(path.begin()); //remove start node
+		//path.erase(path.begin()); //remove start node
 	}
 }
 
