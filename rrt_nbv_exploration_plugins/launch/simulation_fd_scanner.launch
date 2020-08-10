@@ -192,6 +192,8 @@
 		<arg name="sensor_vertical_fov" value="180" />
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
+		<arg name="occupancy_grid_topic" value="map" />
+		<arg name="edge_length" default="-1.0" />	
 	</include>
 
 	<!-- RViz für Exploration -->

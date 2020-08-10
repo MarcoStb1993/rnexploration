@@ -19,6 +19,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("sensor_range", _sensor_range, 5.0);
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
+	private_nh.param("edge_length", _edge_length, -1.0);
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
@@ -91,11 +92,12 @@ void TreeConstructor::runRrtConstruction() {
 	if (_running && _map_dimensions[0] && _map_dimensions[1]
 			&& _map_dimensions[2]) {
 		geometry_msgs::Point rand_sample;
-		if (samplePoint(rand_sample)) {
-			double min_distance;
-			int nearest_node;
-			_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
-					nearest_node);
+		samplePoint(rand_sample);
+		double min_distance;
+		int nearest_node;
+		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
+				nearest_node);
+		if (min_distance >= _edge_length) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
@@ -107,7 +109,7 @@ void TreeConstructor::runRrtConstruction() {
 	_rrt_publisher.publish(_rrt);
 }
 
-bool TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
+void TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
 	std::uniform_real_distribution<double> x_distribution(
 			-_map_dimensions[0] / 2, _map_dimensions[0] / 2);
 	std::uniform_real_distribution<double> y_distribution(
@@ -115,16 +117,29 @@ bool TreeConstructor::samplePoint(geometry_msgs::Point& rand_sample) {
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
 	rand_sample.z = 0.2; //_sensor_height;
-	octomap::point3d rand_point(rand_sample.x, rand_sample.y, rand_sample.z);
-	octomap::OcTreeNode* octree_node = _octree->search(rand_point);
-	if (octree_node != NULL && !_octree->isNodeOccupied(octree_node)) {
-		return true;
-	}
-	return false;
+//	octomap::point3d rand_point(rand_sample.x, rand_sample.y, rand_sample.z);
+//	octomap::OcTreeNode* octree_node = _octree->search(rand_point);
+//	if (octree_node != NULL && !_octree->isNodeOccupied(octree_node)) {
+//		return true;
+//	}
+//	return false;
 }
 
 void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		double min_distance, int nearest_node) {
+	if (_edge_length > 0) {
+		double distance = sqrt(min_distance);
+		double x = _rrt.nodes[nearest_node].position.x
+				- (_edge_length
+						* (_rrt.nodes[nearest_node].position.x - rand_sample.x)
+						/ distance);
+		double y = _rrt.nodes[nearest_node].position.y
+				- (_edge_length
+						* (_rrt.nodes[nearest_node].position.y - rand_sample.y)
+						/ distance);
+		rand_sample.x = x;
+		rand_sample.y = y;
+	}
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
 			min_distance)) {

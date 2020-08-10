@@ -267,7 +267,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		geometry_msgs::Point rand_sample, double min_distance) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	double distance = sqrt(min_distance);
-	if (distance >= 2 * _robot_radius) {
+	//if (distance >= 2 * _robot_radius) {
 		bool no_collision = false;
 		if (_visualize_collision) {
 			vis_map.header.stamp = ros::Time::now();
@@ -313,8 +313,8 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 			_visualization_pub.publish(vis_map);
 		}
 		return no_collision;
-	}
-	return false;
+//	}
+//	return false;
 }
 
 void CollisionChecker::visualizeCollisionCheck(geometry_msgs::Point start,

@@ -115,6 +115,10 @@ private:
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
 	double _sensor_height;
+	/**
+	 * @brief Fixed length of the tree's edges, flexible if set to -1 (TODO: wavefront if set to 0)
+	 */
+	double _edge_length;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -124,7 +128,7 @@ private:
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point
      */
-     bool samplePoint(geometry_msgs::Point& rand_sample);
+     void samplePoint(geometry_msgs::Point& rand_sample);
     /**
      * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
      * @param Randomly sampled point

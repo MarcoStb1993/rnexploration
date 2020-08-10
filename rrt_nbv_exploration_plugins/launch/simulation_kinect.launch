@@ -172,6 +172,7 @@
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
+		<arg name="edge_length" default="1" />	
 	</include>
 
 	<!-- RViz für Exploration -->

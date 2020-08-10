@@ -6,7 +6,8 @@
 	<arg name="sensor_height" default="0.5" />
 	<arg name="robot_height" default="1.0" />
 	<arg name="robot_width" default="1.0" />
-	<arg name="robot_radius" default="1.0" />	
+	<arg name="robot_radius" default="1.0" />
+	<arg name="edge_length" default="-1.0" />	
 	<arg name="sensor_min_range" default="0.5" />
 	<arg name="delta_radius" default="0.1" />
 	<arg name="delta_phi" default="10" />
@@ -35,6 +36,7 @@
 		<param name="robot_height" type="double" value="$(arg robot_height)" />
 		<param name="robot_width" type="double" value="$(arg robot_width)" />
 		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
+		<param name="edge_length" type="double" value="$(arg edge_length)" />
 		<param name="octomap_topic" type="string" value="$(arg octomap_collision_topic)" />
 		<param name="octomap_collision_topic" type="string" value="$(arg octomap_collision_topic)" />
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
