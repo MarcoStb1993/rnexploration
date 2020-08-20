@@ -84,9 +84,17 @@ private:
 	 */
 	int _sensor_vertical_fov;
 	/**
+	 * Maximum number of points that can be added for each yaw step to calculate gain
+	 */
+	int _best_gain_per_view;
+	/**
 	 * Maximum number of points that can be added to calculate gain
 	 */
 	int _max_gain_points;
+	/**
+	 * Required minimum percentage of points that have to be free space of all points in view used for gain calculation at a specific yaw angle
+	 */
+	double _min_view_score;
 	/**
 	 * Show gain calculation raycasting
 	 */

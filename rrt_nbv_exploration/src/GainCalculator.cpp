@@ -15,6 +15,7 @@ GainCalculator::GainCalculator() :
 	private_nh.param("visualize_gain_calculation", _visualize_gain_calculation,
 			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
+	private_nh.param("min_view_score", _min_view_score, 0.1);
 	ros::NodeHandle nh("rne");
 	_raycast_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raycast_visualization", 1000);
@@ -46,7 +47,7 @@ void GainCalculator::precalculateGainPollPoints() {
 	}
 	int radius_steps = (int) ((_sensor_max_range - _sensor_min_range)
 			/ _delta_radius);
-//	ROS_INFO_STREAM("Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
+	ROS_INFO_STREAM("Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
 	_gain_poll_points.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()][radius_steps]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -61,8 +62,10 @@ void GainCalculator::precalculateGainPollPoints() {
 			}
 		}
 	}
+
+	_best_gain_per_view = phi_steps.size() * radius_steps * (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
-//	ROS_INFO_STREAM("Maximum reachable gain: " << _max_gain_points);
+	ROS_INFO_STREAM("Maximum reachable gain: " << _max_gain_points << " Max reachable gain per view: " << _best_gain_per_view);
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
@@ -134,6 +137,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		}
 	}
 
+
 	int best_yaw = 0;
 	int best_yaw_score = 0;
 	for (int yaw = 0; yaw < 360; yaw++) {
@@ -154,9 +158,14 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		}
 	}
 
-	if (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-			&& node.best_yaw <= best_yaw + 5 && node.best_yaw >= best_yaw - 5) {
+	double view_score = (double)best_yaw_score / (double)_best_gain_per_view;
+
+	ROS_INFO_STREAM("Best yaw: " << best_yaw_score << " View score: " << view_score << " Min view score: " << _min_view_score);
+
+	if (view_score < _min_view_score || (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+			&& node.best_yaw <= best_yaw + 5 && node.best_yaw >= best_yaw - 5)) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
+		ROS_INFO_STREAM("Node counts as explored");
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 	} else {
 		node.gain = best_yaw_score;
