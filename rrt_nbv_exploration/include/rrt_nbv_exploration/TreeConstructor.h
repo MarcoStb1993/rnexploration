@@ -9,6 +9,7 @@
 #include "octomap_ros/conversions.h"
 #include <rrt_nbv_exploration_msgs/Tree.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
+#include <rrt_nbv_exploration_msgs/NodeList.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
 #include <rrt_nbv_exploration_msgs/RequestPath.h>
@@ -17,7 +18,6 @@
 #include <random>
 #include "math.h"
 #include "rrt_nbv_exploration/CollisionChecker.h"
-#include "rrt_nbv_exploration/GainCalculator.h"
 #include "rrt_nbv_exploration/TreeSearcher.h"
 
 namespace rrt_nbv_exploration
@@ -56,6 +56,8 @@ private:
 
     ros::Publisher _rrt_publisher;
     ros::Publisher _best_and_current_goal_publisher;
+    ros::Publisher _nodes_to_update_publisher;
+    ros::Subscriber _updated_nodes_subscriber;
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
     ros::ServiceServer _request_path_service;
@@ -71,10 +73,6 @@ private:
      * @brief Helper class for calculating a viable path between two nodes
      */
     std::shared_ptr<CollisionChecker> _collision_checker;
-    /**
-     * @brief Helper class for calculating gain of a node
-     */
-    std::shared_ptr<GainCalculator> _gain_calculator;
     /**
      * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
      */
@@ -95,6 +93,10 @@ private:
      * @brief All nodes (their position in the rrt node list) ordered ascending by a gain function
      */
     std::list<int> _nodes_ordered_by_gain;
+    /**
+     * @brief List of nodes (their position in the rrt node list) that require their gain to be calculated
+     */
+    std::list<int> _nodes_to_update;
     /**
      * @brief The node that is currently being pursued as a navigation goal
      */
@@ -159,10 +161,19 @@ private:
      */
     void publishNodeWithBestGain();
     /**
+     * @brief Publish a list of nodes which gains need to be (re)calculated
+     */
+    void publishNodesToUpdate();
+    /**
      * @brief Updates all nodes' gains in the doubled sensor range around the specified center node
      * @param Node in the center of the update spheroid
      */
     void updateNodes(geometry_msgs::Point center_node);
+    /**
+     * @brief Callback for subscriber to "updated_nodes" topic which refreshes the list of node to update
+     * @param List of nodes which gains were updated
+     */
+    void updatedNodesCallback(const rrt_nbv_exploration_msgs::NodeList::ConstPtr& updated_nodes);
     /**
      * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
      * @param "octomap_binary" message

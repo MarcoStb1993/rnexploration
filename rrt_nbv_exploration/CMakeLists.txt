@@ -36,8 +36,9 @@ link_libraries(${OCTOMAP_LIBRARIES})
 add_executable(rneNode src/RneNode.cpp
 				src/TreeConstructor.cpp
 				src/TreeSearcher.cpp
-				src/GainCalculator.cpp
 				src/CollisionChecker.cpp)
+add_executable(gainCalcNode src/GainCalcNode.cpp
+				src/GainCalculator.cpp)
 add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 				src/RneVisualizer.cpp)
 
@@ -45,9 +46,13 @@ add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 target_link_libraries(rneNode
     ${catkin_LIBRARIES}
     )
+target_link_libraries(gainCalcNode
+    ${catkin_LIBRARIES}
+    )
 target_link_libraries(rneVisualizationNode
     ${catkin_LIBRARIES}
     )
 
 add_dependencies(rneNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS})
 add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS})

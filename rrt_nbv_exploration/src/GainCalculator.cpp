@@ -16,11 +16,24 @@ GainCalculator::GainCalculator() :
 			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
+	std::string octomap_topic;
+	private_nh.param < std::string
+			> ("octomap_topic", octomap_topic, "octomap_binary");
 	ros::NodeHandle nh("rne");
-	_raycast_visualization = nh.advertise<visualization_msgs::Marker>(
-			"raycast_visualization", 1000);
+	_raycast_visualization = nh.advertise < visualization_msgs::Marker
+			> ("raycast_visualization", 1000);
+	_updated_nodes_publisher = nh.advertise < rrt_nbv_exploration_msgs::NodeList
+			> ("updated_nodes", 1);
+	_nodes_to_update_subscriber = nh.subscribe("nodes_to_update", 1,
+			&TreeConstructor::nodesToUpdateCallback, this);
+	_rrt_tree_sub = nh.subscribe("rrt_tree", 1000,
+			&RneVisualizer::visualizeRrtTree, this);
 
-	precalculateGainPollPoints();
+	_octomap_sub = _nh.subscribe(octomap_topic, 1,
+			&GainCalculator::convertOctomapMsgToOctree, this);
+
+	_best_gain_per_view = 0;
+	_max_gain_points = 0;
 }
 
 GainCalculator::~GainCalculator() {
@@ -47,7 +60,7 @@ void GainCalculator::precalculateGainPollPoints() {
 	}
 	int radius_steps = (int) ((_sensor_max_range - _sensor_min_range)
 			/ _delta_radius);
-	ROS_INFO_STREAM("Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
+	//ROS_INFO_STREAM("Dimensions: " << theta_steps.size( )<< ", "<< phi_steps.size()<< ", "<< radius_steps);
 	_gain_poll_points.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()][radius_steps]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -56,20 +69,20 @@ void GainCalculator::precalculateGainPollPoints() {
 			StepStruct phi = phi_steps.at(p);
 			for (int r = 0; r < radius_steps; r++) {
 				double radius = _sensor_min_range + r * _delta_radius;
-				_gain_poll_points[t][p][r] = {radius * theta.cos * phi.sin, radius
-					* theta.sin * phi.sin, radius * phi.cos, theta.step,
-					phi.step, radius};
+				_gain_poll_points[t][p][r] = { radius * theta.cos * phi.sin,
+						radius * theta.sin * phi.sin, radius * phi.cos,
+						theta.step, phi.step, radius };
 			}
 		}
 	}
 
-	_best_gain_per_view = phi_steps.size() * radius_steps * (_sensor_horizontal_fov / _delta_theta + 1);
+	_best_gain_per_view = phi_steps.size() * radius_steps
+			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
-	ROS_INFO_STREAM("Maximum reachable gain: " << _max_gain_points << " Max reachable gain per view: " << _best_gain_per_view);
+	//ROS_INFO_STREAM("Maximum reachable gain: " << _max_gain_points << " Max reachable gain per view: " << _best_gain_per_view);
 }
 
-void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
-		std::shared_ptr<octomap::OcTree> octree) {
+void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raycast_visualization";
@@ -109,7 +122,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 				vis_point.x = point.x + x;
 				vis_point.y = point.y + y;
 				vis_point.z = point.z + z;
-				octomap::OcTreeNode* ocnode = octree->search(vis_point.x,
+				octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
 						vis_point.y, vis_point.z);
 				std_msgs::ColorRGBA color;
 				color.r = 0.0f;
@@ -118,7 +131,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 				color.a = 1.0f;
 				_node_points.points.push_back(vis_point);
 				if (ocnode != NULL) {
-					if (octree->isNodeOccupied(ocnode)) {
+					if (_octree->isNodeOccupied(ocnode)) {
 						color.r = 1.0f;
 						color.b = 0.0f;
 						_node_points.colors.push_back(color);
@@ -136,7 +149,6 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 			//node.gain += (float) raygain;
 		}
 	}
-
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
@@ -158,12 +170,16 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		}
 	}
 
-	double view_score = (double)best_yaw_score / (double)_best_gain_per_view;
+	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
-	ROS_INFO_STREAM("Best yaw: " << best_yaw_score << " View score: " << view_score << " Min view score: " << _min_view_score);
+	ROS_INFO_STREAM(
+			"Best yaw: " << best_yaw_score << " View score: " << view_score
+					<< " Min view score: " << _min_view_score);
 
-	if (view_score < _min_view_score || (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-			&& node.best_yaw <= best_yaw + 5 && node.best_yaw >= best_yaw - 5)) {
+	if (view_score < _min_view_score
+			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+					&& node.best_yaw <= best_yaw + 5
+					&& node.best_yaw >= best_yaw - 5)) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		ROS_INFO_STREAM("Node counts as explored");
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
@@ -194,4 +210,19 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node,
 		_raycast_visualization.publish(_node_points);
 	}
 }
+
+void GainCalculator::convertOctomapMsgToOctree(
+		const octomap_msgs::Octomap::ConstPtr &map_msg) {
+	//ROS_INFO_STREAM("Receive octomap");
+	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
+	//ROS_INFO_STREAM("first abstract octomap");
+	_octree = std::dynamic_pointer_cast<octomap::OcTree>(_abstract_octree);
+	//ROS_INFO_STREAM("dynamic cast octomap");
+}
+
+void GainCalculator::nodesToUpdateCallback(
+		const rrt_nbv_exploration_msgs::NodeList::ConstPtr &nodes_to_update) {
+
+}
+
 }

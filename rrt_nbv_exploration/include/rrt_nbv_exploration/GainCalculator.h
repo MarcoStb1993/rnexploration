@@ -42,19 +42,23 @@ public:
 	 */
 	GainCalculator();
 	~GainCalculator();
-	/**
-	 * Calculates the gain of the passed node by raytracing in the octree
-	 * @param Node which gain needs to be calculated
-	 * @param Pointer to octree for raytracing
-	 */
-	void calculateGain(rrt_nbv_exploration_msgs::Node &node,
-			std::shared_ptr<octomap::OcTree> octree);
 
-	void recalculateGain(rrt_nbv_exploration_msgs::Tree &rrt,
-			std::vector<int> nodes, std::shared_ptr<octomap::OcTree> octree);
+	/**
+	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 */
+	void precalculateGainPollPoints();
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _raycast_visualization;
+	ros::Publisher _updated_nodes_publisher;
+	ros::Subscriber _nodes_to_update_subscriber;
+	ros::Subscriber _octomap_sub;
+	ros::Subscriber _rrt_tree_sub;
+
+	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
+	std::shared_ptr<octomap::OcTree> _octree;
+
 	/**
 	 * Maximal sensor range that is considered for gain calculation in m
 	 */
@@ -110,8 +114,30 @@ private:
 	double _sensor_height;
 
 	/**
-	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
+	 * @param "octomap_binary" message
 	 */
-	void precalculateGainPollPoints();
+	void convertOctomapMsgToOctree(
+			const octomap_msgs::Octomap::ConstPtr &map_msg);
+
+	/**
+	 * @brief Callback for subscriber to "nodes_to_update" topic which delivers nodes to calculate the gain for
+	 * @param List of nodes which gains need to be calculated
+	 */
+	void nodesToUpdateCallback(
+			const rrt_nbv_exploration_msgs::NodeList::ConstPtr &nodes_to_update);
+
+	/**
+	 * Calculates the gain of the passed node by raytracing in the octree
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+
+
+	/**
+	 * @brief Visualization function that publishes the RRT-visualization in the topic "rrt_tree_visualization_marker" and is called when receiving new input from topic "rrt_tree"
+	 * @param Received message from topic "rrt_tree"
+	 */
+	void rrtCallback(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt);
 };
 }
