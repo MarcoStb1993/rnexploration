@@ -12,13 +12,6 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include "fcl/config.h"
-#include "fcl/octree.h"
-#include "fcl/traversal/traversal_node_octree.h"
-#include "fcl/collision.h"
-#include "fcl/distance.h"
-#include "fcl/broadphase/broadphase.h"
-#include "fcl/math/transform.h"
 #include <nav_msgs/OccupancyGrid.h>
 
 struct point {
@@ -45,10 +38,6 @@ public:
 	 * @param Distance between the nearest node in the RRT and the randomly sampled position
 	 * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
 	 */
-	bool steer3D(rrt_nbv_exploration_msgs::Node &new_node,
-			rrt_nbv_exploration_msgs::Node &nearest_node,
-			geometry_msgs::Point rand_sample, double min_distance);
-
 	bool steer(rrt_nbv_exploration_msgs::Node &new_node,
 			rrt_nbv_exploration_msgs::Node &nearest_node,
 			geometry_msgs::Point rand_sample, double min_distance);
