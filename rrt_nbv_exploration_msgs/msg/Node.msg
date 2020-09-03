@@ -1,4 +1,5 @@
 # A node in the RRT constructed tree
+int32 index						# Index of the node in the RRT node list
 geometry_msgs/Point position	# Position of the node in the map
 float64 gain    				# Calculated information gain metrics at this position for exploration (-1 if not calculated)
 float64 distance				# Current distance to this node from the robot

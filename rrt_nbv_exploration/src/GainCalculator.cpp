@@ -22,12 +22,10 @@ GainCalculator::GainCalculator() :
 	ros::NodeHandle nh("rne");
 	_raycast_visualization = nh.advertise < visualization_msgs::Marker
 			> ("raycast_visualization", 1000);
-	_updated_nodes_publisher = nh.advertise < rrt_nbv_exploration_msgs::NodeList
-			> ("updated_nodes", 1);
-	_nodes_to_update_subscriber = nh.subscribe("nodes_to_update", 1,
-			&TreeConstructor::nodesToUpdateCallback, this);
-	_rrt_tree_sub = nh.subscribe("rrt_tree", 1000,
-			&RneVisualizer::visualizeRrtTree, this);
+	_updated_node_publisher = nh.advertise < rrt_nbv_exploration_msgs::Node
+			> ("updated_node", 1);
+	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
+			&GainCalculator::nodeToUpdateCallback, this);
 
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
@@ -102,7 +100,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	double x = node.position.x;
 	double y = node.position.y;
-	double z = node.position.z + _sensor_height;
+	double z = node.position.z;
 
 	//int overlap = 0;
 	//ROS_INFO_STREAM("Raycasting:");
@@ -172,17 +170,19 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
-	ROS_INFO_STREAM(
-			"Best yaw: " << best_yaw_score << " View score: " << view_score
-					<< " Min view score: " << _min_view_score);
+//	ROS_INFO_STREAM(
+//			"Best yaw: " << best_yaw_score << " View score: " << view_score
+//					<< " Min view score: " << _min_view_score);
 
 	if (view_score < _min_view_score
 			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
 					&& node.best_yaw <= best_yaw + 5
 					&& node.best_yaw >= best_yaw - 5)) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
-		ROS_INFO_STREAM("Node counts as explored");
+//		ROS_INFO_STREAM("Node counts as explored");
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+		node.gain = 0;
+		node.best_yaw = 0;
 	} else {
 		node.gain = best_yaw_score;
 		node.best_yaw = best_yaw;
@@ -220,9 +220,25 @@ void GainCalculator::convertOctomapMsgToOctree(
 	//ROS_INFO_STREAM("dynamic cast octomap");
 }
 
-void GainCalculator::nodesToUpdateCallback(
-		const rrt_nbv_exploration_msgs::NodeList::ConstPtr &nodes_to_update) {
-
+void GainCalculator::nodeToUpdateCallback(
+		const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update) {
+//	ROS_WARN_STREAM("update node: " << node_to_update->index << " previous node: " << _last_updated_node.index);
+	if (_last_updated_node.index != node_to_update->index) {
+		rrt_nbv_exploration_msgs::Node node;
+		geometry_msgs::Point pos;
+		pos.x = node_to_update->position.x;
+		pos.y = node_to_update->position.y;
+		pos.z = node_to_update->position.z;
+		node.position = pos;
+		node.status = node_to_update->status;
+		node.index = node_to_update->index;
+		calculateGain(node);
+		_last_updated_node = node;
+		_updated_node_publisher.publish(node);
+	}
+	else {
+		_updated_node_publisher.publish(_last_updated_node);
+	}
 }
 
 }

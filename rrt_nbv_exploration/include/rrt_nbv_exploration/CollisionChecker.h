@@ -100,6 +100,10 @@ private:
 	 */
 	double _path_box_distance_thres;
 	/**
+	 * @brief Distance on z-axis between base footprint and sensor frame
+	 */
+	double _sensor_height;
+	/**
 	 * @brief Show collision checking
 	 */
 	bool _visualize_collision;

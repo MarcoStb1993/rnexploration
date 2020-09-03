@@ -8,6 +8,7 @@ CollisionChecker::CollisionChecker() :
 	private_nh.param("robot_height", _robot_height, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("visualize_collision", _visualize_collision, false);
 	std::string octomap_topic, occupancy_grid_topic;
 	private_nh.param<std::string>("octomap_collision_topic", octomap_topic,
@@ -356,8 +357,8 @@ bool CollisionChecker::worldToMap(double wx, double wy, unsigned int& mx,
 void CollisionChecker::calculatePath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node) {
-	ROS_INFO_STREAM(
-			"calculate path from " << start_node << " to " << goal_node);
+//	ROS_INFO_STREAM(
+//			"calculate path from " << start_node << " to " << goal_node);
 	if (start_node == goal_node) { //start and goal are the same node, just rotate on spot
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
@@ -378,13 +379,13 @@ void CollisionChecker::calculatePath(
 		while (continue_start || continue_goal) {
 			if (continue_start) {
 				start_path.push_back(rrt.nodes[start_path.back()].parent);
-				ROS_INFO_STREAM(start_path.back() << " added to start_path");
+//				ROS_INFO_STREAM(start_path.back() << " added to start_path");
 				if (start_path.back() == 0)
 					continue_start = false; //root node added
 				auto result = std::find(goal_path.begin(), goal_path.end(),
 						start_path.back());
 				if (result != goal_path.end()) { //check if new node in start path is already in goal path
-					ROS_INFO_STREAM("Found in goal_path!");
+//					ROS_INFO_STREAM("Found in goal_path!");
 					goal_path.erase(result, goal_path.end());
 					continue_start = false;
 					continue_goal = false;
@@ -392,13 +393,13 @@ void CollisionChecker::calculatePath(
 			}
 			if (continue_goal) {
 				goal_path.push_back(rrt.nodes[goal_path.back()].parent);
-				ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
+//				ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
 				if (goal_path.back() == 0)
 					continue_goal = false;	//root node added
 				auto result = std::find(start_path.begin(), start_path.end(),
 						goal_path.back());
 				if (result != start_path.end()) { //check if new node in goal path is already in start path
-					ROS_INFO_STREAM("Found in start_path!");
+//					ROS_INFO_STREAM("Found in start_path!");
 					start_path.erase(result, start_path.end());
 					continue_start = false;
 					continue_goal = false;
@@ -408,7 +409,7 @@ void CollisionChecker::calculatePath(
 		start_path.insert(start_path.end(), goal_path.rbegin(),
 				goal_path.rend()); //append goal path nodes to start path
 		ros::Time timestmap = ros::Time::now();
-		ROS_INFO_STREAM("Nodes in path:");
+//		ROS_INFO_STREAM("Nodes in path:");
 		for (auto &i : start_path) { //iterate through nodes in path and add as waypoints for path
 			geometry_msgs::PoseStamped path_pose;
 			path_pose.header.frame_id = "map";
@@ -429,8 +430,8 @@ void CollisionChecker::calculatePath(
 			quaternion.normalize();
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
-			ROS_INFO_STREAM(
-					i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
+//			ROS_INFO_STREAM(
+//					i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
 //			if (&i != &start_path.back()) { //add in between node
 //				geometry_msgs::PoseStamped path_pose_int;
 //				path_pose_int.header.frame_id = "map";
@@ -440,11 +441,11 @@ void CollisionChecker::calculatePath(
 //						+ rrt.nodes[i].position.x) / 2;
 //				position.y = (rrt.nodes[*(&i + 1)].position.y
 //						+ rrt.nodes[i].position.y) / 2;
-//				position.z = 0.2;
+//				position.z = _sensor_height;
 //				path_pose_int.pose.position = position;
 //				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
 //				path.push_back(path_pose_int);
-//
+
 //				path_pose_int.header.frame_id = "map";
 //				path_pose_int.header.stamp = timestmap;
 //				position.x = (rrt.nodes[*(&i + 1)].position.x * 3

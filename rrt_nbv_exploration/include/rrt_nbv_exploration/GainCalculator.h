@@ -51,10 +51,9 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _raycast_visualization;
-	ros::Publisher _updated_nodes_publisher;
-	ros::Subscriber _nodes_to_update_subscriber;
+	ros::Publisher _updated_node_publisher;
+	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
-	ros::Subscriber _rrt_tree_sub;
 
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
 	std::shared_ptr<octomap::OcTree> _octree;
@@ -112,6 +111,15 @@ private:
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
 	double _sensor_height;
+	/**
+	 * @brief Node which gain was calculated previously
+	 */
+	rrt_nbv_exploration_msgs::Node _last_updated_node;
+
+	/**
+	 * @brief Start gain calculation for first node in list of nodes to be updated
+	 */
+	void updateNodes();
 
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
@@ -121,11 +129,11 @@ private:
 			const octomap_msgs::Octomap::ConstPtr &map_msg);
 
 	/**
-	 * @brief Callback for subscriber to "nodes_to_update" topic which delivers nodes to calculate the gain for
-	 * @param List of nodes which gains need to be calculated
+	 * @brief Callback for subscriber to "node_to_update" topic which delivers node to calculate the gain for
+	 * @param Node which gain needs to be calculated
 	 */
-	void nodesToUpdateCallback(
-			const rrt_nbv_exploration_msgs::NodeList::ConstPtr &nodes_to_update);
+	void nodeToUpdateCallback(
+			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
 
 	/**
 	 * Calculates the gain of the passed node by raytracing in the octree
@@ -134,10 +142,6 @@ private:
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
 
 
-	/**
-	 * @brief Visualization function that publishes the RRT-visualization in the topic "rrt_tree_visualization_marker" and is called when receiving new input from topic "rrt_tree"
-	 * @param Received message from topic "rrt_tree"
-	 */
-	void rrtCallback(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt);
+
 };
 }

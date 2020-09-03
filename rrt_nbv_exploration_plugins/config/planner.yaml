@@ -29,7 +29,7 @@ DWAPlannerROS:
   xy_goal_tolerance: 0.2
   latch_xy_goal_tolerance: true
   
-  prune_plan: true
+  prune_plan: false
 
   # # Forward Simulation Parameters
   sim_time: 4.0

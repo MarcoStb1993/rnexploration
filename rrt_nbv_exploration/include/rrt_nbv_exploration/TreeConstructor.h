@@ -56,8 +56,8 @@ private:
 
     ros::Publisher _rrt_publisher;
     ros::Publisher _best_and_current_goal_publisher;
-    ros::Publisher _nodes_to_update_publisher;
-    ros::Subscriber _updated_nodes_subscriber;
+    ros::Publisher _node_to_update_publisher;
+    ros::Subscriber _updated_node_subscriber;
     ros::Subscriber _octomap_sub;
     ros::ServiceServer _request_goal_service;
     ros::ServiceServer _request_path_service;
@@ -161,19 +161,19 @@ private:
      */
     void publishNodeWithBestGain();
     /**
-     * @brief Publish a list of nodes which gains need to be (re)calculated
+     * @brief Publish a node which gain needs to be (re)calculated
      */
-    void publishNodesToUpdate();
+    void publishNodeToUpdate();
     /**
      * @brief Updates all nodes' gains in the doubled sensor range around the specified center node
-     * @param Node in the center of the update spheroid
+     * @param Node in the center of the update circle
      */
     void updateNodes(geometry_msgs::Point center_node);
     /**
-     * @brief Callback for subscriber to "updated_nodes" topic which refreshes the list of node to update
-     * @param List of nodes which gains were updated
+     * @brief Callback for subscriber to "updated_node" topic which refreshes the list of nodes to update
+     * @param Node which gain was updated
      */
-    void updatedNodesCallback(const rrt_nbv_exploration_msgs::NodeList::ConstPtr& updated_nodes);
+    void updatedNodeCallback(const rrt_nbv_exploration_msgs::Node::ConstPtr& updated_node);
     /**
      * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
      * @param "octomap_binary" message
