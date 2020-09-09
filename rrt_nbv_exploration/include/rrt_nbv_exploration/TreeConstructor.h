@@ -18,6 +18,7 @@
 #include <random>
 #include "math.h"
 #include "rrt_nbv_exploration/CollisionChecker.h"
+#include "rrt_nbv_exploration/TreePathCalculator.h"
 #include "rrt_nbv_exploration/TreeSearcher.h"
 
 namespace rrt_nbv_exploration
@@ -70,13 +71,17 @@ private:
     std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
     std::shared_ptr<octomap::OcTree> _octree;
     /**
-     * @brief Helper class for calculating a viable path between two nodes
+     * @brief Helper class for checking if a path between two nodes is collision free
      */
     std::shared_ptr<CollisionChecker> _collision_checker;
     /**
      * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
      */
     std::shared_ptr<TreeSearcher> _tree_searcher;
+    /**
+     * @brief Helper class for calculating a path between two nodes in the tree
+     */
+    std::shared_ptr<TreePathCalculator> _tree_path_calculator;
     /**
      * @brief Current tree being built as a RRT
      */

@@ -1,24 +1,15 @@
 #include "rrt_nbv_exploration/CollisionChecker.h"
 
 namespace rrt_nbv_exploration {
-CollisionChecker::CollisionChecker() :
-		_tf_listener(_tf_buffer) {
+CollisionChecker::CollisionChecker() {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("min_extend_range", _min_extend_range, 2.0);
-	private_nh.param("robot_height", _robot_height, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
-	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("visualize_collision", _visualize_collision, false);
-	std::string octomap_topic, occupancy_grid_topic;
-	private_nh.param<std::string>("octomap_collision_topic", octomap_topic,
-			"octomap_binary");
+	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
 			"map");
-	private_nh.param<std::string>("robot_frame", _robot_frame, "base_link");
 	ros::NodeHandle nh("rne");
-//	_octomap_sub = _nh.subscribe(octomap_topic, 1,
-//			&CollisionChecker::convertOctomapMsgToOctree, this);
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
 	if (_visualize_collision) {
@@ -238,100 +229,6 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 //	return false;
 }
 
-void CollisionChecker::visualizeCollisionCheck(geometry_msgs::Point start,
-		geometry_msgs::Point goal, geometry_msgs::Point center, double distance,
-		double yaw, bool collision_start, bool collision_goal,
-		bool collision_path) {
-	visualization_msgs::Marker marker;
-	marker.header.frame_id = "/map";
-	marker.ns = "steering_visualization";
-	marker.id = 0;
-	marker.action = visualization_msgs::Marker::ADD;
-	marker.pose.orientation.w = 1.0;
-	marker.type = visualization_msgs::Marker::CYLINDER;
-	marker.color.a = 0.6f;
-	marker.color.r = 0.0f;
-	marker.color.g = 0.0f;
-	marker.color.b = 0.0f;
-	marker.header.stamp = ros::Time::now();
-	marker.pose.position.x = start.x;
-	marker.pose.position.y = start.y;
-	marker.pose.position.z = _robot_height / 2;
-	marker.scale.x = 2 * _robot_radius;
-	marker.scale.y = 2 * _robot_radius;
-	marker.scale.z = _robot_height;
-	if (collision_start) {
-		marker.color.r = 1.0f;
-		marker.color.g = 0.0f;
-	} else {
-		marker.color.g = 1.0f;
-		marker.color.r = 0.0f;
-	}
-	_collision_visualization.publish(marker);
-	marker.id = 1;
-	marker.pose.position.x = goal.x;
-	marker.pose.position.y = goal.y;
-	marker.pose.position.z = _robot_height / 2;
-	if (collision_goal) {
-		marker.color.r = 1.0f;
-		marker.color.g = 0.0f;
-	} else {
-		marker.color.g = 1.0f;
-		marker.color.r = 0.0f;
-	}
-	_collision_visualization.publish(marker);
-	if (distance > _path_box_distance_thres) {
-		marker.id = 2;
-		marker.type = visualization_msgs::Marker::CUBE;
-		marker.pose.position.x = center.x;
-		marker.pose.position.y = center.y;
-		marker.pose.position.z = center.z;
-		tf2::Quaternion quat_tf;
-		quat_tf.setRPY(0, 0, yaw);
-		marker.pose.orientation = tf2::toMsg(quat_tf);
-		marker.scale.x = distance - _path_box_distance_thres;
-		marker.scale.y = _robot_width;
-		marker.scale.z = _robot_height;
-		if (collision_path) {
-			marker.color.r = 1.0f;
-			marker.color.g = 0.0f;
-		} else {
-			marker.color.g = 1.0f;
-			marker.color.r = 0.0f;
-		}
-		_collision_visualization.publish(marker);
-	}
-}
-
-geometry_msgs::Pose CollisionChecker::getRobotPose() {
-	geometry_msgs::Pose robot_pose;
-	try {
-		geometry_msgs::TransformStamped transformStamped =
-				_tf_buffer.lookupTransform("map", _robot_frame, ros::Time(0));
-		robot_pose.position.x = transformStamped.transform.translation.x;
-		robot_pose.position.y = transformStamped.transform.translation.y;
-		robot_pose.position.z = transformStamped.transform.translation.z;
-		robot_pose.orientation = transformStamped.transform.rotation;
-	} catch (tf2::TransformException &ex) {
-		ROS_WARN("%s", ex.what());
-	}
-//	ROS_INFO_STREAM("Robot position: " << robot_pose.position.x << ", " << robot_pose.position.y << ", " << robot_pose.position.z);
-	return robot_pose;
-}
-
-double CollisionChecker::getDistanceToNode(geometry_msgs::Point node) {
-	geometry_msgs::Point robot = getRobotPose().position;
-	return sqrt(
-			pow(robot.x - node.x, 2) + pow(robot.y - node.y, 2)
-					+ pow(robot.z - node.z, 2));
-}
-
-void CollisionChecker::convertOctomapMsgToOctree(
-		const octomap_msgs::Octomap::ConstPtr& map_msg) {
-	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
-	_octree = std::dynamic_pointer_cast < octomap::OcTree > (_abstract_octree);
-}
-
 void CollisionChecker::occupancyGridCallback(
 		const nav_msgs::OccupancyGrid::ConstPtr& map_msg) {
 //	ROS_INFO_STREAM("received occupancy grid");
@@ -352,125 +249,6 @@ bool CollisionChecker::worldToMap(double wx, double wy, unsigned int& mx,
 	if (mx < map.info.height && my < map.info.width)
 		return true;
 	return false;
-}
-
-void CollisionChecker::calculatePath(
-		std::vector<geometry_msgs::PoseStamped> &path,
-		rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node) {
-//	ROS_INFO_STREAM(
-//			"calculate path from " << start_node << " to " << goal_node);
-	if (start_node == goal_node) { //start and goal are the same node, just rotate on spot
-		geometry_msgs::PoseStamped path_pose;
-		path_pose.header.frame_id = "map";
-		path_pose.header.stamp = ros::Time::now();
-		path_pose.pose.position = rrt.nodes[start_node].position;
-		tf2::Quaternion quaternion;
-		quaternion.setRPY(0, 0,
-		M_PI * rrt.nodes[start_node].best_yaw / 180.0);
-		quaternion.normalize();
-		path_pose.pose.orientation = tf2::toMsg(quaternion);
-		path.push_back(path_pose);
-	} else { //build a path from start to root and from goal to root until they meet
-		bool continue_start = (start_node == 0 ? false : true), continue_goal =
-				(goal_node == 0 ? false : true); //is start or goal root node?
-		std::vector<int> start_path, goal_path;
-		start_path.push_back(start_node);
-		goal_path.push_back(goal_node);
-		while (continue_start || continue_goal) {
-			if (continue_start) {
-				start_path.push_back(rrt.nodes[start_path.back()].parent);
-//				ROS_INFO_STREAM(start_path.back() << " added to start_path");
-				if (start_path.back() == 0)
-					continue_start = false; //root node added
-				auto result = std::find(goal_path.begin(), goal_path.end(),
-						start_path.back());
-				if (result != goal_path.end()) { //check if new node in start path is already in goal path
-//					ROS_INFO_STREAM("Found in goal_path!");
-					goal_path.erase(result, goal_path.end());
-					continue_start = false;
-					continue_goal = false;
-				}
-			}
-			if (continue_goal) {
-				goal_path.push_back(rrt.nodes[goal_path.back()].parent);
-//				ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
-				if (goal_path.back() == 0)
-					continue_goal = false;	//root node added
-				auto result = std::find(start_path.begin(), start_path.end(),
-						goal_path.back());
-				if (result != start_path.end()) { //check if new node in goal path is already in start path
-//					ROS_INFO_STREAM("Found in start_path!");
-					start_path.erase(result, start_path.end());
-					continue_start = false;
-					continue_goal = false;
-				}
-			}
-		}
-		start_path.insert(start_path.end(), goal_path.rbegin(),
-				goal_path.rend()); //append goal path nodes to start path
-		ros::Time timestmap = ros::Time::now();
-//		ROS_INFO_STREAM("Nodes in path:");
-		for (auto &i : start_path) { //iterate through nodes in path and add as waypoints for path
-			geometry_msgs::PoseStamped path_pose;
-			path_pose.header.frame_id = "map";
-			path_pose.header.stamp = timestmap;
-			path_pose.pose.position = rrt.nodes[i].position;
-			tf2::Quaternion quaternion;
-			double yaw;
-			if (&i != &start_path.back()) //if node is not last element in list, get orientation between this node and the next
-				yaw = atan2(
-						rrt.nodes[*(&i + 1)].position.y
-								- rrt.nodes[i].position.y,
-						rrt.nodes[*(&i + 1)].position.x
-								- rrt.nodes[i].position.x);
-			else
-				//last node in list, use best yaw for orientation
-				yaw = M_PI * rrt.nodes[i].best_yaw / 180.0;
-			quaternion.setRPY(0, 0, yaw);
-			quaternion.normalize();
-			path_pose.pose.orientation = tf2::toMsg(quaternion);
-			path.push_back(path_pose);
-//			ROS_INFO_STREAM(
-//					i << ": x: " << path_pose.pose.position.x << ", y: " << path_pose.pose.position.y);
-//			if (&i != &start_path.back()) { //add in between node
-//				geometry_msgs::PoseStamped path_pose_int;
-//				path_pose_int.header.frame_id = "map";
-//				path_pose_int.header.stamp = timestmap;
-//				geometry_msgs::Point position;
-//				position.x = (rrt.nodes[*(&i + 1)].position.x
-//						+ rrt.nodes[i].position.x) / 2;
-//				position.y = (rrt.nodes[*(&i + 1)].position.y
-//						+ rrt.nodes[i].position.y) / 2;
-//				position.z = _sensor_height;
-//				path_pose_int.pose.position = position;
-//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-//				path.push_back(path_pose_int);
-
-//				path_pose_int.header.frame_id = "map";
-//				path_pose_int.header.stamp = timestmap;
-//				position.x = (rrt.nodes[*(&i + 1)].position.x * 3
-//						+ rrt.nodes[i].position.x) / 4;
-//				position.y = (rrt.nodes[*(&i + 1)].position.y * 3
-//						+ rrt.nodes[i].position.y) / 4;
-//				position.z = 0.2;
-//				path_pose_int.pose.position = position;
-//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-//				path.push_back(path_pose_int);
-//
-//				path_pose_int.header.frame_id = "map";
-//				path_pose_int.header.stamp = timestmap;
-//				position.x = (rrt.nodes[*(&i + 1)].position.x
-//						+ rrt.nodes[i].position.x * 3) / 4;
-//				position.y = (rrt.nodes[*(&i + 1)].position.y
-//						+ rrt.nodes[i].position.y * 3) / 4;
-//				position.z = 0.2;
-//				path_pose_int.pose.position = position;
-//				path_pose_int.pose.orientation = tf2::toMsg(quaternion);
-//				path.push_back(path_pose_int);
-//			}
-		}
-		//path.erase(path.begin()); //remove start node
-	}
 }
 
 }

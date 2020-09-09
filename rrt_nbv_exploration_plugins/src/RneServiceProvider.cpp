@@ -101,7 +101,7 @@ void RneServiceProvider::explorationModeCallback(
 void RneServiceProvider::bestGoalCallback(
 		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal) {
 	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
-		ROS_INFO_STREAM("goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
+//		ROS_INFO_STREAM("goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;

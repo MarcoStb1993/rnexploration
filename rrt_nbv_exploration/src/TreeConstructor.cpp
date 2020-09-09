@@ -53,6 +53,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 
 	_tree_searcher.reset(new TreeSearcher());
 	_collision_checker.reset(new CollisionChecker());
+	_tree_path_calculator.reset(new TreePathCalculator());
 
 	_running = false;
 	initRrt(seed);
@@ -84,7 +85,7 @@ void TreeConstructor::startRrtConstruction() {
 	_rrt.nodes.clear();
 	_nodes_ordered_by_gain.clear();
 	_nodes_to_update.clear();
-	initRrt(_collision_checker->getRobotPose().position);
+	initRrt(_tree_path_calculator->getRobotPose().position);
 	_running = true;
 }
 
@@ -153,7 +154,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.gain = -1;
 		node.parent = nearest_node;
 		node.distance_to_parent = min_distance;
-		node.distance = _collision_checker->getDistanceToNode(node.position);
+		node.distance = _tree_path_calculator->getDistanceToNode(node.position);
 		node.index = _rrt.node_counter;
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
@@ -202,7 +203,7 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 			_nodes_to_update.push_back(iterator);
 			_rrt.nodes[iterator].gain = -1;
 			_rrt.nodes[iterator].distance =
-					_collision_checker->getDistanceToNode(
+					_tree_path_calculator->getDistanceToNode(
 							_rrt.nodes[iterator].position);
 		}
 	}
@@ -244,13 +245,13 @@ void TreeConstructor::updateCurrentGoal() {
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_nodes_to_update.push_back(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = -1;
-		update_center = _collision_checker->getRobotPose().position;
+		update_center = _tree_path_calculator->getRobotPose().position;
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = 0;
-		update_center = _collision_checker->getRobotPose().position;
+		update_center = _tree_path_calculator->getRobotPose().position;
 		break;
 	default:    //active or waiting
 		break;
@@ -318,10 +319,10 @@ bool TreeConstructor::requestPath(
 //	double min_distance;
 //	int nearest_node;
 //	_tree_searcher->findNearestNeighbour(
-//			_collision_checker->getRobotPose().position, min_distance,
+//			_tree_path_calculator->getRobotPose().position, min_distance,
 //			nearest_node);
 	std::vector<geometry_msgs::PoseStamped> rrt_path;
-	_collision_checker->calculatePath(rrt_path, _rrt, _last_goal_node,
+	_tree_path_calculator->calculatePath(rrt_path, _rrt, _last_goal_node,
 			_current_goal_node);
 	res.path = rrt_path;
 	return true;
