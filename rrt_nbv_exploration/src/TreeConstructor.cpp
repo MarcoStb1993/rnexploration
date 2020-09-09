@@ -107,11 +107,15 @@ void TreeConstructor::runRrtConstruction() {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
-			_current_goal_node = *_nodes_ordered_by_gain.begin();
+			_current_goal_node = _nodes_ordered_by_gain.front();
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
 		publishNodeToUpdate();
+		if (_nodes_to_update.empty() && _current_goal_node == -1) {
+			ROS_INFO_STREAM("Exploration finished");
+			_running = false;
+		}
 	}
 	_rrt_publisher.publish(_rrt);
 }
@@ -180,7 +184,7 @@ void TreeConstructor::publishNodeWithBestGain() {
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
 			_nodes_ordered_by_gain.empty() ?
-					_current_goal_node : *_nodes_ordered_by_gain.begin();
+					_current_goal_node : _nodes_ordered_by_gain.front();
 	_best_and_current_goal_publisher.publish(msg);
 }
 
@@ -212,6 +216,7 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 
 void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
+//		ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
 		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
 	}
 }
@@ -267,8 +272,8 @@ void TreeConstructor::updatedNodeCallback(
 	if (updated_node->status != rrt_nbv_exploration_msgs::Node::EXPLORED
 			&& updated_node->status != rrt_nbv_exploration_msgs::Node::FAILED) {
 		_nodes_ordered_by_gain.push_back(updated_node->index);
-
 		sortNodesByGain();
+		ROS_INFO_STREAM("Best node: " << _nodes_ordered_by_gain.front());
 	}
 }
 
@@ -291,9 +296,12 @@ bool TreeConstructor::requestGoal(
 	if (res.goal_available) {
 		if (_rrt.nodes[_current_goal_node].status
 				== rrt_nbv_exploration_msgs::Node::VISITED) {
+			ROS_INFO_STREAM("Current goal " << _current_goal_node << " from visited to active visited");
 			_rrt.nodes[_current_goal_node].status =
 					rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED;
-		} else {
+		} else if (_rrt.nodes[_current_goal_node].status
+				== rrt_nbv_exploration_msgs::Node::INITIAL){
+			ROS_INFO_STREAM("Current goal " << _current_goal_node << " from initial to active");
 			_rrt.nodes[_current_goal_node].status =
 					rrt_nbv_exploration_msgs::Node::ACTIVE;
 		}
@@ -322,6 +330,7 @@ bool TreeConstructor::requestPath(
 bool TreeConstructor::updateCurrentGoal(
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
+	if(_current_goal_node != -1)
 	_rrt.nodes[_current_goal_node].status = req.status;
 	updateCurrentGoal();
 	res.success = true;

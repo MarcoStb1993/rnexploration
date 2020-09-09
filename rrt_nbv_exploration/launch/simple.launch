@@ -21,7 +21,7 @@
 	<arg name="occupancy_grid_topic" default="map" />	
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen" >
+		output="screen" launch-prefix="xterm -e gdb --args" >
 		<param name="rrt_publish_frequency" type="double" value="$(arg rrt_publish_frequency)" />
 		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />

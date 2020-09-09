@@ -32,6 +32,7 @@ GainCalculator::GainCalculator() :
 
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
+	_last_updated_node.index = -1;
 }
 
 GainCalculator::~GainCalculator() {
@@ -171,8 +172,10 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
 //	ROS_INFO_STREAM(
-//			"Best yaw: " << best_yaw_score << " View score: " << view_score
-//					<< " Min view score: " << _min_view_score);
+//			"Node: " << node.index << "Previous yaw: " << node.best_yaw
+//					<< " Best yaw: " << best_yaw);
+//					<< " View score: " << view_score << " Min view score: "
+//					<< _min_view_score);
 
 	if (view_score < _min_view_score
 			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
@@ -182,7 +185,6 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 //		ROS_INFO_STREAM("Node counts as explored");
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
-		node.best_yaw = 0;
 	} else {
 		node.gain = best_yaw_score;
 		node.best_yaw = best_yaw;
@@ -232,11 +234,12 @@ void GainCalculator::nodeToUpdateCallback(
 		node.position = pos;
 		node.status = node_to_update->status;
 		node.index = node_to_update->index;
+		node.gain = node_to_update->gain;
+		node.best_yaw = node_to_update->best_yaw;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);
-	}
-	else {
+	} else {
 		_updated_node_publisher.publish(_last_updated_node);
 	}
 }
