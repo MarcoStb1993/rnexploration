@@ -126,6 +126,10 @@ private:
 	 * @brief Fixed length of the tree's edges, flexible if set to -1 (TODO: wavefront if set to 0)
 	 */
 	double _edge_length;
+	/**
+	 * @brief Previous recorded robot position
+	 */
+	geometry_msgs::Point _last_robot_pos;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -144,12 +148,9 @@ private:
      */
     void placeNewNode(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
     /**
-     * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot
-     * @param Randomly sampled point that serves as a base for the new node's position
-     * @param Squared distance to the nearest neighbour in the RRT
-     * @param Index of the nearest node in the RRT
+     * @brief Update the RRT message variable holding the index of the node currently nearest to the robot
      */
-    //void steering(geometry_msgs::Point rand_sample, double min_distance, int nearest_node);
+    void determineNearestNodeToRobot();
     /**
      * @brief Compares the two given nodes and returns true if the first node's gain function is better than the second node's
      * @param Position in the node list of the first node

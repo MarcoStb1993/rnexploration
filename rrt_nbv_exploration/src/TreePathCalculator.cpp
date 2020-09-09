@@ -32,7 +32,7 @@ double TreePathCalculator::getDistanceToNode(geometry_msgs::Point node) {
 
 void TreePathCalculator::calculatePath(
 		std::vector<geometry_msgs::PoseStamped> &path,
-		rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node) {
+		rrt_nbv_exploration_msgs::Tree &rrt, int start_node, int goal_node) {
 //	ROS_INFO_STREAM(
 //			"calculate path from " << start_node << " to " << goal_node);
 	if (start_node == goal_node) { //start and goal are the same node, just rotate on spot
@@ -84,6 +84,7 @@ void TreePathCalculator::calculatePath(
 		}
 		start_path.insert(start_path.end(), goal_path.rbegin(),
 				goal_path.rend()); //append goal path nodes to start path
+		goal_path.clear();
 		ros::Time timestmap = ros::Time::now();
 //		ROS_INFO_STREAM("Nodes in path:");
 		for (auto &i : start_path) { //iterate through nodes in path and add as waypoints for path
@@ -145,6 +146,7 @@ void TreePathCalculator::calculatePath(
 //				path.push_back(path_pose_int);
 //			}
 		}
+		start_path.clear();
 		//path.erase(path.begin()); //remove start node
 	}
 }

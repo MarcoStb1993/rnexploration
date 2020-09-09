@@ -22,15 +22,15 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("edge_length", _edge_length, -1.0);
 
 	ros::NodeHandle nh("rne");
-	_rrt_publisher = nh.advertise < rrt_nbv_exploration_msgs::Tree
-			> ("rrt_tree", 1);
-	_node_to_update_publisher = nh.advertise < rrt_nbv_exploration_msgs::Node
-			> ("node_to_update", 1);
+	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
+			1);
+	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
+			"node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
 			&TreeConstructor::updatedNodeCallback, this);
-	_best_and_current_goal_publisher = nh.advertise
-			< rrt_nbv_exploration_msgs::BestAndCurrentNode
-			> ("bestAndCurrentGoal", 1);
+	_best_and_current_goal_publisher = nh.advertise<
+			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
+			1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&TreeConstructor::requestGoal, this);
 	_request_path_service = nh.advertiseService("requestPath",
@@ -46,8 +46,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 			&TreeConstructor::resetRrtState, this);
 
 	std::string octomap_topic;
-	private_nh.param < std::string
-			> ("octomap_topic", octomap_topic, "octomap_binary");
+	private_nh.param<std::string>("octomap_topic", octomap_topic,
+			"octomap_binary");
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&TreeConstructor::convertOctomapMsgToOctree, this);
 
@@ -74,9 +74,11 @@ void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_rrt.nodes.push_back(root);
 	_rrt.node_counter++;
 	_rrt.root = 0;
+	_rrt.nearest_node = 0;
 	_current_goal_node = -1;
 	_last_goal_node = 0;
 	_nodes_to_update.push_back(0);
+	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
 	_generator.seed(time(NULL));
 }
@@ -98,6 +100,7 @@ void TreeConstructor::runRrtConstruction() {
 	_rrt.header.stamp = ros::Time::now();
 	if (_running && _map_dimensions[0] && _map_dimensions[1]
 			&& _map_dimensions[2]) {
+		determineNearestNodeToRobot();
 		geometry_msgs::Point rand_sample;
 		samplePoint(rand_sample);
 		double min_distance;
@@ -164,6 +167,21 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
+	}
+}
+
+void TreeConstructor::determineNearestNodeToRobot() {
+	geometry_msgs::Point pos = _tree_path_calculator->getRobotPose().position;
+	if (pos.x != _last_robot_pos.x || pos.y != _last_robot_pos.y
+			|| pos.z != _last_robot_pos.z) {
+		_last_robot_pos = pos;
+		double min_distance;
+		int nearest_node;
+		_tree_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
+		if(nearest_node != _rrt.nearest_node){
+			ROS_INFO_STREAM("nearest node changed from " << _rrt.nearest_node << " to " << nearest_node);
+			_rrt.nearest_node = nearest_node;
+		}
 	}
 }
 
@@ -245,13 +263,13 @@ void TreeConstructor::updateCurrentGoal() {
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_nodes_to_update.push_back(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = -1;
-		update_center = _tree_path_calculator->getRobotPose().position;
+		update_center = _last_robot_pos;
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = 0;
-		update_center = _tree_path_calculator->getRobotPose().position;
+		update_center = _last_robot_pos;
 		break;
 	default:    //active or waiting
 		break;
@@ -297,12 +315,14 @@ bool TreeConstructor::requestGoal(
 	if (res.goal_available) {
 		if (_rrt.nodes[_current_goal_node].status
 				== rrt_nbv_exploration_msgs::Node::VISITED) {
-			ROS_INFO_STREAM("Current goal " << _current_goal_node << " from visited to active visited");
+			ROS_INFO_STREAM(
+					"Current goal " << _current_goal_node << " from visited to active visited");
 			_rrt.nodes[_current_goal_node].status =
 					rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED;
 		} else if (_rrt.nodes[_current_goal_node].status
-				== rrt_nbv_exploration_msgs::Node::INITIAL){
-			ROS_INFO_STREAM("Current goal " << _current_goal_node << " from initial to active");
+				== rrt_nbv_exploration_msgs::Node::INITIAL) {
+			ROS_INFO_STREAM(
+					"Current goal " << _current_goal_node << " from initial to active");
 			_rrt.nodes[_current_goal_node].status =
 					rrt_nbv_exploration_msgs::Node::ACTIVE;
 		}
@@ -315,25 +335,23 @@ bool TreeConstructor::requestGoal(
 bool TreeConstructor::requestPath(
 		rrt_nbv_exploration_msgs::RequestPath::Request &req,
 		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
-	//TODO: Check robot position & get nearest node
-//	double min_distance;
-//	int nearest_node;
-//	_tree_searcher->findNearestNeighbour(
-//			_tree_path_calculator->getRobotPose().position, min_distance,
-//			nearest_node);
-	std::vector<geometry_msgs::PoseStamped> rrt_path;
-	_tree_path_calculator->calculatePath(rrt_path, _rrt, _last_goal_node,
-			_current_goal_node);
-	res.path = rrt_path;
-	return true;
+	if (_current_goal_node != -1) {
+		std::vector<geometry_msgs::PoseStamped> rrt_path;
+		_tree_path_calculator->calculatePath(rrt_path, _rrt, _last_goal_node,
+				_current_goal_node);
+		res.path = rrt_path;
+		return true;
+	}
+	return false;
 }
 
 bool TreeConstructor::updateCurrentGoal(
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
-	if(_current_goal_node != -1)
-	_rrt.nodes[_current_goal_node].status = req.status;
-	updateCurrentGoal();
+	if (_current_goal_node != -1) {
+		_rrt.nodes[_current_goal_node].status = req.status;
+		updateCurrentGoal();
+	}
 	res.success = true;
 	res.message = "Changed current goal's status";
 	return true;

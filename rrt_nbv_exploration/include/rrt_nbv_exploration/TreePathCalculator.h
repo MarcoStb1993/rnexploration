@@ -40,7 +40,7 @@ public:
 	 * @param Node to go to
 	 */
 	void calculatePath(std::vector<geometry_msgs::PoseStamped> &path,
-			rrt_nbv_exploration_msgs::Tree rrt, int start_node, int goal_node);
+			rrt_nbv_exploration_msgs::Tree &rrt, int start_node, int goal_node);
 
 private:
 	ros::NodeHandle _nh;
