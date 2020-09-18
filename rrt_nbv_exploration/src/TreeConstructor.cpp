@@ -71,6 +71,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	root.status = rrt_nbv_exploration_msgs::Node::VISITED;
 	root.gain = -1;
 	root.index = 0;
+	root.pathToRobot.push_back(0);
 	_rrt.nodes.push_back(root);
 	_rrt.node_counter++;
 	_rrt.root = 0;
@@ -152,18 +153,16 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
 			min_distance)) {
-		//TODO: set node status to calculate
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.parent = nearest_node;
-		node.distance_to_parent = min_distance;
-		node.distance = _tree_path_calculator->getDistanceToNode(node.position);
+		node.pathToRobot = _tree_path_calculator->calculatePathToRobot(
+				_rrt.node_counter, _rrt.nodes[nearest_node].pathToRobot);
 		node.index = _rrt.node_counter;
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
 		sortNodesByGain();
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
-		_rrt.nodes[nearest_node].distance_to_children.push_back(min_distance);
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
@@ -178,8 +177,19 @@ void TreeConstructor::determineNearestNodeToRobot() {
 		double min_distance;
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
-		if(nearest_node != _rrt.nearest_node){
-			ROS_INFO_STREAM("nearest node changed from " << _rrt.nearest_node << " to " << nearest_node);
+		if (nearest_node != _rrt.nearest_node) {
+			if (_tree_path_calculator->neighbourNodes(_rrt, _rrt.nearest_node,
+					nearest_node)) {
+				ROS_INFO_STREAM(
+						"nearest node changed from " << _rrt.nearest_node << " to " << nearest_node);
+				_tree_path_calculator->updatePathsToRobot(_rrt.nearest_node,
+						nearest_node, _rrt);
+			} else {
+				ROS_INFO_STREAM(
+						"nearest node changed from " << _rrt.nearest_node << " to " << nearest_node << " which are not neighbors");
+				_tree_path_calculator->recalculatePathsToRobot(
+						_rrt.nearest_node, nearest_node, _rrt);
+			}
 			_rrt.nearest_node = nearest_node;
 		}
 	}
@@ -194,8 +204,12 @@ void TreeConstructor::sortNodesByGain() {
 
 bool TreeConstructor::compareNodeGains(const int &node_one,
 		const int &node_two) {
-	return (_rrt.nodes[node_one].gain * exp(-_rrt.nodes[node_one].distance))
-			>= (_rrt.nodes[node_two].gain * exp(-_rrt.nodes[node_two].distance));
+	return (_rrt.nodes[node_one].gain
+			* exp(-(_rrt.nodes[node_one].pathToRobot.size() - 1) * _edge_length))
+			>= (_rrt.nodes[node_two].gain
+					* exp(
+							-(_rrt.nodes[node_two].pathToRobot.size() - 1)
+									* _edge_length));
 }
 
 void TreeConstructor::publishNodeWithBestGain() {
@@ -220,9 +234,6 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 			_nodes_ordered_by_gain.remove(iterator);
 			_nodes_to_update.push_back(iterator);
 			_rrt.nodes[iterator].gain = -1;
-			_rrt.nodes[iterator].distance =
-					_tree_path_calculator->getDistanceToNode(
-							_rrt.nodes[iterator].position);
 		}
 	}
 //	for (auto it : _nodes_ordered_by_gain) {
@@ -292,7 +303,7 @@ void TreeConstructor::updatedNodeCallback(
 			&& updated_node->status != rrt_nbv_exploration_msgs::Node::FAILED) {
 		_nodes_ordered_by_gain.push_back(updated_node->index);
 		sortNodesByGain();
-		ROS_INFO_STREAM("Best node: " << _nodes_ordered_by_gain.front());
+		ROS_INFO_STREAM("Best node: " << _nodes_ordered_by_gain.end());
 	}
 }
 
@@ -337,8 +348,7 @@ bool TreeConstructor::requestPath(
 		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
 	if (_current_goal_node != -1) {
 		std::vector<geometry_msgs::PoseStamped> rrt_path;
-		_tree_path_calculator->calculatePath(rrt_path, _rrt, _last_goal_node,
-				_current_goal_node);
+		_tree_path_calculator->getPath(rrt_path, _rrt, _current_goal_node);
 		res.path = rrt_path;
 		return true;
 	}

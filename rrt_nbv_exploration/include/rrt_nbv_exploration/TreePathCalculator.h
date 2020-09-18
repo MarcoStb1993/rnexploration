@@ -26,28 +26,65 @@ public:
 	geometry_msgs::Pose getRobotPose();
 
 	/**
-	 * @brief Returns distance from the robot's current position to the given node
-	 * @param Position of the node
-	 * @return Distance between current position and provided node in m
+	 * @brief Returns path from the robot's current position to the new node
+	 * @param Index of the new node
+	 * @param Parent node's path to robot of new node
+	 * @return Node indexes on the path from the node the robot is at to the new node
 	 */
-	double getDistanceToNode(geometry_msgs::Point node);
+	std::vector<int> calculatePathToRobot(int index,
+			std::vector<int> parentPathtoRobot);
 
 	/**
-	 * @brief Calculates a path from the given start node to the goal node moving only along the tree's edges
+	 * @brief Updates all paths from the robot's current position to the respective node
+	 * @param Index of the previous node closest to the robot
+	 * @param Index of the new node closest to the robot
+	 * @param Current tree
+	 */
+	void updatePathsToRobot(int prevNode, int newNode,
+			rrt_nbv_exploration_msgs::Tree &rrt);
+
+	/**
+	 * @brief Recalculate all paths from the robot's current position to the respective node
+	 * @param Index of the previous node closest to the robot
+	 * @param Index of the new node closest to the robot
+	 * @param Current tree
+	 */
+	void recalculatePathsToRobot(int prevNode, int newNode,
+			rrt_nbv_exploration_msgs::Tree &rrt);
+
+	/**
+	 * @brief Returns a path from the node closest to the robot to the goal node moving only along the tree's edges
 	 * @param Reference to the calculated path
 	 * @param Current tree
-	 * @param Node to start from
 	 * @param Node to go to
 	 */
-	void calculatePath(std::vector<geometry_msgs::PoseStamped> &path,
-			rrt_nbv_exploration_msgs::Tree &rrt, int start_node, int goal_node);
+	void getPath(std::vector<geometry_msgs::PoseStamped> &path,
+			rrt_nbv_exploration_msgs::Tree &rrt, int goal_node);
+
+	/**
+	 * @brief Returns if the two given nodes are next to each other
+	 * @param Current tree
+	 * @param Node started from
+	 * @param Node went to
+	 * @return If nodes are neighbors
+	 */
+	bool neighbourNodes(rrt_nbv_exploration_msgs::Tree &rrt, int startNode, int endNode);
+
+	/**
+	 * @brief Returns a path from the start node to the goal node moving only along the tree's edges
+	 * @param Node to start from
+	 * @param Node to go to
+	 * @param Current tree
+	 * @return List of node indexes on the path
+	 */
+	std::vector<int> findConnectingPath(int startNode, int goalNode,
+			rrt_nbv_exploration_msgs::Tree &rrt);
 
 private:
 	ros::NodeHandle _nh;
 
 	tf2_ros::Buffer _tf_buffer;
 	tf2_ros::TransformListener _tf_listener;
-
 
 	/**
 	 * @brief Name of the robot's tf frame
