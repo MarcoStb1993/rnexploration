@@ -32,7 +32,7 @@ std::vector<int> TreePathCalculator::calculatePathToRobot(int index,
 
 void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
-	for (auto it : rrt.nodes) {
+	for (auto &it : rrt.nodes) {
 		if (it.pathToRobot.size() == 1) { //robot currently at this node
 			it.pathToRobot.insert(it.pathToRobot.begin(), newNode);
 		} else {

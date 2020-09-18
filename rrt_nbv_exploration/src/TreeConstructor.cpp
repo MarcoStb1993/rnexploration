@@ -303,7 +303,7 @@ void TreeConstructor::updatedNodeCallback(
 			&& updated_node->status != rrt_nbv_exploration_msgs::Node::FAILED) {
 		_nodes_ordered_by_gain.push_back(updated_node->index);
 		sortNodesByGain();
-		ROS_INFO_STREAM("Best node: " << _nodes_ordered_by_gain.end());
+		ROS_INFO_STREAM("Best node: " << _nodes_ordered_by_gain.front());
 	}
 }
 
