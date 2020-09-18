@@ -33,7 +33,7 @@ std::vector<int> TreePathCalculator::calculatePathToRobot(int index,
 void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	for (auto &it : rrt.nodes) {
-		if (it.pathToRobot.size() == 1) { //robot currently at this node
+		if (it.pathToRobot.size() <= 1) { //robot currently at this node
 			it.pathToRobot.insert(it.pathToRobot.begin(), newNode);
 		} else {
 			if (it.pathToRobot.at(1) == newNode) { //robot moving towards this node
@@ -47,7 +47,7 @@ void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
 
 void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
-	for (auto it : rrt.nodes) {
+	for (auto &it : rrt.nodes) {
 		it.pathToRobot = findConnectingPath(newNode, it.index, rrt);
 	}
 }
@@ -111,13 +111,13 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 		while (continue_start || continue_goal) {
 			if (continue_start) {
 				start_path.push_back(rrt.nodes[start_path.back()].parent);
-				ROS_INFO_STREAM(start_path.back() << " added to start_path");
+				//ROS_INFO_STREAM(start_path.back() << " added to start_path");
 				if (start_path.back() == 0)
 					continue_start = false; //root node added
 				auto result = std::find(goal_path.begin(), goal_path.end(),
 						start_path.back());
 				if (result != goal_path.end()) { //check if new node in start path is already in goal path
-					ROS_INFO_STREAM("Found in goal_path!");
+					//ROS_INFO_STREAM("Found in goal_path!");
 					goal_path.erase(result, goal_path.end());
 					continue_start = false;
 					continue_goal = false;
@@ -125,13 +125,13 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 			}
 			if (continue_goal) {
 				goal_path.push_back(rrt.nodes[goal_path.back()].parent);
-				ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
+				//ROS_INFO_STREAM(goal_path.back() << " added to goal_path");
 				if (goal_path.back() == 0)
 					continue_goal = false;	//root node added
 				auto result = std::find(start_path.begin(), start_path.end(),
 						goal_path.back());
 				if (result != start_path.end()) { //check if new node in goal path is already in start path
-					ROS_INFO_STREAM("Found in start_path!");
+					//ROS_INFO_STREAM("Found in start_path!");
 					start_path.erase(result, start_path.end());
 					continue_start = false;
 					continue_goal = false;
