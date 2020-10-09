@@ -142,7 +142,7 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 				goal_path.rend()); //append goal path nodes to start path
 		path = start_path;
 	} else {
-		ROS_INFO_STREAM("Start and goal node identical");
+		//ROS_INFO_STREAM("Start and goal node identical");
 	}
 	return path;
 }

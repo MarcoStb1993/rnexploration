@@ -2,3 +2,4 @@
 geometry_msgs/Point goal 			# Goal for navigation without orientation
 int32 best_yaw						# Yaw direction in degrees with the best gain
 bool goal_available					# If a new goal is available
+bool exploration_finished			# If the exploration is finished	

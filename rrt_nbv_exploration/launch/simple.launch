@@ -19,6 +19,7 @@
 	<arg name="visualize_gain_calculation" default="false" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
+	<arg name="exploration_finished_timer_duration" default="1.0" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen" >
@@ -30,6 +31,7 @@
 		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
 		<param name="edge_length" type="double" value="$(arg edge_length)" />
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
+		<param name="exploration_finished_timer_duration" type="double" value="$(arg exploration_finished_timer_duration)" />
 	</node>
 		<node pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
 		output="screen" >

@@ -66,6 +66,7 @@ private:
     ros::ServiceServer _set_rrt_state_service;
     ros::ServiceServer _get_rrt_state_service;
     ros::ServiceServer _reset_rrt_state_service;
+	ros::Timer _exploration_finished_timer;
 
     std::default_random_engine _generator;
     std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
@@ -130,6 +131,14 @@ private:
 	 * @brief Previous recorded robot position
 	 */
 	geometry_msgs::Point _last_robot_pos;
+	/**
+	 * @brief Index of previously updated node
+	 */
+	int _last_updated_node;
+	/**
+	 * Time until exploration counts as finished because no new nodes were placed
+	 */
+	double _exploration_finished_timer_duration;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -193,6 +202,11 @@ private:
      * @brief Updates the current goal and publishes it to navigation
      */
     void updateCurrentGoal();
+	/**
+	 * Timer callback for setting exploration to finished
+	 * @param event
+	 */
+	void explorationFinishedTimerCallback(const ros::TimerEvent& event);
 
     bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
     		rrt_nbv_exploration_msgs::RequestGoal::Response &res);

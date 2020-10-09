@@ -215,11 +215,8 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 
 void GainCalculator::convertOctomapMsgToOctree(
 		const octomap_msgs::Octomap::ConstPtr &map_msg) {
-	//ROS_INFO_STREAM("Receive octomap");
 	_abstract_octree.reset(octomap_msgs::msgToMap(*map_msg));
-	//ROS_INFO_STREAM("first abstract octomap");
 	_octree = std::dynamic_pointer_cast<octomap::OcTree>(_abstract_octree);
-	//ROS_INFO_STREAM("dynamic cast octomap");
 }
 
 void GainCalculator::nodeToUpdateCallback(
