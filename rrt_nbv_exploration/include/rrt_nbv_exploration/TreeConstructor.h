@@ -136,9 +136,13 @@ private:
 	 */
 	int _last_updated_node;
 	/**
-	 * Time until exploration counts as finished because no new nodes were placed
+	 * @brief Time until exploration counts as finished because no new nodes were placed
 	 */
 	double _exploration_finished_timer_duration;
+	/**
+	 * @brief If the robot already moved past a neighbor node towards the current goal
+	 */
+	bool _moved_to_current_goal;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

@@ -166,7 +166,7 @@
 		<arg name="edge_length" value="1" />	
 	</include>
 
-	<!-- RViz für Exploration -->
+	<!-- RViz for Exploration -->
 	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"
 		args="-d $(find rrt_nbv_exploration_plugins)/config/gazebo_traversability_sim.rviz">
 		<remap from="/move_base_simple/goal" to="/rsm/simpleGoal" />

@@ -121,6 +121,7 @@ void TreeConstructor::runRrtConstruction() {
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
 			_current_goal_node = _nodes_ordered_by_gain.front();
+			_moved_to_current_goal = false;
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
@@ -186,6 +187,7 @@ void TreeConstructor::determineNearestNodeToRobot() {
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrt.nearest_node) {
+			_moved_to_current_goal = true;
 			if (_tree_path_calculator->neighbourNodes(_rrt, _rrt.nearest_node,
 					nearest_node)) {
 //				ROS_INFO_STREAM(
@@ -198,6 +200,7 @@ void TreeConstructor::determineNearestNodeToRobot() {
 				_tree_path_calculator->recalculatePathsToRobot(
 						_rrt.nearest_node, nearest_node, _rrt);
 			}
+			sortNodesByGain();
 			_rrt.nearest_node = nearest_node;
 		}
 	}
@@ -269,34 +272,41 @@ void TreeConstructor::updateCurrentGoal() {
 		ROS_INFO("goal explored");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		update_center = _rrt.nodes[_current_goal_node].position;
+		updateNodes(update_center);
 		break;
 	case rrt_nbv_exploration_msgs::Node::VISITED:
 		ROS_INFO("goal visited");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_nodes_to_update.push_front(_current_goal_node);	//calculate first
-		_rrt.nodes[_current_goal_node].gain = -1;
+		_rrt.nodes[_current_goal_node].gain = 0;
 		update_center = _rrt.nodes[_current_goal_node].position;
+		updateNodes(update_center);
 		break;
 	case rrt_nbv_exploration_msgs::Node::ABORTED:
 		ROS_INFO("goal aborted");
 		_rrt.nodes[_current_goal_node].status =
-				rrt_nbv_exploration_msgs::Node::VISITED;
-		_nodes_ordered_by_gain.remove(_current_goal_node);
-		_nodes_to_update.push_back(_current_goal_node);
-		_rrt.nodes[_current_goal_node].gain = -1;
-		update_center = _last_robot_pos;
+				rrt_nbv_exploration_msgs::Node::INITIAL;
+		if (_moved_to_current_goal) {
+			ROS_INFO("update nodes");
+			_nodes_ordered_by_gain.remove(_current_goal_node);
+			_nodes_to_update.push_back(_current_goal_node);
+			update_center = _last_robot_pos;
+			updateNodes(update_center);
+		}
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("goal failed");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = 0;
-		update_center = _last_robot_pos;
+		if (_moved_to_current_goal) {
+			update_center = _last_robot_pos;
+			updateNodes(update_center);
+		}
 		break;
 	default:    //active or waiting
 		ROS_INFO("goal active or waiting");
 		break;
 	}
-	updateNodes(update_center);
 	_last_goal_node = (_current_goal_node == -1 ? 0 : _current_goal_node);
 	_current_goal_node = -1;
 
