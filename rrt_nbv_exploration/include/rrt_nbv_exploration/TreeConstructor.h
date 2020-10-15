@@ -143,6 +143,10 @@ private:
 	 * @brief If the robot already moved past a neighbor node towards the current goal
 	 */
 	bool _moved_to_current_goal;
+	/**
+	 * @brief Indicator if current goal was already updated before a new goal can be requested
+	 */
+	bool _goal_updated;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
