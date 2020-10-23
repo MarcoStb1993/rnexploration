@@ -97,7 +97,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	if (node.index != 0 && !measureNodeHeight(node)) {
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-		node.gain = 0;
+		node.gain = -1;
 		return;
 	}
 
@@ -238,7 +238,6 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 		ROS_INFO_STREAM(
 				"Raytracing for node height measurement to max z out of bounds");
 	}
-	ROS_INFO_STREAM("Could not determine height for node " << node.index);
 	return false;
 }
 
