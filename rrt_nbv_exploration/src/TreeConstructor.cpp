@@ -72,7 +72,7 @@ void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_rrt.node_counter = 0;
 	rrt_nbv_exploration_msgs::Node root;
 	root.position = seed;
-	root.position.z = _sensor_height;
+	root.position.z += _sensor_height;
 	root.children_counter = 0;
 	root.parent = -1;
 	root.status = rrt_nbv_exploration_msgs::Node::VISITED;
@@ -142,7 +142,6 @@ void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
 			-_map_dimensions[1] / 2, _map_dimensions[1] / 2);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
-	rand_sample.z = _sensor_height;
 }
 
 void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
@@ -159,6 +158,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 						/ distance);
 		rand_sample.x = x;
 		rand_sample.y = y;
+		rand_sample.z = _rrt.nodes[nearest_node].position.z;
 	}
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
@@ -325,6 +325,7 @@ void TreeConstructor::updatedNodeCallback(
 		_rrt.nodes[updated_node->index].gain = updated_node->gain;
 		_rrt.nodes[updated_node->index].best_yaw = updated_node->best_yaw;
 		_rrt.nodes[updated_node->index].status = updated_node->status;
+		_rrt.nodes[updated_node->index].position.z = updated_node->position.z;
 		_last_updated_node = updated_node->index;
 		_nodes_to_update.remove(updated_node->index);
 		if (updated_node->status != rrt_nbv_exploration_msgs::Node::EXPLORED
@@ -333,7 +334,7 @@ void TreeConstructor::updatedNodeCallback(
 			int last = _nodes_ordered_by_gain.front();
 			_nodes_ordered_by_gain.push_back(updated_node->index);
 			sortNodesByGain();
-			if (last != _nodes_ordered_by_gain.front())
+			//if (last != _nodes_ordered_by_gain.front())
 //				ROS_INFO_STREAM(
 //						"Best node changed from " << last << " to " << _nodes_ordered_by_gain.front());
 		}

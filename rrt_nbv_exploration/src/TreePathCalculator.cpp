@@ -4,7 +4,7 @@ namespace rrt_nbv_exploration {
 TreePathCalculator::TreePathCalculator() :
 		_tf_listener(_tf_buffer) {
 	ros::NodeHandle private_nh("~");
-	private_nh.param<std::string>("robot_frame", _robot_frame, "base_link");
+	private_nh.param<std::string>("robot_frame", _robot_frame, "base_footprint");
 }
 
 geometry_msgs::Pose TreePathCalculator::getRobotPose() {

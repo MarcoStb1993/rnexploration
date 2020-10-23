@@ -10,7 +10,7 @@
 #include <boost/multi_array.hpp>
 
 /**
- * Structure to store the step and corresponding cosinus and sinus value for gain calculation speedup
+ * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
  */
 struct StepStruct {
 	int step;
@@ -19,7 +19,7 @@ struct StepStruct {
 };
 
 /**
- * Point in cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
+ * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
  * well as radius in meters from the spherical calculation
  */
 struct PollPoint {
@@ -39,7 +39,7 @@ namespace rrt_nbv_exploration {
 class GainCalculator {
 public:
 	/**
-	 * Constructor that initializes the node handle, parameters and a publisher for raytracing visualization
+	 * Constructor that initializes the node handle, parameters and a publisher for sparse ray polling visualization
 	 */
 	GainCalculator();
 	~GainCalculator();
@@ -140,9 +140,16 @@ private:
 			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
 
 	/**
-	 * Calculates the gain of the passed node by raytracing in the octree
+	 * Calculates the gain of the passed node by sparse ray polling in the octree
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Measures the  by raytracing in the octree
+	 * @param Node which height needs to be measured
+	 * @return If height could be measured
+	 */
+	bool measureNodeHeight(rrt_nbv_exploration_msgs::Node &node);
 };
 }
