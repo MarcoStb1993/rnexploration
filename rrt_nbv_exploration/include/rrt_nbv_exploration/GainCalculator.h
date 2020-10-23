@@ -5,6 +5,7 @@
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
 #include "visualization_msgs/Marker.h"
+#include <rrt_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
 
@@ -47,6 +48,9 @@ public:
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
 	 */
 	void precalculateGainPollPoints();
+
+	void dynamicReconfigureCallback(
+			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
 
 private:
 	ros::NodeHandle _nh;
@@ -140,8 +144,5 @@ private:
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
-
-
-
 };
 }

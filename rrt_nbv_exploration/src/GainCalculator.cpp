@@ -241,4 +241,9 @@ void GainCalculator::nodeToUpdateCallback(
 	}
 }
 
+void GainCalculator::dynamicReconfigureCallback(rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level) {
+	ROS_INFO_STREAM("Changed min view score to "  << config.min_view_score);
+	_min_view_score = config.min_view_score;
+}
+
 }

@@ -12,15 +12,21 @@ find_package(catkin REQUIRED COMPONENTS
   	std_srvs
     move_base_msgs
     roscpp
+    rospy
     geometry_msgs
     visualization_msgs
     rrt_nbv_exploration_msgs
     tf2
     tf2_ros
     nav_msgs
+    dynamic_reconfigure
     )
 
 find_package(octomap REQUIRED)
+
+generate_dynamic_reconfigure_options(
+  cfg/GainCalculator.cfg
+)
 
 catkin_package(
 	INCLUDE_DIRS include
@@ -55,5 +61,5 @@ target_link_libraries(rneVisualizationNode
     )
 
 add_dependencies(rneNode ${catkin_EXPORTED_TARGETS})
-add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS})

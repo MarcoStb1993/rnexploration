@@ -334,8 +334,8 @@ void TreeConstructor::updatedNodeCallback(
 			_nodes_ordered_by_gain.push_back(updated_node->index);
 			sortNodesByGain();
 			if (last != _nodes_ordered_by_gain.front())
-				ROS_INFO_STREAM(
-						"Best node changed from " << last << " to " << _nodes_ordered_by_gain.front());
+//				ROS_INFO_STREAM(
+//						"Best node changed from " << last << " to " << _nodes_ordered_by_gain.front());
 		}
 	}
 }
