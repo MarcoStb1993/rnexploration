@@ -72,7 +72,7 @@ private:
 	 * @param Map message
 	 */
 	void occupancyGridCallback(
-			const nav_msgs::OccupancyGrid::ConstPtr& map_msg);
+			const nav_msgs::OccupancyGrid::ConstPtr &map_msg);
 
 	/**
 	 * @brief Convert world coordinates to coordinates in the map
@@ -82,7 +82,8 @@ private:
 	 * @param Reference to map Y-coordinate that will be set
 	 * @param Reference to map for conversion
 	 */
-	bool worldToMap(double wx, double wy, unsigned int& mx, unsigned int& my, nav_msgs::OccupancyGrid &map);
+	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my,
+			nav_msgs::OccupancyGrid &map);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -92,7 +93,8 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
+	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map);
 
 	/**
 	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
@@ -105,7 +107,9 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isRectangleInCollision(double x, double y, double yaw, double half_height, double half_width, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
+	bool isRectangleInCollision(double x, double y, double yaw,
+			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map);
 
 	/**
 	 * @brief Check if a line from one y-coordinate to another with consistent x-coordinate is in collision
@@ -116,7 +120,8 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isLineInCollision(int y_start, int y_end, int x, nav_msgs::OccupancyGrid &map, nav_msgs::OccupancyGrid &vis_map);
+	bool isLineInCollision(int y_start, int y_end, int x,
+			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map);
 
 };
 }

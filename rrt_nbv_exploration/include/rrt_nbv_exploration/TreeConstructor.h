@@ -92,9 +92,13 @@ private:
      */
     bool _running;
     /**
-     * @brief Current dimension of the 3D map as x, y and z value
+     * @brief Current min value of bounding box  of the 3D map as x, y and z value
      */
-    double _map_dimensions[3];
+    double _map_min_bounding[3] = {0,0,0};
+    /**
+     * @brief Current max value of bounding box  of the 3D map as x, y and z value
+     */
+    double _map_max_bounding[3] = {0,0,0};
     /**
      * @brief All nodes (their position in the rrt node list) ordered ascending by a gain function
      */

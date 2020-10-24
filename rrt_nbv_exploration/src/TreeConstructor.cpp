@@ -1,8 +1,7 @@
 #include "rrt_nbv_exploration/TreeConstructor.h"
 
 namespace rrt_nbv_exploration {
-TreeConstructor::TreeConstructor() :
-		_map_dimensions { 0.0, 0.0, 0.0 } {
+TreeConstructor::TreeConstructor() {
 }
 
 TreeConstructor::~TreeConstructor() {
@@ -108,8 +107,8 @@ void TreeConstructor::stopRrtConstruction() {
 void TreeConstructor::runRrtConstruction() {
 	//ROS_INFO_STREAM("Constructing");
 	_rrt.header.stamp = ros::Time::now();
-	if (_running && _map_dimensions[0] && _map_dimensions[1]
-			&& _map_dimensions[2]) {
+	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
+			&& _map_min_bounding[2]) {
 		determineNearestNodeToRobot();
 		geometry_msgs::Point rand_sample;
 		samplePoint(rand_sample);
@@ -136,10 +135,10 @@ void TreeConstructor::runRrtConstruction() {
 }
 
 void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
-	std::uniform_real_distribution<double> x_distribution(
-			-_map_dimensions[0] / 2, _map_dimensions[0] / 2);
-	std::uniform_real_distribution<double> y_distribution(
-			-_map_dimensions[1] / 2, _map_dimensions[1] / 2);
+	std::uniform_real_distribution<double> x_distribution(_map_min_bounding[0],
+			_map_max_bounding[0]);
+	std::uniform_real_distribution<double> y_distribution(_map_min_bounding[1],
+			_map_max_bounding[1]);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
 }
@@ -349,8 +348,10 @@ void TreeConstructor::convertOctomapMsgToOctree(
 }
 
 void TreeConstructor::updateMapDimensions() {
-	_octree->getMetricSize(_map_dimensions[0], _map_dimensions[1],
-			_map_dimensions[2]);
+	_octree->getMetricMin(_map_min_bounding[0], _map_min_bounding[1],
+			_map_min_bounding[2]);
+	_octree->getMetricMax(_map_max_bounding[0], _map_max_bounding[1],
+			_map_max_bounding[2]);
 }
 
 void TreeConstructor::explorationFinishedTimerCallback(
