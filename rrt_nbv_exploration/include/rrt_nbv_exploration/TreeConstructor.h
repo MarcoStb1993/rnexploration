@@ -151,6 +151,10 @@ private:
 	 * @brief Indicator if current goal was already updated before a new goal can be requested
 	 */
 	bool _goal_updated;
+	/**
+	 * Radius that includes robot's footprint in m
+	 */
+	double _robot_radius;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

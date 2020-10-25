@@ -19,6 +19,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("edge_length", _edge_length, -1.0);
+	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 1.0);
 
@@ -77,6 +78,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	root.status = rrt_nbv_exploration_msgs::Node::VISITED;
 	root.gain = -1;
 	root.index = 0;
+	root.distanceToParent = 0;
 	root.pathToRobot.push_back(0);
 	_rrt.nodes.push_back(root);
 	_rrt.node_counter++;
@@ -100,7 +102,8 @@ void TreeConstructor::startRrtConstruction() {
 	if (initRrt(_tree_path_calculator->getRobotPose().position)) {
 		_running = true;
 	} else {
-		ROS_WARN_STREAM("Unable to start RNE because of obstacles too close to the robot!");
+		ROS_WARN_STREAM(
+				"Unable to start RNE because of obstacles too close to the robot!");
 	}
 }
 
@@ -119,7 +122,7 @@ void TreeConstructor::runRrtConstruction() {
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
 				nearest_node);
-		if (min_distance >= pow(_edge_length,2)) {
+		if (_edge_length > 0 ? min_distance >= pow(_edge_length, 2) : min_distance >= pow(_robot_radius, 2)) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
@@ -148,8 +151,8 @@ void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
 
 void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		double min_distance, int nearest_node) {
+	double distance = sqrt(min_distance);
 	if (_edge_length > 0) {
-		double distance = sqrt(min_distance);
 		double x = _rrt.nodes[nearest_node].position.x
 				- (_edge_length
 						* (_rrt.nodes[nearest_node].position.x - rand_sample.x)
@@ -168,8 +171,9 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.parent = nearest_node;
-		node.pathToRobot = _tree_path_calculator->calculatePathToRobot(
+		node.pathToRobot = _tree_path_calculator->initializePathToRobot(
 				_rrt.node_counter, _rrt.nodes[nearest_node].pathToRobot);
+		node.distanceToParent = distance;
 		node.index = _rrt.node_counter;
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
@@ -221,12 +225,17 @@ bool TreeConstructor::compareNodeGains(const int &node_one,
 		const int &node_two) {
 	return (_rrt.nodes[node_one].gain
 			* exp(
-					-(double) (_rrt.nodes[node_one].pathToRobot.size() - 1)
-							* _edge_length))
+					-1
+							* _tree_path_calculator->calculatePathDistance(_rrt,
+									_rrt.nodes[node_one].pathToRobot,
+									_edge_length)))
 			>= (_rrt.nodes[node_two].gain
 					* exp(
-							-(double) (_rrt.nodes[node_two].pathToRobot.size()
-									- 1) * _edge_length));
+							-1
+									* _tree_path_calculator->calculatePathDistance(
+											_rrt,
+											_rrt.nodes[node_two].pathToRobot,
+											_edge_length)));
 }
 
 void TreeConstructor::publishNodeWithBestGain() {
@@ -282,7 +291,7 @@ void TreeConstructor::updateCurrentGoal() {
 	case rrt_nbv_exploration_msgs::Node::VISITED:
 		ROS_INFO("goal visited");
 		_nodes_ordered_by_gain.remove(_current_goal_node);
-		_nodes_to_update.push_front(_current_goal_node);	//calculate first
+		_nodes_to_update.push_front(_current_goal_node); //calculate first
 		_rrt.nodes[_current_goal_node].gain = 0;
 		update_center = _rrt.nodes[_current_goal_node].position;
 		updateNodes(update_center);
@@ -397,7 +406,8 @@ bool TreeConstructor::requestPath(
 		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
 	if (_current_goal_node != -1) {
 		std::vector<geometry_msgs::PoseStamped> rrt_path;
-		_tree_path_calculator->getPath(rrt_path, _rrt, _current_goal_node);
+		_tree_path_calculator->getNavigationPath(rrt_path, _rrt,
+				_current_goal_node);
 		res.path = rrt_path;
 		return true;
 	}

@@ -4,7 +4,8 @@ namespace rrt_nbv_exploration {
 TreePathCalculator::TreePathCalculator() :
 		_tf_listener(_tf_buffer) {
 	ros::NodeHandle private_nh("~");
-	private_nh.param<std::string>("robot_frame", _robot_frame, "base_footprint");
+	private_nh.param<std::string>("robot_frame", _robot_frame,
+			"base_footprint");
 }
 
 geometry_msgs::Pose TreePathCalculator::getRobotPose() {
@@ -19,11 +20,10 @@ geometry_msgs::Pose TreePathCalculator::getRobotPose() {
 	} catch (tf2::TransformException &ex) {
 		ROS_WARN("%s", ex.what());
 	}
-//	ROS_INFO_STREAM("Robot position: " << robot_pose.position.x << ", " << robot_pose.position.y << ", " << robot_pose.position.z);
 	return robot_pose;
 }
 
-std::vector<int> TreePathCalculator::calculatePathToRobot(int index,
+std::vector<int> TreePathCalculator::initializePathToRobot(int index,
 		std::vector<int> parentPathtoRobot) {
 	std::vector<int> path(parentPathtoRobot);
 	path.push_back(index);
@@ -52,7 +52,8 @@ void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 	}
 }
 
-void TreePathCalculator::getPath(std::vector<geometry_msgs::PoseStamped> &path,
+void TreePathCalculator::getNavigationPath(
+		std::vector<geometry_msgs::PoseStamped> &path,
 		rrt_nbv_exploration_msgs::Tree &rrt, int goal_node) {
 //	ROS_INFO_STREAM(
 //			"calculate path from " << start_node << " to " << goal_node);
@@ -89,8 +90,34 @@ void TreePathCalculator::getPath(std::vector<geometry_msgs::PoseStamped> &path,
 			quaternion.normalize();
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
+			//add in between nodes
+			if (&i != &rrt.nodes[goal_node].pathToRobot.back()) { //add in between node
+				addInterNodes(path, rrt.nodes[i].position,
+						rrt.nodes[*(&i + 1)].position, tf2::toMsg(quaternion),
+						yaw);
+			}
 		}
 	}
+}
+
+void TreePathCalculator::addInterNodes(
+		std::vector<geometry_msgs::PoseStamped> &path,
+		geometry_msgs::Point start, geometry_msgs::Point end,
+		geometry_msgs::Quaternion orientation, double yaw) {
+	geometry_msgs::PoseStamped path_pose;
+	path_pose.header.frame_id = "map";
+	path_pose.header.stamp = ros::Time::now();
+	double distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2));
+	for (double i = 0.1; i < distance - 0.1; i = i + 0.1) {
+		geometry_msgs::Point position;
+		position.x = start.x + i * cos(yaw);
+		position.y = start.y + i * sin(yaw);
+		position.z = (start.z * (distance - i) + end.z * i) / distance;
+		path_pose.pose.position = position;
+		path_pose.pose.orientation = orientation;
+		path.push_back(path_pose);
+	}
+
 }
 
 bool TreePathCalculator::neighbourNodes(rrt_nbv_exploration_msgs::Tree &rrt,
@@ -117,7 +144,7 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 				auto result = std::find(goal_path.begin(), goal_path.end(),
 						start_path.back());
 				if (result != goal_path.end()) { //check if new node in start path is already in goal path
-					//ROS_INFO_STREAM("Found in goal_path!");
+						//ROS_INFO_STREAM("Found in goal_path!");
 					goal_path.erase(result, goal_path.end());
 					continue_start = false;
 					continue_goal = false;
@@ -131,7 +158,7 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 				auto result = std::find(start_path.begin(), start_path.end(),
 						goal_path.back());
 				if (result != start_path.end()) { //check if new node in goal path is already in start path
-					//ROS_INFO_STREAM("Found in start_path!");
+						//ROS_INFO_STREAM("Found in start_path!");
 					start_path.erase(result, start_path.end());
 					continue_start = false;
 					continue_goal = false;
@@ -145,6 +172,39 @@ std::vector<int> TreePathCalculator::findConnectingPath(int startNode,
 		//ROS_INFO_STREAM("Start and goal node identical");
 	}
 	return path;
+}
+
+double TreePathCalculator::calculatePathDistance(
+		rrt_nbv_exploration_msgs::Tree &rrt, std::vector<int> path,
+		double edge_length) {
+	if (path.size() < 2) { // No distance to calculate
+//		ROS_INFO_STREAM("Empty path");
+		return 0;
+	}
+//	ROS_INFO_STREAM(
+//			"Distance between " << path.front() << " and " << path.back());
+	if (edge_length > 0) { //Fixed edge length, distances between nodes are the same
+		return ((double) path.size() - 1.0) * edge_length;
+	} else { //Variable edge length
+		double distance = 0;
+		for (auto &i : path) {
+//			ROS_INFO_STREAM(
+//					"Node " << i << "'s parent: " << rrt.nodes[i].parent);
+			if (&i != &path.back()) { //not last node in path
+//				ROS_INFO_STREAM(
+//						" next node "<< *(&i + 1) << "'s parent: " << rrt.nodes[*(&i + 1)].parent);
+				if (rrt.nodes[i].parent == *(&i + 1)) { //i+1 is i's parent
+					distance += rrt.nodes[i].distanceToParent;
+				} else { //i is (i+1)'s parent
+					distance += rrt.nodes[*(&i + 1)].distanceToParent;
+				}
+			} else {
+//				ROS_INFO_STREAM("Last node");
+			}
+		}
+//		ROS_INFO_STREAM(" = " << distance);
+		return distance;
+	}
 }
 
 }

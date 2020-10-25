@@ -3,6 +3,7 @@
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
@@ -26,12 +27,13 @@ public:
 	geometry_msgs::Pose getRobotPose();
 
 	/**
-	 * @brief Returns path from the robot's current position to the new node
+	 * @brief Returns path from the robot's current position to the new node by taking the node's parent's path
+	 * and adding the new node to it
 	 * @param Index of the new node
 	 * @param Parent node's path to robot of new node
 	 * @return Node indexes on the path from the node the robot is at to the new node
 	 */
-	std::vector<int> calculatePathToRobot(int index,
+	std::vector<int> initializePathToRobot(int index,
 			std::vector<int> parentPathtoRobot);
 
 	/**
@@ -58,8 +60,20 @@ public:
 	 * @param Current tree
 	 * @param Node to go to
 	 */
-	void getPath(std::vector<geometry_msgs::PoseStamped> &path,
+	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
 			rrt_nbv_exploration_msgs::Tree &rrt, int goal_node);
+
+	/**
+	 * @brief Add a path node every 10cm in between the start and end point along the given path
+	 * @param Reference to the calculated path
+	 * @param Starting position
+	 * @param End position
+	 * @param Orientation between the nodes
+	 * @param Yaw between the nodes
+	 */
+	void addInterNodes(std::vector<geometry_msgs::PoseStamped> &path,
+			geometry_msgs::Point start, geometry_msgs::Point end,
+			geometry_msgs::Quaternion orientation,double yaw);
 
 	/**
 	 * @brief Returns if the two given nodes are next to each other
@@ -68,7 +82,8 @@ public:
 	 * @param Node went to
 	 * @return If nodes are neighbors
 	 */
-	bool neighbourNodes(rrt_nbv_exploration_msgs::Tree &rrt, int startNode, int endNode);
+	bool neighbourNodes(rrt_nbv_exploration_msgs::Tree &rrt, int startNode,
+			int endNode);
 
 	/**
 	 * @brief Returns a path from the start node to the goal node moving only along the tree's edges
@@ -79,6 +94,15 @@ public:
 	 */
 	std::vector<int> findConnectingPath(int startNode, int goalNode,
 			rrt_nbv_exploration_msgs::Tree &rrt);
+
+	/**
+	 * @brief Calculate the distance of the given path depending on the edge length (if lesser equals 0, retrieve
+	 * particular distances)
+	 * @param Current tree
+	 * @param Path to calculate distance from
+	 * @param User defined edge length of the tree
+	 */
+	double calculatePathDistance(rrt_nbv_exploration_msgs::Tree &rrt, std::vector<int> path, double edge_length);
 
 private:
 	ros::NodeHandle _nh;
