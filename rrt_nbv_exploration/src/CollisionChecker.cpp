@@ -175,6 +175,34 @@ bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
 	return false; //collision; //false;
 }
 
+void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
+	vis_map.header.frame_id = "map";
+	vis_map.info.resolution = map.info.resolution;
+	vis_map.info.width = map.info.width;
+	vis_map.info.height = map.info.height;
+	vis_map.info.origin = map.info.origin;
+	vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
+	_init_vis_map = true;
+}
+
+bool CollisionChecker::initialize(geometry_msgs::Point position) {
+	nav_msgs::OccupancyGrid map = _occupancy_grid;
+	if (_visualize_collision) {
+		vis_map.header.stamp = ros::Time::now();
+		vis_map.info.map_load_time = ros::Time::now();
+		initVisMap(map);
+	}
+	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
+	if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data)) {
+		if (_visualize_collision) {
+			vis_map.data = tmp_vis_map_data;
+			_visualization_pub.publish(vis_map);
+		}
+		return true;
+	}
+	return false;
+}
+
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double min_distance) {
@@ -185,16 +213,6 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 	if (_visualize_collision) {
 		vis_map.header.stamp = ros::Time::now();
 		vis_map.info.map_load_time = ros::Time::now();
-		if (!_init_vis_map) {
-			vis_map.header.frame_id = "/map";
-			vis_map.info.resolution = map.info.resolution;
-			vis_map.info.width = map.info.width;
-			vis_map.info.height = map.info.height;
-			vis_map.info.origin = map.info.origin;
-			vis_map.data = std::vector<int8_t>(map.info.width * map.info.height,
-					-1);
-			_init_vis_map = true;
-		}
 	}
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
 //	ROS_INFO_STREAM(
@@ -231,13 +249,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 
 void CollisionChecker::occupancyGridCallback(
 		const nav_msgs::OccupancyGrid::ConstPtr &map_msg) {
-//	ROS_INFO_STREAM("received occupancy grid");
 	_occupancy_grid = *map_msg;
-//	ROS_INFO_STREAM(
-//			"Res: " << map_msg->info.resolution << " Width: " << map_msg->info.width<< " Height: " << map_msg->info.height << " x: "<<map_msg->info.origin.position.x << " y: " << map_msg->info.origin.position.y);
-//	unsigned int mx, my;
-//	if (worldToMap(0.0, 0.0, mx, my))
-//		ROS_INFO_STREAM("Center x: " << mx << " y: " << my);
 }
 
 bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,

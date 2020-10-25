@@ -34,6 +34,12 @@ public:
 			rrt_nbv_exploration_msgs::Node &nearest_node,
 			geometry_msgs::Point rand_sample, double min_distance);
 
+	/**
+	 * @brief Initialize collision checking by checking circle around robot
+	 * @param Robot's position where RRT root is placed
+	 */
+	bool initialize(geometry_msgs::Point position);
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
@@ -122,6 +128,10 @@ private:
 	 */
 	bool isLineInCollision(int y_start, int y_end, int x,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map);
-
+	/**
+	 * @brief Initialize collision visualization map
+	 * @param Occupancy grid map that is checked during steering
+	 */
+	void initVisMap(const nav_msgs::OccupancyGrid &map);
 };
 }
