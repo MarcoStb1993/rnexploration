@@ -154,8 +154,10 @@ private:
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
+     * @param Seed position for RRT at which the root node is placed
+     * @return If initialization was successful
      */
-	void initRrt(const geometry_msgs::Point& seed);
+	bool initRrt(const geometry_msgs::Point& seed);
     /**
      * @brief Randomly samples a point from the map dimension and returns it
      * @return Randomly sampled point

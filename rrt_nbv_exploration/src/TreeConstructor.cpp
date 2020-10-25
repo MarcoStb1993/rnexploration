@@ -65,7 +65,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	initRrt(seed);
 }
 
-void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
+bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_rrt.header.frame_id = "/map";
 	_rrt.ns = "rrt_tree";
 	_rrt.node_counter = 0;
@@ -89,16 +89,19 @@ void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
-	_collision_checker->initialize(seed);
 	_generator.seed(time(NULL));
+	return _collision_checker->initialize(seed);
 }
 
 void TreeConstructor::startRrtConstruction() {
 	_rrt.nodes.clear();
 	_nodes_ordered_by_gain.clear();
 	_nodes_to_update.clear();
-	initRrt(_tree_path_calculator->getRobotPose().position);
-	_running = true;
+	if (initRrt(_tree_path_calculator->getRobotPose().position)) {
+		_running = true;
+	} else {
+		ROS_WARN_STREAM("Unable to start RNE because of obstacles too close to the robot!");
+	}
 }
 
 void TreeConstructor::stopRrtConstruction() {
@@ -106,7 +109,6 @@ void TreeConstructor::stopRrtConstruction() {
 }
 
 void TreeConstructor::runRrtConstruction() {
-	//ROS_INFO_STREAM("Constructing");
 	_rrt.header.stamp = ros::Time::now();
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
@@ -117,7 +119,7 @@ void TreeConstructor::runRrtConstruction() {
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
 				nearest_node);
-		if (min_distance >= _edge_length) {
+		if (min_distance >= pow(_edge_length,2)) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
