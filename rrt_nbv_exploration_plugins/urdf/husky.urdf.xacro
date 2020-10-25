@@ -33,7 +33,7 @@
 	<xacro:arg name="realsense_xyz"
 		default="$(optenv HUSKY_REALSENSE_XYZ 0 0 0)" />
 	<xacro:arg name="realsense_rpy"
-		default="$(optenv HUSKY_REALSENSE_RPY 0 0.18 3.14)" />
+		default="$(optenv HUSKY_REALSENSE_RPY 0 0 3.14)" />
 
 	<xacro:property name="husky_front_bumper_extend"
 		value="$(optenv HUSKY_FRONT_BUMPER_EXTEND 0)" />
@@ -280,6 +280,18 @@
 			<referenceAltitude>0</referenceAltitude>
 			<drift>0.0001 0.0001 0.0001</drift>
 		</plugin>
+	</gazebo>
+	<gazebo>
+	    <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+	      <alwaysOn>true</alwaysOn>
+	      <updateRate>50.0</updateRate>
+	      <bodyName>base_footprint</bodyName>
+	      <topicName>ground_truth/state</topicName>
+	      <gaussianNoise>0.01</gaussianNoise>
+	      <frameName>world</frameName>
+	      <xyzOffsets>0 0 0</xyzOffsets>
+	      <rpyOffsets>0 0 0</rpyOffsets>
+    	</plugin>
 	</gazebo>
 
 	<!-- Optional custom includes. -->
