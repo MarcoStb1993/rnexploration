@@ -34,7 +34,7 @@ private:
 	ros::Subscriber _exploration_goal_subscriber;
 	ros::ServiceClient _set_goal_obsolete_service;
 	ros::ServiceClient _update_current_goal_service;
-    ros::ServiceClient _set_rrt_state_service;
+	ros::ServiceClient _set_rrt_state_service;
 	ros::Subscriber _best_and_current_goal_subscriber;
 	ros::Subscriber _exploration_mode_subscriber;
 	ros::Subscriber _state_info_subscriber;
@@ -56,6 +56,14 @@ private:
 	 * Currently active goal
 	 */
 	geometry_msgs::Pose _current_goal;
+	/**
+	 * If current goal was updated
+	 */
+	bool _goal_updated;
+	/**
+	 * If the saved current goal must be reset
+	 */
+	bool _reset_current_goal;
 
 	/**
 	 * Publish if current exploration goal is obsolete if exploration mode is set to interrupt
@@ -70,19 +78,19 @@ private:
 	bool newGoal(geometry_msgs::Pose goal);
 
 	void explorationGoalCallback(
-			const rsm_msgs::GoalStatus::ConstPtr& goal_status);
+			const rsm_msgs::GoalStatus::ConstPtr &goal_status);
 
 	void bestGoalCallback(
-			const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal);
+			const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal);
 
-	void stateInfoCallback(const std_msgs::String::ConstPtr& state_info);
+	void stateInfoCallback(const std_msgs::String::ConstPtr &state_info);
 
 	/**
 	 * Callback for exploration mode
 	 * @param exploration_mode Exploration mode (0=complete goal, 1=interrupt goal when exploration goals vanished)
 	 */
 	void explorationModeCallback(
-			const std_msgs::Bool::ConstPtr& exploration_mode);
+			const std_msgs::Bool::ConstPtr &exploration_mode);
 };
 }
 #endif /* RRT_NBV_EXPLORATION_PLUGINS_SRC_RNESERVICEPROVIDER_H_ */

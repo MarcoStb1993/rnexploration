@@ -88,6 +88,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_last_goal_node = 0;
 	_last_updated_node = -1;
 	_goal_updated = true;
+	_updating = false;
 	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
@@ -122,13 +123,16 @@ void TreeConstructor::runRrtConstruction() {
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
 				nearest_node);
-		if (_edge_length > 0 ? min_distance >= pow(_edge_length, 2) : min_distance >= pow(_robot_radius, 2)) {
+		if (_edge_length > 0 ?
+				min_distance >= pow(_edge_length, 2) :
+				min_distance >= pow(_robot_radius, 2)) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		if (_current_goal_node == -1 && !_nodes_ordered_by_gain.empty()) {
 			_current_goal_node = _nodes_ordered_by_gain.front();
 			_moved_to_current_goal = false;
 			_goal_updated = true;
+			_updating = false;
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
@@ -177,7 +181,6 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.index = _rrt.node_counter;
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
-		sortNodesByGain();
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
@@ -244,6 +247,7 @@ void TreeConstructor::publishNodeWithBestGain() {
 	msg.best_node =
 			_nodes_ordered_by_gain.empty() ?
 					_current_goal_node : _nodes_ordered_by_gain.front();
+	msg.goal_updated = _goal_updated;
 	_best_and_current_goal_publisher.publish(msg);
 }
 
@@ -323,8 +327,6 @@ void TreeConstructor::updateCurrentGoal() {
 	}
 	_last_goal_node = (_current_goal_node == -1 ? 0 : _current_goal_node);
 	_current_goal_node = -1;
-
-	//ROS_INFO("Set current goal to %i", _current_goal_node);
 }
 
 void TreeConstructor::updatedNodeCallback(
@@ -417,7 +419,8 @@ bool TreeConstructor::requestPath(
 bool TreeConstructor::updateCurrentGoal(
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
-	if (_current_goal_node != -1) {
+	if (_current_goal_node != -1 && !_updating) {
+		_updating = true;
 		_rrt.nodes[_current_goal_node].status = req.status;
 		updateCurrentGoal();
 	}

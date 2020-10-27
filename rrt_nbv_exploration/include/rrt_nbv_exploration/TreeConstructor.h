@@ -152,9 +152,13 @@ private:
 	 */
 	bool _goal_updated;
 	/**
-	 * Radius that includes robot's footprint in m
+	 * @brief Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
+	/**
+	 * @brief If current goal is currently updating
+	 */
+	bool _updating;
 
     /**
      * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
