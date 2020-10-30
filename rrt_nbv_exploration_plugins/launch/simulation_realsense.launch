@@ -16,6 +16,7 @@
 	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="false" />
+	<arg name="edge_length" default="0" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -160,7 +161,7 @@
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
-		<arg name="edge_length" value="2" />
+		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />		
 	</include>
 

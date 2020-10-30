@@ -205,21 +205,14 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
-		geometry_msgs::Point rand_sample, double min_distance) {
+		geometry_msgs::Point rand_sample, double distance) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
-	double distance = sqrt(min_distance);
-	//if (distance >= 2 * _robot_radius) {
 	bool no_collision = false;
 	if (_visualize_collision) {
 		vis_map.header.stamp = ros::Time::now();
 		vis_map.info.map_load_time = ros::Time::now();
 	}
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-//	ROS_INFO_STREAM(
-//			"Dist: "<< distance << " thres:" << _path_box_distance_thres << " rand x: " << rand_sample.x << " rand y: " << rand_sample.y);
-//	ROS_INFO_STREAM("yaw: " << atan2(rand_sample.y - nearest_node.position.y,
-//									rand_sample.x - nearest_node.position.x) << " rand: x: " << rand_sample.x << " ,y: " << rand_sample.y
-//			<< " nearest: x: " << nearest_node.position.x << " ,y: " << nearest_node.position.y);
 	bool rectangle = (
 			distance > _path_box_distance_thres ?
 					!isRectangleInCollision(
@@ -227,7 +220,7 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 							(nearest_node.position.y + rand_sample.y) / 2,
 							atan2(rand_sample.y - nearest_node.position.y,
 									rand_sample.x - nearest_node.position.x),
-							(distance - _path_box_distance_thres) / 2,
+							(distance - _path_box_distance_thres) / 2 + 0.1, //add 0.1 as a margin for rounding errors
 							_robot_width / 2, map, tmp_vis_map_data) :
 					true);
 	bool circle = !isCircleInCollision(rand_sample.x, rand_sample.y, map,
