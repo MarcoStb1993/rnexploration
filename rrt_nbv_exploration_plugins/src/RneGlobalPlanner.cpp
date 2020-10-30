@@ -21,7 +21,6 @@ RneGlobalPlanner::RneGlobalPlanner(std::string name,
 
 void RneGlobalPlanner::initialize(std::string name,
 		costmap_2d::Costmap2DROS* costmap_ros) {
-	ROS_INFO_STREAM("Global planner init: " << name);
 	ros::NodeHandle private_nh("~");
 	_plan_publisher = private_nh.advertise<nav_msgs::Path>(
 			"plan", 1);
@@ -38,7 +37,7 @@ void RneGlobalPlanner::initialize(std::string name,
 bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 		const geometry_msgs::PoseStamped& goal,
 		std::vector<geometry_msgs::PoseStamped>& plan) {
-	ROS_INFO_STREAM("Global planner make plan");
+	//ROS_ERROR_STREAM("Global planner make plan");
 	if (_exploration_running) {
 		rrt_nbv_exploration_msgs::RequestPath srv;
 		if (_request_path_service.call(srv)) {

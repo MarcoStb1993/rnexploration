@@ -1,7 +1,7 @@
 # A node in the RRT constructed tree
+int32 index						# Index of the node in the RRT node list
 geometry_msgs/Point position	# Position of the node in the map
-float64 gain    				# Calculated information gain metrix at this position for exploration (1-gain/max_gain)
-float64 distance				# Current distance to this node from the robot
+float64 gain    				# Calculated information gain metrics at this position for exploration (-1 if not calculated)
 int32 best_yaw					# Yaw in degrees with best gain
 uint8 status    				# Nodes current status regarding the exploration
 
@@ -17,5 +17,5 @@ int32 parent					# Position of the node's parent in the nodes array of the RRT m
 int32[] children     			# Position of the node's children in the nodes array of the RRT msg
 int32 children_counter  		# Number of children nodes in the children array
 
-float64 distance_to_parent		# Squared euclidean distance from this node to this node's parent
-float64[] distance_to_children	# Squared euclidean distances to the node's respective child node 
+int32[] pathToRobot				# Position of the nodes that connect this node (end) to the node nearest to the robot (begin)
+float64 distanceToParent		# Distance in m to this node's parent node			

@@ -5,10 +5,10 @@ RneVisualizer::RneVisualizer() {
 	ros::NodeHandle nh("rne");
 	_rrt_tree_sub = nh.subscribe("rrt_tree", 1000,
 			&RneVisualizer::visualizeRrtTree, this);
-	_rrt_tree_visualization_pub = nh.advertise<visualization_msgs::Marker>(
-			"rrt_tree_vis", 1000);
-	_rrt_tree_text_info_visualization_pub = nh.advertise<
-			visualization_msgs::MarkerArray>("rrt_tree_vis_info", 1000);
+	_rrt_tree_visualization_pub = nh.advertise < visualization_msgs::Marker
+			> ("rrt_tree_vis", 1000);
+	_rrt_tree_text_info_visualization_pub = nh.advertise
+			< visualization_msgs::MarkerArray > ("rrt_tree_vis_info", 1000);
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -40,7 +40,7 @@ void RneVisualizer::initializeVisualization() {
 }
 
 void RneVisualizer::visualizeRrtTree(
-		const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt) {
+		const rrt_nbv_exploration_msgs::Tree::ConstPtr &rrt) {
 	_node_points.header.stamp = ros::Time::now();
 	_node_points.points.clear();
 	_node_points.colors.clear();
@@ -49,27 +49,33 @@ void RneVisualizer::visualizeRrtTree(
 		_node_points.points.push_back(rrt->nodes[i].position);
 		std_msgs::ColorRGBA color;
 		color.a = 1.0f;
-		switch (rrt->nodes[i].status) {
-		case rrt_nbv_exploration_msgs::Node::EXPLORED:
-			color.g = 0.6f;
-			break;
-		case rrt_nbv_exploration_msgs::Node::VISITED:
-			color.g = 1.0f;
-			break;
-		case rrt_nbv_exploration_msgs::Node::FAILED:
-			color.r = 1.0f;
-			break;
-		case rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED:
-			color.r = 1.0f;
-			color.g = 0.6f;
-			break;
-		case rrt_nbv_exploration_msgs::Node::ACTIVE:
-			color.r = 1.0f;
-			color.g = 1.0f;
-			break;
-		default:
-			color.b = 1.0f;
-			break;
+		if (rrt->nodes[i].gain == -1) {
+			color.r = 0.9f;
+			color.g = 0.9f;
+			color.b = 0.9f;
+		} else {
+			switch (rrt->nodes[i].status) {
+			case rrt_nbv_exploration_msgs::Node::EXPLORED:
+				color.g = 0.6f;
+				break;
+			case rrt_nbv_exploration_msgs::Node::VISITED:
+				color.g = 1.0f;
+				break;
+			case rrt_nbv_exploration_msgs::Node::FAILED:
+				color.r = 1.0f;
+				break;
+			case rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED:
+				color.r = 1.0f;
+				color.g = 0.6f;
+				break;
+			case rrt_nbv_exploration_msgs::Node::ACTIVE:
+				color.r = 1.0f;
+				color.g = 1.0f;
+				break;
+			default:
+				color.b = 1.0f;
+				break;
+			}
 		}
 		_node_points.colors.push_back(color);
 		addInfoTextVisualization(rrt->nodes[i].position, i, rrt->nodes[i].gain);

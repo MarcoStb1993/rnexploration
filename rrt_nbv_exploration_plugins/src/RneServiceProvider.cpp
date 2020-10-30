@@ -28,6 +28,8 @@ RneServiceProvider::RneServiceProvider() {
 	_exploration_mode = 0;
 	_goal_obsolete = false;
 	_exploration_running = false;
+	_goal_updated = false;
+	_reset_current_goal = false;
 }
 
 RneServiceProvider::~RneServiceProvider() {
@@ -47,6 +49,12 @@ void RneServiceProvider::publishGoalObsolete() {
 }
 
 bool RneServiceProvider::newGoal(geometry_msgs::Pose goal) {
+	if(_reset_current_goal){
+		geometry_msgs::Pose newGoal;
+		_current_goal = newGoal;
+		_reset_current_goal = false;
+		return false;
+	}
 	if (goal.position.x == _current_goal.position.x
 			&& goal.position.y == _current_goal.position.y
 			&& goal.position.z == _current_goal.position.z
@@ -62,7 +70,7 @@ bool RneServiceProvider::newGoal(geometry_msgs::Pose goal) {
 }
 
 void RneServiceProvider::explorationGoalCallback(
-		const rsm_msgs::GoalStatus::ConstPtr& goal_status) {
+		const rsm_msgs::GoalStatus::ConstPtr &goal_status) {
 	if (goal_status->goal_status != rsm_msgs::GoalStatus::ACTIVE
 			&& newGoal(goal_status->goal)) {
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal srv;
@@ -80,7 +88,7 @@ void RneServiceProvider::explorationGoalCallback(
 }
 
 void RneServiceProvider::explorationModeCallback(
-		const std_msgs::Bool::ConstPtr& exploration_mode) {
+		const std_msgs::Bool::ConstPtr &exploration_mode) {
 	if (_exploration_mode != exploration_mode->data) {
 		_exploration_mode = exploration_mode->data;
 		if (exploration_mode) {
@@ -99,16 +107,24 @@ void RneServiceProvider::explorationModeCallback(
 }
 
 void RneServiceProvider::bestGoalCallback(
-		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr& best_goal) {
+		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal) {
 	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
+		if (!_goal_obsolete)
+//			ROS_INFO_STREAM(
+//					"goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;
 	}
+
+	if (_goal_updated && !best_goal->goal_updated) {
+		_reset_current_goal = true;
+	}
+	_goal_updated = best_goal->goal_updated;
 }
 
 void RneServiceProvider::stateInfoCallback(
-		const std_msgs::String::ConstPtr& state_info) {
+		const std_msgs::String::ConstPtr &state_info) {
 	bool changed = false;
 	if (state_info->data.rfind("E:") == 0) {
 		if (!_exploration_running) {

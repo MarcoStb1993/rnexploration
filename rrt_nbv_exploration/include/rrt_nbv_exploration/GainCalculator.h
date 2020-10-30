@@ -5,11 +5,12 @@
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
 #include "visualization_msgs/Marker.h"
+#include <rrt_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
 
 /**
- * Structure to store the step and corresponding cosinus and sinus value for gain calculation speedup
+ * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
  */
 struct StepStruct {
 	int step;
@@ -18,7 +19,7 @@ struct StepStruct {
 };
 
 /**
- * Point in cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
+ * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
  * well as radius in meters from the spherical calculation
  */
 struct PollPoint {
@@ -38,23 +39,29 @@ namespace rrt_nbv_exploration {
 class GainCalculator {
 public:
 	/**
-	 * Constructor that initializes the node handle, parameters and a publisher for raytracing visualization
+	 * Constructor that initializes the node handle, parameters and a publisher for sparse ray polling visualization
 	 */
 	GainCalculator();
 	~GainCalculator();
-	/**
-	 * Calculates the gain of the passed node by raytracing in the octree
-	 * @param Node which gain needs to be calculated
-	 * @param Pointer to octree for raytracing
-	 */
-	void calculateGain(rrt_nbv_exploration_msgs::Node &node,
-			std::shared_ptr<octomap::OcTree> octree);
 
-	void recalculateGain(rrt_nbv_exploration_msgs::Tree &rrt,
-			std::vector<int> nodes, std::shared_ptr<octomap::OcTree> octree);
+	/**
+	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 */
+	void precalculateGainPollPoints();
+
+	void dynamicReconfigureCallback(
+			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
+
 private:
 	ros::NodeHandle _nh;
-	ros::Publisher _raycast_visualization;
+	ros::Publisher raysample_visualization;
+	ros::Publisher _updated_node_publisher;
+	ros::Subscriber _node_to_update_subscriber;
+	ros::Subscriber _octomap_sub;
+
+	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
+	std::shared_ptr<octomap::OcTree> _octree;
+
 	/**
 	 * Maximal sensor range that is considered for gain calculation in m
 	 */
@@ -96,7 +103,7 @@ private:
 	 */
 	double _min_view_score;
 	/**
-	 * Show gain calculation raycasting
+	 * Show gain calculation sparse ray sampling
 	 */
 	bool _visualize_gain_calculation;
 
@@ -108,10 +115,41 @@ private:
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
 	double _sensor_height;
+	/**
+	 * @brief Node which gain was calculated previously
+	 */
+	rrt_nbv_exploration_msgs::Node _last_updated_node;
 
 	/**
-	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 * @brief Start gain calculation for first node in list of nodes to be updated
 	 */
-	void precalculateGainPollPoints();
+	void updateNodes();
+
+	/**
+	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
+	 * @param "octomap_binary" message
+	 */
+	void convertOctomapMsgToOctree(
+			const octomap_msgs::Octomap::ConstPtr &map_msg);
+
+	/**
+	 * @brief Callback for subscriber to "node_to_update" topic which delivers node to calculate the gain for
+	 * @param Node which gain needs to be calculated
+	 */
+	void nodeToUpdateCallback(
+			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
+
+	/**
+	 * Calculates the gain of the passed node by sparse ray polling in the octree
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Measures the  by raytracing in the octree
+	 * @param Node which height needs to be measured
+	 * @return If height could be measured
+	 */
+	bool measureNodeHeight(rrt_nbv_exploration_msgs::Node &node);
 };
 }

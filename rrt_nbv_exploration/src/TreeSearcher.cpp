@@ -23,7 +23,7 @@ void TreeSearcher::findNearestNeighbour(geometry_msgs::Point rand_sample, double
     size_t ret_index;
     nanoflann::KNNResultSet<double> resultSet(num_results);
     resultSet.init(&ret_index, &min_distance );
-    double rand_sample_point[3] = {rand_sample.x, rand_sample.y, rand_sample.z};
+    double rand_sample_point[3] = {rand_sample.x, rand_sample.y, 0};//rand_sample.z};
     _kd_tree_index.findNeighbors(resultSet, &rand_sample_point[0], nanoflann::SearchParams(10));
     nearest_node = ret_index;
     //ROS_INFO_STREAM("Find nearest neighbor finished");
@@ -35,7 +35,7 @@ std::vector<int> TreeSearcher::searchInRadius(geometry_msgs::Point node_position
     const double search_radius = static_cast<double>(radius);
     std::vector<std::pair<size_t,double> >   ret_matches;
     nanoflann::SearchParams params;
-    double node_position_point[3] = {node_position.x, node_position.y, node_position.z};
+    double node_position_point[3] = {node_position.x, node_position.y, 0};//node_position.z};
     const size_t nMatches = _kd_tree_index.radiusSearch(&node_position_point[0], search_radius, ret_matches, params);
     std::vector<int> nodes_in_radius;
     for(auto it : ret_matches)

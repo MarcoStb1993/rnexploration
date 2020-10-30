@@ -30,7 +30,9 @@ void RnExplorationState::onEntry() {
 void RnExplorationState::onActive() {
 	rrt_nbv_exploration_msgs::RequestGoal srv;
 	if (_request_goal_service.call(srv)) {
-		if (srv.response.goal_available) {
+		if (srv.response.exploration_finished) {
+			abortRnExplorationGoal();
+		} else if (srv.response.goal_available) {
 			_goal.position = srv.response.goal;
 			tf2::Quaternion quaternion;
 			quaternion.setRPY(0, 0,
