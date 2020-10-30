@@ -21,7 +21,6 @@ RneGlobalPlanner::RneGlobalPlanner(std::string name,
 
 void RneGlobalPlanner::initialize(std::string name,
 		costmap_2d::Costmap2DROS* costmap_ros) {
-	ROS_INFO_STREAM("Global planner init: " << name);
 	ros::NodeHandle private_nh("~");
 	_plan_publisher = private_nh.advertise<nav_msgs::Path>(
 			"plan", 1);

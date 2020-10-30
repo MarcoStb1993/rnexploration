@@ -15,10 +15,10 @@ TreeConstructor::~TreeConstructor() {
 
 void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("sensor_range", _sensor_range, 5.0);
+	private_nh.param("sensor_max_range", _sensor_range, 5.0);
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
-	private_nh.param("edge_length", _edge_length, -1.0);
+	private_nh.param("edge_length", _edge_length, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 1.0);

@@ -6,7 +6,7 @@ GainCalculator::GainCalculator() :
 		_gain_poll_points(boost::extents[0][0][0]) {
 	ros::NodeHandle private_nh("~");
 	private_nh.param("sensor_max_range", _sensor_max_range, 5.0);
-	private_nh.param("sensor_min_range", _sensor_min_range, 5.0);
+	private_nh.param("sensor_min_range", _sensor_min_range, 1.0);
 	private_nh.param("delta_phi", _delta_phi, 10);
 	private_nh.param("delta_theta", _delta_theta, 10);
 	private_nh.param("delta_radius", _delta_radius, 0.1);
@@ -20,8 +20,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
 	ros::NodeHandle nh("rne");
-	_raycast_visualization = nh.advertise<visualization_msgs::Marker>(
-			"raycast_visualization", 1000);
+	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
+			"raysample_visualization", 1000);
 	_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
@@ -80,7 +80,7 @@ void GainCalculator::precalculateGainPollPoints() {
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
-	_node_points.ns = "raycast_visualization";
+	_node_points.ns = "raysample_visualization";
 	_node_points.id = 0;
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
@@ -129,7 +129,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 						color.r = 1.0f;
 						color.b = 0.0f;
 						_node_points.colors.push_back(color);
-						break; //end raycast for this ray because of an obstacle in the way
+						break; //end ray sampling for this ray because of an obstacle in the way
 					} else {
 						color.g = 1.0f;
 						color.b = 0.0f;
@@ -193,7 +193,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 
 	if (_visualize_gain_calculation) {
-		_raycast_visualization.publish(_node_points);
+		raysample_visualization.publish(_node_points);
 	}
 }
 

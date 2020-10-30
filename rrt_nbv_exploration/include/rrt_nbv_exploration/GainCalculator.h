@@ -54,7 +54,7 @@ public:
 
 private:
 	ros::NodeHandle _nh;
-	ros::Publisher _raycast_visualization;
+	ros::Publisher raysample_visualization;
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -103,7 +103,7 @@ private:
 	 */
 	double _min_view_score;
 	/**
-	 * Show gain calculation raycasting
+	 * Show gain calculation sparse ray sampling
 	 */
 	bool _visualize_gain_calculation;
 

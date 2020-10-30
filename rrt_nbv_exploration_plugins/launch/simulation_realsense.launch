@@ -3,7 +3,7 @@
 
 <launch>
 	<arg name="world"
-		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" /> <!--"/home/marco/Documents/test.world"-->
+		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
 	<arg name="robot_frame" default="base_footprint" />
 	<arg name="autonomy_cmd_vel_topic" default="/autonomy/cmd_vel" />
 	<arg name="teleoperation_cmd_vel_topic"
@@ -62,12 +62,14 @@
 		output="screen">
 		<param name="update_frequency" value="20" />
 	</node>
-
+	
+	<!-- GMapping -->
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
 	</node>
 
+	<!-- Navigation -->
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base" output="screen">
 		<rosparam
@@ -129,7 +131,6 @@
 		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
 
 	<!-- Octomap -->
-
 	<node pkg="octomap_server" type="octomap_server_node"
 		name="octomap_server">
 		<param name="resolution" value="0.1" />
@@ -141,25 +142,12 @@
 		<param name="publish_free_space" value="true"/>
 	</node>
 
-	<!-- nodee pkg="octomap_server" type="octomap_server_node"
-		name="octomap_server_wo_ground">
-		<param name="resolution" value="0.1" />
-		<param name="frame_id" type="string" value="map" />
-		<param name="sensor_model/max_range" value="5.0" />
-		<param name="latch" value="false" />
-		<param name="filter_ground" value="true" />
-		<remap from="cloud_in" to="/camera/depth/points" />
-		<remap from="octomap_binary" to="octomap_binary_wo_ground" />
-		<remap from="projected_map" to="projected_map_wo_ground" />
-	</node-->
-
 	<!-- RN Exploration -->
 	<include
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
-		<arg name="rrt_publish_frequency" value="1" />
-		<arg name="robot_height" value="1.0" />
+		<arg name="update_frequency" value="1" />
 		<arg name="robot_width" value="0.7" />
-		<arg name="robot_radius" value="0.7" />
+		<arg name="robot_radius" value="1.0" />
 		<arg name="sensor_height" value="0.887" />
 		<arg name="sensor_max_range" value="8" />
 		<arg name="sensor_min_range" value="1.0" />
@@ -168,11 +156,12 @@
 		<arg name="delta_theta" value="10" />
 		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
 		<arg name="sensor_vertical_fov" value="65" />
-		<arg name="min_view_score" value="0.5" />	
+		<arg name="min_view_score" value="0.15" />	
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
-		<arg name="edge_length" value="1" />	
+		<arg name="edge_length" value="2" />
+		<arg name="exploration_finished_timer_duration" value="10.0" />		
 	</include>
 
 	<!-- RViz für Exploration -->
