@@ -171,13 +171,13 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 	}
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
-			min_distance)) {
+			_edge_length > 0 ? _edge_length : distance)) {
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.parent = nearest_node;
 		node.pathToRobot = _tree_path_calculator->initializePathToRobot(
 				_rrt.node_counter, _rrt.nodes[nearest_node].pathToRobot);
-		node.distanceToParent = distance;
+		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
 		node.index = _rrt.node_counter;
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
