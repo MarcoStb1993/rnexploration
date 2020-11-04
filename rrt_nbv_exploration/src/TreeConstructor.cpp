@@ -259,8 +259,7 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 		if (_rrt.nodes[iterator].status
 				!= rrt_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrt.nodes[iterator].status
-						!= rrt_nbv_exploration_msgs::Node::FAILED
-				&& _rrt.nodes[iterator].gain != -1) {
+						!= rrt_nbv_exploration_msgs::Node::FAILED) {
 			_nodes_ordered_by_gain.remove(iterator);
 			_nodes_to_update.push_back(iterator);
 			_rrt.nodes[iterator].gain = -1;
