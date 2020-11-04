@@ -55,8 +55,6 @@ void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 void TreePathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrt_nbv_exploration_msgs::Tree &rrt, int goal_node) {
-//	ROS_INFO_STREAM(
-//			"calculate path from " << start_node << " to " << goal_node);
 	if (rrt.nearest_node == goal_node) { //start and goal are the same node, just rotate on spot
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
@@ -77,6 +75,18 @@ void TreePathCalculator::getNavigationPath(
 			path_pose.pose.position = rrt.nodes[i].position;
 			tf2::Quaternion quaternion;
 			double yaw;
+			if (&i == &rrt.nodes[goal_node].pathToRobot.front() && &i != &rrt.nodes[goal_node].pathToRobot.back()) { //if node is first element in list, add poses between robot and node
+				geometry_msgs::Pose robot_pose = getRobotPose();
+				robot_pose.position.z = rrt.nodes[i].position.z;
+				yaw = atan2(rrt.nodes[i].position.y - robot_pose.position.y,
+						rrt.nodes[i].position.x - robot_pose.position.x);
+				quaternion.setRPY(0, 0, yaw);
+							quaternion.normalize();
+				addInterNodes(path, robot_pose.position,
+						rrt.nodes[i].position, tf2::toMsg(quaternion),
+						yaw);
+			}
+
 			if (&i != &rrt.nodes[goal_node].pathToRobot.back()) //if node is not last element in list, get orientation between this node and the next
 				yaw = atan2(
 						rrt.nodes[*(&i + 1)].position.y
