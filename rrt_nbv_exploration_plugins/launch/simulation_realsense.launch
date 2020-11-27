@@ -17,6 +17,8 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="false" />
 	<arg name="edge_length" default="0" />
+	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
+	<arg name="horizon_length" default="3" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -146,7 +148,7 @@
 	<!-- RN Exploration -->
 	<include
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
-		<arg name="update_frequency" value="20" />
+		<arg name="update_frequency" value="1" />
 		<arg name="robot_width" value="0.7" />
 		<arg name="robot_radius" value="1.0" />
 		<arg name="sensor_height" value="0.887" />
@@ -163,6 +165,8 @@
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />		
+		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- 0=classic,1=horizon,2=receding horizon -->
+		<arg name="horizon_length" default="$(arg horizon_length)" />
 	</include>
 
 	<!-- RViz für Exploration -->

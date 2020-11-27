@@ -32,6 +32,15 @@ struct CompareStruct {
 		gain_cost_ratio = 0.0;
 		distance_to_robot = -1.0;
 	}
+
+	/**
+	 * @brief Constructor to initialize struct with node index in tree list and gain-cost-ratio
+	 */
+	CompareStruct(int n, double gcr) {
+		node = n;
+		gain_cost_ratio = gcr;
+		distance_to_robot = -1.0;
+	}
 };
 
 /**
@@ -45,9 +54,11 @@ struct HorizonStruct {
 	/**
 	 * @brief Constructor to initialize struct with a list of the next nodes of a previous node and the gain-cost-ratio of that node
 	 */
-	HorizonStruct(int prev, std::vector n, double gcr) {
+	HorizonStruct(int prev, std::vector<int> n, double gcr) {
 		previous_node = prev;
-		nodes(n);
+		for (auto i : n) {
+			nodes.push(i);
+		}
 		gain_cost_ratio = gcr;
 	}
 };
@@ -185,7 +196,15 @@ private:
 	 * @param Node index of which the gain-cost-ratio should be returned
 	 * @return Horizon gain-cost-ratio for given node
 	 */
-	double getCurrentHorizonGainCostRatio(std::stack<HorizonStruct> &horizon_list, int node);
+	double getCurrentHorizonGainCostRatio(
+			std::stack<HorizonStruct> &horizon_list, int node);
+
+	/**
+	 * @brief Returns the gain-cost-ratio of the given node index
+	 * @param Node index of which the gain-cost-ratio should be returned
+	 * @return Gain-cost-ratio for given node
+	 */
+	double getNodeGainCostRatio(int node);
 
 	/**
 	 * @brief Compares the two given nodes and returns true if the first node's gain-cost-ratio is better than the second

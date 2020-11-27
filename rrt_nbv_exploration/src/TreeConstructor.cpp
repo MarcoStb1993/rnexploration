@@ -93,6 +93,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
+	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
 }

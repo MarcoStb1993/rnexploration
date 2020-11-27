@@ -20,6 +20,8 @@
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
 	<arg name="exploration_finished_timer_duration" default="1.0" />
+	<arg name="rne_mode" default="0" /> <!-- 0=classic,1=horizon,2=receding horizon -->
+	<arg name="horizon_length" default="3" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen" >
@@ -34,6 +36,8 @@
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
 		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
 		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />	
+		<param name="rne_mode" type="int" value="$(arg rne_mode)" />
+		<param name="horizon_length" type="int" value="$(arg horizon_length)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
