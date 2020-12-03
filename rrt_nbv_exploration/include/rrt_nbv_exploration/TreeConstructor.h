@@ -185,11 +185,21 @@ private:
 	 * @brief Update the RRT message variable holding the index of the node currently nearest to the robot
 	 */
 	void determineNearestNodeToRobot();
-
 	/**
-	 * @brief publish_node_with_best_gain
+	 * @brief Publish the node that currently has the best gain-cost-ratio
 	 */
 	void publishNodeWithBestGain();
+	/**
+	 * @brief Sorts the nodes which gain needs to be (re)calculated by their distance to the robot (closest first)
+	 */
+	void sortNodesToUpdateByDistanceToRobot();
+	/**
+	 * @brief Compares the distances to the robot of two nodes
+	 * @param Node index of the first node
+	 * @param Node index of the second node
+	 * @return Returns true if the first node's distance to the robot is smaller than the second
+	 */
+	bool compareNodeDistancesToRobot(const int &node_one, const int &node_two);
 	/**
 	 * @brief Publish a node which gain needs to be (re)calculated
 	 */

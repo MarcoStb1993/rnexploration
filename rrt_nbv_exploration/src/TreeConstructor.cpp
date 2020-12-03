@@ -178,10 +178,10 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.parent = nearest_node;
-		node.pathToRobot = _tree_path_calculator->initializePathToRobot(
-				_rrt.node_counter, _rrt.nodes[nearest_node].pathToRobot);
 		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
 		node.index = _rrt.node_counter;
+		_tree_path_calculator->initializePathToRobot(node, _rrt.node_counter,
+				_rrt.nodes[nearest_node].pathToRobot,_rrt.nodes[nearest_node].distanceToRobot);
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
@@ -224,7 +224,7 @@ void TreeConstructor::publishNodeWithBestGain() {
 	rrt_nbv_exploration_msgs::BestAndCurrentNode msg;
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
-		_node_comparator->isEmpty() ?
+			_node_comparator->isEmpty() ?
 					_current_goal_node : _node_comparator->getBestNode();
 	msg.goal_updated = _goal_updated;
 	_best_and_current_goal_publisher.publish(msg);
@@ -244,6 +244,18 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 			_rrt.nodes[iterator].gain = -1;
 		}
 	}
+}
+
+void TreeConstructor::sortNodesToUpdateByDistanceToRobot() {
+	_nodes_to_update.sort([this](int node_one, int node_two) {
+		return compareNodeDistancesToRobot(node_one, node_two);
+	});
+
+}
+
+bool TreeConstructor::compareNodeDistancesToRobot(const int &node_one,
+		const int &node_two) {
+	return true;
 }
 
 void TreeConstructor::publishNodeToUpdate() {

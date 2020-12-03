@@ -22,7 +22,6 @@ namespace rrt_nbv_exploration {
 struct CompareStruct {
 	int node;
 	double gain_cost_ratio;
-	double distance_to_robot;
 
 	/**
 	 * @brief Constructor to initialize struct with node index in tree list
@@ -30,7 +29,6 @@ struct CompareStruct {
 	CompareStruct(int n) {
 		node = n;
 		gain_cost_ratio = 0.0;
-		distance_to_robot = -1.0;
 	}
 
 	/**
@@ -39,7 +37,6 @@ struct CompareStruct {
 	CompareStruct(int n, double gcr) {
 		node = n;
 		gain_cost_ratio = gcr;
-		distance_to_robot = -1.0;
 	}
 };
 
@@ -138,10 +135,6 @@ private:
 	 */
 	bool _robot_moved;
 	/**
-	 * @brief Fixed length of the tree's edges, flexible if set to -1 (TODO: wavefront if set to 0)
-	 */
-	double _edge_length;
-	/**
 	 * @brief Number of nodes to be considered for horizon evaluation, infinite if set to <= 0
 	 */
 	int _horizon_length;
@@ -152,22 +145,6 @@ private:
 	 * @param Current tree
 	 */
 	void sortByGain(rrt_nbv_exploration_msgs::Tree &rrt);
-
-	/**
-	 * @brief Calculate the distances of all paths depending on the edge length (if lesser equals 0, retrieve
-	 * particular distances)
-	 * @param Current tree
-	 */
-	void calculatePathDistances(rrt_nbv_exploration_msgs::Tree &rrt);
-
-	/**
-	 * @brief Calculate the distance of the given path depending on the edge length (if lesser equals 0, retrieve
-	 * particular distances)
-	 * @param Current tree
-	 * @param Path to calculate distance from
-	 */
-	double calculatePathDistance(rrt_nbv_exploration_msgs::Tree &rrt,
-			std::vector<int> path);
 
 	/**
 	 * @brief Calculates the gain-cost-ratio of each node in the list of nodes
