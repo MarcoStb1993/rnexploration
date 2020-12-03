@@ -204,13 +204,9 @@ void TreeConstructor::determineNearestNodeToRobot() {
 			_moved_to_current_goal = true;
 			if (_tree_path_calculator->neighbourNodes(_rrt, _rrt.nearest_node,
 					nearest_node)) {
-//				ROS_INFO_STREAM(
-//						"nearest node changed from " << _rrt.nearest_node << " to " << nearest_node);
 				_tree_path_calculator->updatePathsToRobot(_rrt.nearest_node,
 						nearest_node, _rrt);
 			} else {
-//				ROS_INFO_STREAM(
-//						"nearest node changed from " << _rrt.nearest_node << " to " << nearest_node << " which are not neighbors");
 				_tree_path_calculator->recalculatePathsToRobot(
 						_rrt.nearest_node, nearest_node, _rrt);
 			}
@@ -255,12 +251,13 @@ void TreeConstructor::sortNodesToUpdateByDistanceToRobot() {
 
 bool TreeConstructor::compareNodeDistancesToRobot(const int &node_one,
 		const int &node_two) {
-	return true;
+	return _rrt.nodes[node_one].distanceToRobot <= _rrt.nodes[node_two].distanceToRobot;
 }
 
 void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
 		//ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
+		sortNodesToUpdateByDistanceToRobot();
 		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
 	}
 }
