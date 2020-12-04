@@ -6,6 +6,7 @@ CollisionChecker::CollisionChecker() {
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("visualize_collision", _visualize_collision, false);
+	private_nh.param("check_init_position", _check_init_position, false);
 	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
 			"map");
@@ -163,16 +164,15 @@ bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
 //			"map width: " << map.info.width << " map height: " << map.info.width << " map data length: " << map.data.size() << "map at 0 " << (int)map.data[0]);
 	if (y_start < 0 || y_end > map.info.width || x < 0 || x > map.info.height)
 		return true;
-	bool collision = false;
 	for (int y = x * map.info.width + y_start; y <= x * map.info.width + y_end;
 			y++) {
 		if (map.data[y] == -1 || map.data[y] >= 100) {
-			return true; //collision = true; //return true;
+			return true;
 		} else {
 			vis_map[y] = 0;
 		}
 	}
-	return false; //collision; //false;
+	return false;
 }
 
 void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
@@ -192,15 +192,19 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 		vis_map.info.map_load_time = ros::Time::now();
 		initVisMap(map);
 	}
-	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-	if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data)) {
-		if (_visualize_collision) {
-			vis_map.data = tmp_vis_map_data;
-			_visualization_pub.publish(vis_map);
+	if (_check_init_position) {
+		std::vector<int8_t> tmp_vis_map_data = vis_map.data;
+		if (!isCircleInCollision(position.x, position.y, map,
+				tmp_vis_map_data)) {
+			if (_visualize_collision) {
+				vis_map.data = tmp_vis_map_data;
+				_visualization_pub.publish(vis_map);
+			}
+			return true;
 		}
+		return false;
+	} else
 		return true;
-	}
-	return false;
 }
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,

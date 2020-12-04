@@ -167,6 +167,7 @@
 		<arg name="exploration_finished_timer_duration" value="10.0" />		
 		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- 0=classic,1=horizon,2=receding horizon -->
 		<arg name="horizon_length" default="$(arg horizon_length)" />
+		<arg name="check_init_position" default=false />
 	</include>
 
 	<!-- RViz für Exploration -->

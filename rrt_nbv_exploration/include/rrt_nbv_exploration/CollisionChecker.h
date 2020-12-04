@@ -35,8 +35,9 @@ public:
 			geometry_msgs::Point rand_sample, double min_distance);
 
 	/**
-	 * @brief Initialize collision checking by checking circle around robot
+	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
 	 * @param Robot's position where RRT root is placed
+	 * @return If initialization succeeded
 	 */
 	bool initialize(geometry_msgs::Point position);
 
@@ -72,6 +73,10 @@ private:
 	 * Occupancy map for visualizing collision checking on a 2D grid
 	 */
 	nav_msgs::OccupancyGrid vis_map;
+	/**
+	 * If the initial position when starting exploration has to be checked for obstacles
+	 */
+	bool _check_init_position;
 
 	/**
 	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking

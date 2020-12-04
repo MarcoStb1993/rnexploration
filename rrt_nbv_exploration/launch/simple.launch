@@ -22,9 +22,10 @@
 	<arg name="exploration_finished_timer_duration" default="1.0" />
 	<arg name="rne_mode" default="0" /> <!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />
+	<arg name="check_init_position" default="false" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen" >
+		output="screen">
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
@@ -38,6 +39,7 @@
 		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />	
 		<param name="rne_mode" type="int" value="$(arg rne_mode)" />
 		<param name="horizon_length" type="int" value="$(arg horizon_length)" />
+		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

@@ -182,7 +182,8 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
 		node.index = _rrt.node_counter;
 		_tree_path_calculator->initializePathToRobot(node, _rrt.node_counter,
-				_rrt.nodes[nearest_node].pathToRobot,_rrt.nodes[nearest_node].distanceToRobot);
+				_rrt.nodes[nearest_node].pathToRobot,
+				_rrt.nodes[nearest_node].distanceToRobot);
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
 		_sort_nodes_to_update = true;
@@ -229,7 +230,7 @@ void TreeConstructor::publishNodeWithBestGain() {
 }
 
 void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
-	//ROS_INFO("start updating nodes");
+//ROS_INFO("start updating nodes");
 	std::vector<int> updatable_nodes = _tree_searcher->searchInRadius(
 			center_node, _radius_search_range);
 	for (auto iterator : updatable_nodes) {
@@ -255,13 +256,14 @@ void TreeConstructor::sortNodesToUpdateByDistanceToRobot() {
 
 bool TreeConstructor::compareNodeDistancesToRobot(const int &node_one,
 		const int &node_two) {
-	return _rrt.nodes[node_one].distanceToRobot <= _rrt.nodes[node_two].distanceToRobot;
+	return _rrt.nodes[node_one].distanceToRobot
+			<= _rrt.nodes[node_two].distanceToRobot;
 }
 
 void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
 		//ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
-		if(_sort_nodes_to_update)
+		if (_sort_nodes_to_update)
 			sortNodesToUpdateByDistanceToRobot();
 		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
 	}
