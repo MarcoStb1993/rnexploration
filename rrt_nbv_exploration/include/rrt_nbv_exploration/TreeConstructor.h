@@ -161,6 +161,10 @@ private:
 	 * @brief If current goal is currently updating
 	 */
 	bool _updating;
+	/**
+	 * @brief If sorting the list of nodes to update is required
+	 */
+	bool _sort_nodes_to_update;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

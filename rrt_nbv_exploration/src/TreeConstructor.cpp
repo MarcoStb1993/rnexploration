@@ -90,6 +90,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_last_updated_node = -1;
 	_goal_updated = true;
 	_updating = false;
+	_sort_nodes_to_update = false;
 	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
@@ -184,6 +185,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 				_rrt.nodes[nearest_node].pathToRobot,_rrt.nodes[nearest_node].distanceToRobot);
 		_rrt.nodes.push_back(node);
 		_nodes_to_update.push_back(_rrt.node_counter);
+		_sort_nodes_to_update = true;
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
@@ -237,6 +239,7 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 						!= rrt_nbv_exploration_msgs::Node::FAILED) {
 			_node_comparator->removeNode(iterator);
 			_nodes_to_update.push_back(iterator);
+			_sort_nodes_to_update = true;
 			_rrt.nodes[iterator].gain = -1;
 		}
 	}
@@ -246,6 +249,7 @@ void TreeConstructor::sortNodesToUpdateByDistanceToRobot() {
 	_nodes_to_update.sort([this](int node_one, int node_two) {
 		return compareNodeDistancesToRobot(node_one, node_two);
 	});
+	_sort_nodes_to_update = false;
 
 }
 
@@ -257,7 +261,8 @@ bool TreeConstructor::compareNodeDistancesToRobot(const int &node_one,
 void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
 		//ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
-		sortNodesToUpdateByDistanceToRobot();
+		if(_sort_nodes_to_update)
+			sortNodesToUpdateByDistanceToRobot();
 		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
 	}
 }
@@ -277,6 +282,7 @@ void TreeConstructor::updateCurrentGoal() {
 		ROS_INFO("goal visited");
 		_node_comparator->removeNode(_current_goal_node);
 		_nodes_to_update.push_front(_current_goal_node); //calculate first
+		_sort_nodes_to_update = true;
 		_rrt.nodes[_current_goal_node].gain = 0;
 		update_center = _rrt.nodes[_current_goal_node].position;
 		updateNodes(update_center);
@@ -289,6 +295,7 @@ void TreeConstructor::updateCurrentGoal() {
 			ROS_INFO("update nodes");
 			_node_comparator->removeNode(_current_goal_node);
 			_nodes_to_update.push_back(_current_goal_node);
+			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
 		}
@@ -327,6 +334,7 @@ void TreeConstructor::updatedNodeCallback(
 						!= rrt_nbv_exploration_msgs::Node::FAILED) {
 			_node_comparator->addNode(updated_node->index);
 		}
+		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this
 	}
 }
 
