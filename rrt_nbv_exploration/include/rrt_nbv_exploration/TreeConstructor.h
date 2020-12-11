@@ -165,6 +165,10 @@ private:
 	 * @brief If sorting the list of nodes to update is required
 	 */
 	bool _sort_nodes_to_update;
+	/**
+	 * @brief Operating mode of RNE (classic=0, horizon=1, receding_horizon=2)
+	 */
+	RneMode _rne_mode;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

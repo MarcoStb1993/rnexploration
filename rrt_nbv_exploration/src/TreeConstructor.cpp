@@ -22,6 +22,9 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 1.0);
+	int rne_mode;
+	private_nh.param("rne_mode", rne_mode, (int) RneMode::classic);
+	_rne_mode = static_cast<RneMode>(rne_mode);
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
@@ -272,6 +275,16 @@ void TreeConstructor::publishNodeToUpdate() {
 void TreeConstructor::updateCurrentGoal() {
 //	ROS_INFO_STREAM(
 //			"Update current goal " << _current_goal_node << " with status " << (int)_rrt.nodes[_current_goal_node].status);
+	if (_rne_mode == RneMode::receding_horizon) {
+		if (_rrt.nodes[_current_goal_node].status
+				!= rrt_nbv_exploration_msgs::Node::ABORTED
+				|| (_rrt.nodes[_current_goal_node].status
+						== rrt_nbv_exploration_msgs::Node::ABORTED
+						&& _moved_to_current_goal)) { //only restart if robot moved towards goal when aborted
+			startRrtConstruction();
+			return;
+		}
+	}
 	geometry_msgs::Point update_center;
 	switch (_rrt.nodes[_current_goal_node].status) {
 	case rrt_nbv_exploration_msgs::Node::EXPLORED:
