@@ -123,7 +123,7 @@ private:
 	 */
 	std::list<CompareStruct> _nodes_ordered_by_hgcr;
 	/**
-	 * @brief Operating mode of RNE (classic=0, horizon=1, receding_horizon=2)
+	 * @brief Operating mode of RNE
 	 */
 	RneMode _rne_mode;
 	/**

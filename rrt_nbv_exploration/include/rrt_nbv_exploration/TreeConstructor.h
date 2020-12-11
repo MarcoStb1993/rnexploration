@@ -166,7 +166,7 @@ private:
 	 */
 	bool _sort_nodes_to_update;
 	/**
-	 * @brief Operating mode of RNE (classic=0, horizon=1, receding_horizon=2)
+	 * @brief Operating mode of RNE
 	 */
 	RneMode _rne_mode;
 

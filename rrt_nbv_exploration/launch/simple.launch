@@ -20,7 +20,7 @@
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
 	<arg name="exploration_finished_timer_duration" default="1.0" />
-	<arg name="rne_mode" default="0" /> <!-- 0=classic,1=horizon,2=receding horizon -->
+	<arg name="rne_mode" default="0" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 	<arg name="horizon_length" default="3" />
 	<arg name="check_init_position" default="false" />
 

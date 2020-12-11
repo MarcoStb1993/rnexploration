@@ -165,7 +165,7 @@
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />		
-		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- 0=classic,1=horizon,2=receding horizon -->
+		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
 	</include>

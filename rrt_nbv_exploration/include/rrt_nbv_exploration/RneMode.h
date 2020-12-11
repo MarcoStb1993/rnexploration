@@ -11,10 +11,10 @@
 namespace rrt_nbv_exploration {
 
 /**
- * @brief Operating mode of RNE (classic=0, horizon=1, receding_horizon=2)
+ * @brief Operating mode of RNE (classic=0, receding=1, horizon=2, receding_horizon=3)
  */
 enum RneMode : int {
-	classic = 0, horizon = 1, receding_horizon = 2
+	classic = 0, receding = 1, horizon = 2, receding_horizon = 3
 };
 
 }
