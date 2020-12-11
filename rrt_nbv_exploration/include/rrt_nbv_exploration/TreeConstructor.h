@@ -234,7 +234,8 @@ private:
 	 */
 	void updateMapDimensions();
 	/**
-	 * @brief Updates the current goal and publishes it to navigation
+	 * @brief Updates the current goal and the goals around it depending on the status navigation returned, also resets
+	 * the tree for receding modes
 	 */
 	void updateCurrentGoal();
 	/**

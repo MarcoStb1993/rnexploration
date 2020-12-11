@@ -275,7 +275,8 @@ void TreeConstructor::publishNodeToUpdate() {
 void TreeConstructor::updateCurrentGoal() {
 //	ROS_INFO_STREAM(
 //			"Update current goal " << _current_goal_node << " with status " << (int)_rrt.nodes[_current_goal_node].status);
-	if (_rne_mode == RneMode::receding || _rne_mode == RneMode::receding_horizon) {
+	if (_rne_mode == RneMode::receding
+			|| _rne_mode == RneMode::receding_horizon) {
 		if (_rrt.nodes[_current_goal_node].status
 				!= rrt_nbv_exploration_msgs::Node::ABORTED
 				|| (_rrt.nodes[_current_goal_node].status
