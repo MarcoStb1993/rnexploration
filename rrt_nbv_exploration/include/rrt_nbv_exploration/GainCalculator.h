@@ -31,6 +31,18 @@ struct PollPoint {
 typedef boost::multi_array<PollPoint, 3> multi_array;
 typedef multi_array::index multi_array_index;
 
+/**
+ * Start and stop points in Cartesian coordinates, also includes theta (azimuth) and phi (polar) angles in degrees
+ */
+struct PollRay {
+	double x_start, y_start, z_start;
+	double x_end, y_end, z_end;
+	int theta, phi;
+};
+
+typedef boost::multi_array<PollRay, 2> multi_array_ray;
+typedef multi_array_ray::index multi_array_ray_index;
+
 namespace rrt_nbv_exploration {
 
 /**
@@ -45,9 +57,17 @@ public:
 	~GainCalculator();
 
 	/**
+	 * Pre-calculates lists of all gain poll points/rays in cartesian coordinates based on theta and phi steps as well as radial steps depending on the mode
+	 */
+	void precalculateGainPolls();
+	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
 	 */
 	void precalculateGainPollPoints();
+	/**
+	 * Pre-calculates lists of all poll ray's start and end points in cartesian coordinates based on theta and phi steps
+	 */
+	void precalculateGainPollRays();
 
 	void dynamicReconfigureCallback(
 			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
@@ -106,11 +126,19 @@ private:
 	 * Show gain calculation sparse ray sampling
 	 */
 	bool _visualize_gain_calculation;
+	/**
+	 * Gain calculation mode (0=comparison, 1=sparse ray polling, 2=sparse raycasting)
+	 */
+	int _gain_mode;
 
 	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
 	 */
 	multi_array _gain_poll_points;
+	/**
+	 * A pre-calculated 2-dimensional array (theta, phi) of all rays to poll for gain calculation
+	 */
+	multi_array_ray _gain_poll_rays;
 	/**
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
@@ -140,10 +168,22 @@ private:
 			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
 
 	/**
-	 * Calculates the gain of the passed node by sparse ray polling in the octree
+	 * Calculates the gain of the passed node the selected gain calculation method
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Calculates the gain of the passed node by sparse ray polling in the octree
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Calculates the gain of the passed node by raycasting in the octree
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculateRayGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
 	 * Measures the  by raytracing in the octree
