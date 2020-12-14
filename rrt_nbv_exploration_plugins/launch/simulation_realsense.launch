@@ -19,6 +19,8 @@
 	<arg name="edge_length" default="0" />
 	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />
+	<arg name="gain_mode" default="1" />
+	<arg name="oc_resolution" default="0.1" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -136,7 +138,7 @@
 	<!-- Octomap -->
 	<node pkg="octomap_server" type="octomap_server_node"
 		name="octomap_server">
-		<param name="resolution" value="0.1" />
+		<param name="resolution" value="$(arg oc_resolution)" />
 		<param name="frame_id" type="string" value="map" />
 		<param name="sensor_model/max_range" value="8.0" />
 		<param name="latch" value="false" />
@@ -168,6 +170,8 @@
 		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
+		<arg name="gain_mode" default="$(arg gain_mode)" />
+		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 	</include>
 
 	<!-- RViz für Exploration -->

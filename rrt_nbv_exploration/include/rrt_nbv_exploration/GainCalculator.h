@@ -75,6 +75,7 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
+	ros::Publisher raycast_visualization;
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -147,6 +148,10 @@ private:
 	 * @brief Node which gain was calculated previously
 	 */
 	rrt_nbv_exploration_msgs::Node _last_updated_node;
+	/**
+	 * @brief Resolution of octomap (edge length of voxels in m)
+	 */
+	double _octomap_resolution;
 
 	/**
 	 * @brief Start gain calculation for first node in list of nodes to be updated

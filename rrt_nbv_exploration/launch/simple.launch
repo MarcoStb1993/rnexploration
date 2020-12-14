@@ -23,6 +23,8 @@
 	<arg name="rne_mode" default="0" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 	<arg name="horizon_length" default="3" />
 	<arg name="check_init_position" default="false" />
+	<arg name="gain_mode" default="1" />
+	<arg name="oc_resolution" default="0.1" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -55,6 +57,8 @@
 		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
+		<param name="gain_mode" type="int" value="$(arg gain_mode)" />
+		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

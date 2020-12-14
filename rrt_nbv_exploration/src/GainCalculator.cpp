@@ -17,12 +17,15 @@ GainCalculator::GainCalculator() :
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
 	private_nh.param("gain_mode", _gain_mode, 1);
+	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
 	ros::NodeHandle nh("rne");
 	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raysample_visualization", 1000);
+	raycast_visualization = nh.advertise<visualization_msgs::Marker>(
+				"raycast_visualization", 1000);
 	_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
@@ -41,6 +44,7 @@ GainCalculator::~GainCalculator() {
 }
 
 void GainCalculator::precalculateGainPolls() {
+	ROS_WARN_STREAM("Gain mode: " << _gain_mode);
 	if(_gain_mode != 2)
 		precalculateGainPollPoints();
 	if(_gain_mode != 1)
@@ -81,7 +85,7 @@ void GainCalculator::precalculateGainPollPoints() {
 	_best_gain_per_view = phi_steps.size() * radius_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
-	ROS_INFO_STREAM(
+	ROS_WARN_STREAM(
 			"Gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
@@ -112,6 +116,8 @@ void GainCalculator::precalculateGainPollRays() {
 							* phi.cos, theta.step, phi.step };
 		}
 	}
+	ROS_WARN_STREAM(
+				"Gain calculation initialized with " << _gain_poll_rays.size() << " rays");
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
@@ -237,7 +243,7 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 
 	if (_visualize_gain_calculation) {
-		raysample_visualization.publish(_node_points);
+		raycast_visualization.publish(_node_points);
 	}
 }
 
@@ -248,10 +254,10 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.id = 0;
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
-	_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-	_node_points.scale.x = 0.1;
-	_node_points.scale.y = 0.1;
-	_node_points.scale.z = 0.1;
+	_node_points.type = visualization_msgs::Marker::CUBE_LIST;
+	_node_points.scale.x = _octomap_resolution;
+	_node_points.scale.y = _octomap_resolution;
+	_node_points.scale.z = _octomap_resolution;
 	_node_points.color.a = 1.0f;
 	_node_points.header.stamp = ros::Time::now();
 
