@@ -18,6 +18,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param("min_view_score", _min_view_score, 0.1);
 	private_nh.param("gain_mode", _gain_mode, 1);
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
+	private_nh.param<std::string>("file_path", _file_path,
+			"/home/marco/Documents/gain_eval/comparison.txt");
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -51,6 +53,7 @@ void GainCalculator::precalculateGainPolls() {
 }
 
 void GainCalculator::precalculateGainPollPoints() {
+	setStartTime();
 	std::vector<StepStruct> theta_steps;
 	std::vector<StepStruct> phi_steps;
 	for (int theta = 0; theta < 360; theta += _delta_theta) {
@@ -84,11 +87,12 @@ void GainCalculator::precalculateGainPollPoints() {
 	_best_gain_per_view = phi_steps.size() * radius_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
-	ROS_WARN_STREAM(
-			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+//	ROS_WARN_STREAM(
+//			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
 void GainCalculator::precalculateGainPollRays() {
+	setStartTime();
 	std::vector<StepStruct> theta_steps;
 	std::vector<StepStruct> phi_steps;
 	for (int theta = 0; theta < 360; theta += _delta_theta) {
@@ -102,8 +106,7 @@ void GainCalculator::precalculateGainPollRays() {
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 	}
-	ROS_WARN_STREAM(
-			"Theta steps: " << theta_steps.size() << "  Phi steps: " << phi_steps.size());
+
 	_gain_poll_rays.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -123,8 +126,8 @@ void GainCalculator::precalculateGainPollRays() {
 	_best_gain_per_view = phi_steps.size() * range_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
-	ROS_WARN_STREAM(
-			"Raycasting gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+//	ROS_WARN_STREAM(
+//			"Raycasting gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 
 //	ROS_WARN_STREAM(
 //			"Raycasting initialized with " << _gain_poll_points.shape()[0] << " * " << _gain_poll_points.shape()[1] << " rays");
@@ -141,7 +144,6 @@ void GainCalculator::precalculateGainPollRays() {
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
-	ROS_WARN_STREAM("Calculate gain for node " << node.index);
 	if (_gain_mode != 2)
 		calculatePointGain(node);
 	if (_gain_mode != 1)
@@ -149,6 +151,7 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 }
 
 void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
+	setStartTime();
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raysample_visualization";
@@ -234,10 +237,13 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
+//	ROS_INFO_STREAM(
+//			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
+
 	if (view_score < _min_view_score
-			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-					&& node.best_yaw <= best_yaw + 5
-					&& node.best_yaw >= best_yaw - 5)) {
+					|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+							&& node.best_yaw <= best_yaw + 5
+							&& node.best_yaw >= best_yaw - 5)) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
@@ -262,13 +268,16 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	color.a = 1.0f;
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
-
+	std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
+			+ std::string("	") + std::to_string(best_yaw);
+	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
 	}
 }
 
 void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
+	setStartTime();
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raycast_visualization";
@@ -365,14 +374,15 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
-	ROS_INFO_STREAM(
-			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
+//	ROS_INFO_STREAM(
+//			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
-	if (view_score < _min_view_score
+	if (_gain_mode != 0
+			&& (view_score < _min_view_score
 			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
 					&& node.best_yaw <= best_yaw + 5
-					&& node.best_yaw >= best_yaw - 5)) {
-		ROS_INFO_STREAM("Counts as explored");
+					&& node.best_yaw >= best_yaw - 5))) {
+//		ROS_INFO_STREAM("Counts as explored");
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
@@ -397,7 +407,9 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	color.a = 1.0f;
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
-
+	std::string infos = "raycasting	" + std::to_string(best_yaw_score)
+			+ std::string("	") + std::to_string(best_yaw);
+	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raycast_visualization.publish(_node_points);
 	}
@@ -478,6 +490,19 @@ void GainCalculator::nodeToUpdateCallback(
 void GainCalculator::dynamicReconfigureCallback(
 		rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level) {
 	_min_view_score = config.min_view_score;
+}
+
+void GainCalculator::setStartTime() {
+	_start_time = ros::Time::now();
+}
+
+void GainCalculator::setStopTime(std::string text) {
+	ros::Duration time_passed = ros::Time::now() - _start_time;
+	std::ofstream fout;
+	fout.open(_file_path, std::ios_base::app);
+	fout << std::fixed << std::setprecision(12) << time_passed.toNSec() << "	"
+			<< text << std::endl;
+	fout.close();
 }
 
 }

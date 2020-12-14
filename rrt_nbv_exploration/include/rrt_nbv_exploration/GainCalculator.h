@@ -8,6 +8,7 @@
 #include <rrt_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
+#include <fstream>
 
 /**
  * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
@@ -131,6 +132,10 @@ private:
 	 * Gain calculation mode (0=comparison, 1=sparse ray polling, 2=sparse raycasting)
 	 */
 	int _gain_mode;
+	/**
+	 * @brief File path where to save results
+	 */
+	std::string _file_path;
 
 	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
@@ -152,6 +157,10 @@ private:
 	 * @brief Resolution of octomap (edge length of voxels in m)
 	 */
 	double _octomap_resolution;
+	/**
+	 * @brief Start time to calculate time passed
+	 */
+	ros::Time _start_time;
 
 	/**
 	 * @brief Start gain calculation for first node in list of nodes to be updated
@@ -196,5 +205,14 @@ private:
 	 * @return If height could be measured
 	 */
 	bool measureNodeHeight(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * @brief Saves current time as start time
+	 */
+	void setStartTime();
+	/**
+	 * @brief Calculates duration since start time and saves it to file with the given text
+	 */
+	void setStopTime(std::string text);
 };
 }
