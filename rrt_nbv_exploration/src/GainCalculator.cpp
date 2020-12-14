@@ -25,7 +25,7 @@ GainCalculator::GainCalculator() :
 	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raysample_visualization", 1000);
 	raycast_visualization = nh.advertise<visualization_msgs::Marker>(
-				"raycast_visualization", 1000);
+			"raycast_visualization", 1000);
 	_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
@@ -44,10 +44,9 @@ GainCalculator::~GainCalculator() {
 }
 
 void GainCalculator::precalculateGainPolls() {
-	ROS_WARN_STREAM("Gain mode: " << _gain_mode);
-	if(_gain_mode != 2)
+	if (_gain_mode != 2)
 		precalculateGainPollPoints();
-	if(_gain_mode != 1)
+	if (_gain_mode != 1)
 		precalculateGainPollRays();
 }
 
@@ -86,7 +85,7 @@ void GainCalculator::precalculateGainPollPoints() {
 			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
 	ROS_WARN_STREAM(
-			"Gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
 void GainCalculator::precalculateGainPollRays() {
@@ -103,6 +102,8 @@ void GainCalculator::precalculateGainPollRays() {
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 	}
+	ROS_WARN_STREAM(
+			"Theta steps: " << theta_steps.size() << "  Phi steps: " << phi_steps.size());
 	_gain_poll_rays.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -116,14 +117,34 @@ void GainCalculator::precalculateGainPollRays() {
 							* phi.cos, theta.step, phi.step };
 		}
 	}
+
+	int range_steps = (int) ((_sensor_max_range - _sensor_min_range)
+			/ _octomap_resolution);
+	_best_gain_per_view = phi_steps.size() * range_steps
+			* (_sensor_horizontal_fov / _delta_theta + 1);
+	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
 	ROS_WARN_STREAM(
-				"Gain calculation initialized with " << _gain_poll_rays.size() << " rays");
+			"Raycasting gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+
+//	ROS_WARN_STREAM(
+//			"Raycasting initialized with " << _gain_poll_points.shape()[0] << " * " << _gain_poll_points.shape()[1] << " rays");
+//	int counter = 0;
+//	for (multi_array_ray_index theta = 0; theta < _gain_poll_rays.shape()[0];
+//			theta++) {
+//		for (multi_array_ray_index phi = 0; phi < _gain_poll_rays.shape()[1];
+//				phi++) {
+//			PollRay point = _gain_poll_rays[theta][phi];
+//			ROS_INFO_STREAM(
+//					std::fixed << std::setprecision(2) << "Poll point " << counter++ << " with start pos: (" << point.x_start << ", "<< point.y_start << ", "<< point.z_start << ") and end pos: ("<< point.x_end << ", "<< point.y_end << ", "<< point.z_end << ")");
+//		}
+//	}
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
-	if(_gain_mode != 2)
+	ROS_WARN_STREAM("Calculate gain for node " << node.index);
+	if (_gain_mode != 2)
 		calculatePointGain(node);
-	if(_gain_mode != 1)
+	if (_gain_mode != 1)
 		calculateRayGain(node);
 }
 
@@ -243,14 +264,14 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 
 	if (_visualize_gain_calculation) {
-		raycast_visualization.publish(_node_points);
+		raysample_visualization.publish(_node_points);
 	}
 }
 
 void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
-	_node_points.ns = "raysample_visualization";
+	_node_points.ns = "raycast_visualization";
 	_node_points.id = 0;
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
@@ -275,52 +296,50 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	double y = node.position.y;
 	double z = node.position.z;
 
+	int counter = 0;
+
 	for (multi_array_ray_index theta = 0; theta < _gain_poll_rays.shape()[0];
 			theta++) {
 		for (multi_array_ray_index phi = 0; phi < _gain_poll_rays.shape()[1];
 				phi++) {
-			for (multi_array_ray_index radius = 0;
-					radius < _gain_poll_rays.shape()[2]; radius++) {
-				PollRay point = _gain_poll_rays[theta][phi];
-				octomap::KeyRay keyray;
-				octomap::point3d start_point(point.x_start,point.z_start,point.z_start);
-				octomap::point3d end_point(point.x_end,point.z_end,point.z_end);
-				if (_octree->computeRayKeys(start_point, end_point, keyray)) {
-					int raygain = 0;
-					for (auto iterator : keyray) {
-						octomap::point3d coords = _octree->keyToCoord(iterator);
-						octomap::OcTreeNode *ocnode = _octree->search(iterator);
-						geometry_msgs::Point vis_point;
-						vis_point.x = coords.x();
-						vis_point.y = coords.y();
-						vis_point.z = coords.z();
-						std_msgs::ColorRGBA color;
-						color.r = 0.0f;
-						color.g = 0.0f;
-						color.b = 1.0f;
-						color.a = 1.0f;
-						_node_points.points.push_back(vis_point);
-						if (ocnode != NULL) {
-							bool occupied = _octree->isNodeOccupied(ocnode);
-							if (occupied) {
-								color.r = 1.0f;
-								color.b = 0.0f;
-								_node_points.colors.push_back(color);
-								break; //end ray sampling for this ray because of an obstacle in the way
-							} else {
-								color.g = 1.0f;
-								color.b = 0.0f;
-							}
+			PollRay point = _gain_poll_rays[theta][phi];
+			octomap::KeyRay keyray;
+			octomap::point3d start_point(point.x_start + x, point.y_start + y,
+					point.z_start + z);
+			octomap::point3d end_point(point.x_end + x, point.y_end + y,
+					point.z_end + z);
+			if (_octree->computeRayKeys(start_point, end_point, keyray)) {
+				for (auto iterator : keyray) {
+					octomap::point3d coords = _octree->keyToCoord(iterator);
+					octomap::OcTreeNode *ocnode = _octree->search(iterator);
+					geometry_msgs::Point vis_point;
+					vis_point.x = coords.x();
+					vis_point.y = coords.y();
+					vis_point.z = coords.z();
+					std_msgs::ColorRGBA color;
+					color.r = 0.0f;
+					color.g = 0.0f;
+					color.b = 1.0f;
+					color.a = 1.0f;
+					_node_points.points.push_back(vis_point);
+					if (ocnode != NULL) {
+						bool occupied = _octree->isNodeOccupied(ocnode);
+						if (occupied) {
+							color.r = 1.0f;
+							color.b = 0.0f;
+							_node_points.colors.push_back(color);
+							break; //end ray sampling for this ray because of an obstacle in the way
 						} else {
-							raygain++;
+							color.g = 1.0f;
+							color.b = 0.0f;
 						}
-						_node_points.colors.push_back(color);
-
+					} else {
+						gain_per_yaw[point.theta]++;
 					}
-					node.gain += (float) raygain;
-				} else {
-					ROS_INFO("out of bounds");
+					_node_points.colors.push_back(color);
 				}
+			} else {
+				ROS_INFO("out of bounds");
 			}
 		}
 	}
@@ -344,9 +363,16 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 		}
 	}
 
-	if (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
+
+	ROS_INFO_STREAM(
+			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
+
+	if (view_score < _min_view_score
+			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
 					&& node.best_yaw <= best_yaw + 5
-					&& node.best_yaw >= best_yaw - 5) {
+					&& node.best_yaw >= best_yaw - 5)) {
+		ROS_INFO_STREAM("Counts as explored");
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
@@ -358,10 +384,10 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	//Visualize best yaw direction
 	geometry_msgs::Point vis_point;
 	vis_point.x = x
-			+ (_sensor_max_range + 0.5)
+			+ (_sensor_max_range + _octomap_resolution)
 					* cos(M_PI * best_yaw / 180.0);
 	vis_point.y = y
-			+ (_sensor_max_range + 0.5)
+			+ (_sensor_max_range + _octomap_resolution)
 					* sin(M_PI * best_yaw / 180.0);
 	vis_point.z = z;
 	std_msgs::ColorRGBA color;
@@ -373,7 +399,7 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 
 	if (_visualize_gain_calculation) {
-		raysample_visualization.publish(_node_points);
+		raycast_visualization.publish(_node_points);
 	}
 }
 

@@ -3,7 +3,9 @@ Panels:
     Help Height: 0
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
+      Expanded:
+        - /RRT Ray Polling1
+        - /RRT Raycasting1
       Splitter Ratio: 0.5
     Tree Height: 279
   - Class: rviz/Selection
@@ -24,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: RealSense
+    SyncSource: ""
   - Class: rsm::RSMControlPanel
     Name: RSMControlPanel
 Preferences:
@@ -377,13 +379,21 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
+      Marker Topic: /rne/raysample_visualization
+      Name: RRT Ray Polling
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
       Marker Topic: /rne/raycast_visualization
       Name: RRT Raycasting
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /rne/steering_visualization
@@ -545,10 +555,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
+      Pitch: 0.7553982138633728
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 5.198572158813477
     Saved: ~
 Window Geometry:
   Displays:
