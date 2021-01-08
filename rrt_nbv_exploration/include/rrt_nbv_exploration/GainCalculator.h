@@ -200,7 +200,9 @@ private:
 	void calculateRayGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
-	 * Measures the  by raytracing in the octree
+	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
+	 * node's initial position until it finds the ground, then sets the z coordinate at sensor height above ground -
+	 * if no collision occurs, raytraces upward and does the same)
 	 * @param Node which height needs to be measured
 	 * @return If height could be measured
 	 */

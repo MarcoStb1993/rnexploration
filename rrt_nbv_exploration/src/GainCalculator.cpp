@@ -424,7 +424,7 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 			node.position.z);
 	octomap::point3d bottom_point(node.position.x, node.position.y, map_z);
 	octomap::KeyRay keyray;
-	// Raytrace from initial node height (parent height) to min z value to find first occupied voxel
+	// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above groun)
 	if (_octree->computeRayKeys(node_point, bottom_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
@@ -440,17 +440,24 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 		ROS_INFO_STREAM(
 				"Raytracing for node height measurement to min z out of bounds");
 	}
-	_octree->getMetricMin(map_x, map_y, map_z);
+	_octree->getMetricMax(map_x, map_y, map_z);
 	octomap::point3d top_point(node.position.x, node.position.y, map_z);
-	// Raytrace from initial node height (parent height) to max z value to find first free voxel
+	// Raytrace from initial node height (parent height) to max z value to find first free voxel after occupied voxel (assume current z pos is below ground)
+	bool ground_detected = false;
 	if (_octree->computeRayKeys(node_point, top_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
 			octomap::OcTreeNode *ocnode = _octree->search(iterator);
 			if (ocnode != NULL) {
-				if (!_octree->isNodeOccupied(ocnode)) {
-					node.position.z = coords.z() + _sensor_height;
-					return true;
+				if (!ground_detected) {	//find first occupied voxel
+					if (_octree->isNodeOccupied(ocnode)) {
+						ground_detected = true;
+					}
+				} else {//find first empty voxel above ground, if there are none, it was probably the ceiling
+					if (!_octree->isNodeOccupied(ocnode)) {
+						node.position.z = coords.z() + _sensor_height;
+						return true;
+					}
 				}
 			}
 		}
@@ -481,6 +488,7 @@ void GainCalculator::nodeToUpdateCallback(
 		node.index = node_to_update->index;
 		node.gain = node_to_update->gain;
 		node.best_yaw = node_to_update->best_yaw;
+		node.distanceToParent = node_to_update->distanceToParent;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);
