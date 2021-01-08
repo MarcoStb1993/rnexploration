@@ -1,5 +1,5 @@
-<!-- Simulation of Husky UGV with RealSense camera in Gazebo running Robot Statemachine 
-	with GMapping and RN Exploration -->
+<!-- Simulation of Husky UGV with FD Scanner in Gazebo running Robot Statemachine with GMapping 
+	and RN Exploration -->
 
 <launch>
 	<arg name="world"
@@ -13,19 +13,18 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
+	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="false" />
 	<arg name="edge_length" default="0" />
 	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />
 	<arg name="gain_mode" default="1" />
-	<arg name="oc_resolution" default="0.1" />
+	<arg name="oc_resolution" default="0.05" />
 
-	<include
-		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
+	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
-		<arg name="realsense_enabled" value="true" />
+		<arg name="fd_scanner_enabled" value="true" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
@@ -63,34 +62,31 @@
 	</node>
 
 	<node pkg="rrt_nbv_exploration_plugins"
-		type="rneServiceProviderNode" name="rneServiceProviderNode"
-		output="screen">
+		type="rneServiceProviderNode" name="rneServiceProviderNode" output="screen">
 		<param name="update_frequency" value="20" />
 	</node>
-	
-	<!-- GMapping -->
+
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
 	</node>
 
-	<!-- Navigation -->
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base" output="screen">
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
@@ -104,19 +100,19 @@
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base_reverse" output="screen">
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
@@ -133,34 +129,57 @@
 
 	<node pkg="tf" type="static_transform_publisher"
 		name="base_footprint_reverse"
-		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+		args="0 0 0 0 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+		
+	<!--  FD Scanner -->
+	<node name="rotator_controller" pkg="fd_scanner"
+		type="rotatorControllerNode" output="screen">
+		<param name="rotation_speed" type="double" value="0.62" />
+		<param name="simulation" type="bool" value="true" />
+		<param name="autostart" type="bool" value="true" />
+		<param name="sensor_frame" type="string" value="map" />
+		<param name="velodyne_frame" type="string" value="velodyne" />		
+		<param name="pointcloud_topic" type="string"
+			value="velodyne_points" />
+		<param name="merged_pointcloud_topic" type="string"
+			value="fd_scanner_points" />
+		<param name="velodyne_packet_topic" type="string"
+			value="velodyne_packets" />
+		<param name="filter_box_min_x" type="double" value="-0.65" />
+		<param name="filter_box_min_y" type="double" value="-0.2" />
+		<param name="filter_box_min_z" type="double" value="-0.4" />
+		<param name="filter_box_max_x" type="double" value="0.15" />
+		<param name="filter_box_max_y" type="double" value="0.2" />
+		<param name="filter_box_max_z" type="double" value="0.25" />
+		<param name="voxel_filter_size" type="double" value="0.1" />
+	</node>
 
 	<!-- Octomap -->
+
 	<node pkg="octomap_server" type="octomap_server_node"
 		name="octomap_server">
-		<param name="resolution" value="$(arg oc_resolution)" />
+		<param name="resolution" value="0.1" />
 		<param name="frame_id" type="string" value="map" />
-		<param name="sensor_model/max_range" value="8.0" />
+		<param name="sensor_model/max_range" value="100.0" />
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
-		<remap from="cloud_in" to="/camera/depth/color/points" />
-		<param name="publish_free_space" value="true"/>
+		<remap from="cloud_in" to="fd_scanner_points" />
 	</node>
 
 	<!-- RN Exploration -->
 	<include
-		file="$(find rrt_nbv_exploration)/launch/simple.launch">
+		file="$(find rrt_nbv_exploration)/launch/simple.launch" >
 		<arg name="update_frequency" value="20" />
 		<arg name="robot_width" value="0.7" />
-		<arg name="robot_radius" value="1.0" />
-		<arg name="sensor_height" value="0.887" />
-		<arg name="sensor_max_range" value="8" />
-		<arg name="sensor_min_range" value="1.0" />
+		<arg name="robot_radius" value="0.7" />
+		<arg name="sensor_height" value="0.576" />
+		<arg name="sensor_max_range" value="100" />
+		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="10" />
 		<arg name="delta_theta" value="10" />
-		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
-		<arg name="sensor_vertical_fov" value="65" />
+		<arg name="sensor_horizontal_fov" value="360" />
+		<arg name="sensor_vertical_fov" value="360" />
 		<arg name="min_view_score" value="0.15" />	
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
@@ -176,7 +195,7 @@
 
 	<!-- RViz für Exploration -->
 	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"
-		args="-d $(find rrt_nbv_exploration_plugins)/config/gazebo_simulation.rviz">
+		args="-d $(find rrt_nbv_exploration_plugins)/config/gazebo_simulation_fd.rviz">
 		<remap from="/move_base_simple/goal" to="/rsm/simpleGoal" />
 	</node>
 	<include if="$(arg rviz)"

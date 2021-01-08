@@ -241,9 +241,9 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 //			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
 	if (view_score < _min_view_score
-					|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-							&& node.best_yaw <= best_yaw + 5
-							&& node.best_yaw >= best_yaw - 5)) {
+			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+					&& node.best_yaw <= best_yaw + 5
+					&& node.best_yaw >= best_yaw - 5)) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
@@ -269,7 +269,8 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
 	std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw);
+			+ std::string("	") + std::to_string(best_yaw) + std::string("	")
+			+ std::to_string(view_score);
 	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
@@ -379,9 +380,9 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	if (_gain_mode != 0
 			&& (view_score < _min_view_score
-			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-					&& node.best_yaw <= best_yaw + 5
-					&& node.best_yaw >= best_yaw - 5))) {
+					|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+							&& node.best_yaw <= best_yaw + 5
+							&& node.best_yaw >= best_yaw - 5))) {
 //		ROS_INFO_STREAM("Counts as explored");
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
@@ -408,7 +409,8 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
 	std::string infos = "raycasting	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw);
+			+ std::string("	") + std::to_string(best_yaw) + std::string("	")
+			+ std::to_string(view_score);
 	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raycast_visualization.publish(_node_points);
