@@ -158,12 +158,12 @@
 
 	<node pkg="octomap_server" type="octomap_server_node"
 		name="octomap_server">
-		<param name="resolution" value="0.1" />
+		<param name="resolution" value="$(arg oc_resolution)" />
 		<param name="frame_id" type="string" value="map" />
 		<param name="sensor_model/max_range" value="100.0" />
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
-		<remap from="cloud_in" to="fd_scanner_points" />
+		<remap from="cloud_in" to="velodyne_points" />
 	</node>
 
 	<!-- RN Exploration -->
@@ -176,11 +176,11 @@
 		<arg name="sensor_max_range" value="100" />
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
-		<arg name="delta_phi" value="10" />
-		<arg name="delta_theta" value="10" />
+		<arg name="delta_phi" value="5" />
+		<arg name="delta_theta" value="5" />
 		<arg name="sensor_horizontal_fov" value="360" />
 		<arg name="sensor_vertical_fov" value="360" />
-		<arg name="min_view_score" value="0.15" />	
+		<arg name="min_view_score" value="0.05" />	
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />

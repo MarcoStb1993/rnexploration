@@ -19,7 +19,10 @@ GainCalculator::GainCalculator() :
 	private_nh.param("gain_mode", _gain_mode, 1);
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param<std::string>("file_path", _file_path,
-			"/home/marco/Documents/gain_eval/comparison.txt");
+			"/home/marco/Documents/gain_eval/comparison_"
+					+ std::to_string(_delta_phi) + "_"
+					+ std::to_string(_delta_theta) + "_"
+					+ std::to_string((int) (_delta_radius * 100)) + ".txt");
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -144,6 +147,11 @@ void GainCalculator::precalculateGainPollRays() {
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
+	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
+		//node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
+		node.gain = -1;
+		return;
+	}
 	if (_gain_mode != 2)
 		calculatePointGain(node);
 	if (_gain_mode != 1)
@@ -168,12 +176,6 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	node.gain = 0.0;
 
 	std::map<int, int> gain_per_yaw;
-
-	if (node.index != 0 && !measureNodeHeight(node)) {
-		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-		node.gain = -1;
-		return;
-	}
 
 	double x = node.position.x;
 	double y = node.position.y;
@@ -218,10 +220,12 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
+	int horizontal_fov =
+			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 normally)
+
 	for (int yaw = 0; yaw < 360; yaw++) {
 		double yaw_score = 0;
-		for (int fov = -_sensor_horizontal_fov / 2;
-				fov < _sensor_horizontal_fov / 2; fov++) {
+		for (int fov = -horizontal_fov / 2; fov < horizontal_fov / 2; fov++) {
 			int theta = yaw + fov;
 			if (theta < 0)
 				theta += 360;
@@ -269,8 +273,7 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
 	std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw) + std::string("	")
-			+ std::to_string(view_score);
+			+ std::string("	") + std::to_string(best_yaw);
 	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
@@ -295,12 +298,6 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	node.gain = 0.0;
 
 	std::map<int, int> gain_per_yaw;
-
-	if (node.index != 0 && !measureNodeHeight(node)) {
-		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-		node.gain = -1;
-		return;
-	}
 
 	double x = node.position.x;
 	double y = node.position.y;
@@ -356,10 +353,12 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
+	int horizontal_fov =
+			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 normally)
+
 	for (int yaw = 0; yaw < 360; yaw++) {
 		double yaw_score = 0;
-		for (int fov = -_sensor_horizontal_fov / 2;
-				fov < _sensor_horizontal_fov / 2; fov++) {
+		for (int fov = -horizontal_fov / 2; fov < horizontal_fov / 2; fov++) {
 			int theta = yaw + fov;
 			if (theta < 0)
 				theta += 360;
@@ -378,21 +377,22 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 //	ROS_INFO_STREAM(
 //			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
-	if (_gain_mode != 0
-			&& (view_score < _min_view_score
-					|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
-							&& node.best_yaw <= best_yaw + 5
-							&& node.best_yaw >= best_yaw - 5))) {
+	if (_gain_mode != 0) {
+		if (view_score < _min_view_score
+				|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
+						&& node.best_yaw <= best_yaw + 5
+						&& node.best_yaw >= best_yaw - 5)) {
 //		ROS_INFO_STREAM("Counts as explored");
-		//no use exploring similar yaw again, sensor position approximation flawed in this case
-		node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
-		node.gain = 0;
-	} else {
-		node.gain = best_yaw_score;
-		node.best_yaw = best_yaw;
+			//no use exploring similar yaw again, sensor position approximation flawed in this case
+			node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+			node.gain = 0;
+		} else {
+			node.gain = best_yaw_score;
+			node.best_yaw = best_yaw;
+		}
 	}
 
-	//Visualize best yaw direction
+//Visualize best yaw direction
 	geometry_msgs::Point vis_point;
 	vis_point.x = x
 			+ (_sensor_max_range + _octomap_resolution)
@@ -409,8 +409,7 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
 	std::string infos = "raycasting	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw) + std::string("	")
-			+ std::to_string(view_score);
+			+ std::string("	") + std::to_string(best_yaw);
 	setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raycast_visualization.publish(_node_points);
@@ -424,7 +423,7 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 			node.position.z);
 	octomap::point3d bottom_point(node.position.x, node.position.y, map_z);
 	octomap::KeyRay keyray;
-	// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above groun)
+// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above groun)
 	if (_octree->computeRayKeys(node_point, bottom_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
@@ -442,7 +441,7 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 	}
 	_octree->getMetricMax(map_x, map_y, map_z);
 	octomap::point3d top_point(node.position.x, node.position.y, map_z);
-	// Raytrace from initial node height (parent height) to max z value to find first free voxel after occupied voxel (assume current z pos is below ground)
+// Raytrace from initial node height (parent height) to max z value to find first free voxel after occupied voxel (assume current z pos is below ground)
 	bool ground_detected = false;
 	if (_octree->computeRayKeys(node_point, top_point, keyray)) {
 		for (auto iterator : keyray) {
@@ -489,6 +488,7 @@ void GainCalculator::nodeToUpdateCallback(
 		node.gain = node_to_update->gain;
 		node.best_yaw = node_to_update->best_yaw;
 		node.distanceToParent = node_to_update->distanceToParent;
+		node.distanceToRobot = node_to_update->distanceToRobot;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);
