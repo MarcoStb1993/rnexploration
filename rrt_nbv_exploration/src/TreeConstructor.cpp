@@ -22,6 +22,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 1.0);
+	private_nh.param("coupled_gain_calculation", _coupled_gain_calculation,
+			false);
 	int rne_mode;
 	private_nh.param("rne_mode", rne_mode, (int) RneMode::classic);
 	_rne_mode = static_cast<RneMode>(rne_mode);
@@ -29,10 +31,13 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
 			1);
-	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
-			"node_to_update", 1);
-	_updated_node_subscriber = nh.subscribe("updated_node", 1,
-			&TreeConstructor::updatedNodeCallback, this);
+	if (!_coupled_gain_calculation) {
+		_node_to_update_publisher =
+				nh.advertise<rrt_nbv_exploration_msgs::Node>("node_to_update",
+						1);
+		_updated_node_subscriber = nh.subscribe("updated_node", 1,
+				&TreeConstructor::updatedNodeCallback, this);
+	}
 	_best_and_current_goal_publisher = nh.advertise<
 			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
 			1);
@@ -65,7 +70,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_tree_path_calculator.reset(new TreePathCalculator());
 	_node_comparator.reset(new NodeComparator());
-
+	if (_coupled_gain_calculation)
+		_gain_calculator.reset(new GainCalculator());
 	_running = false;
 	initRrt(seed);
 }
@@ -97,6 +103,8 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
+	if (_coupled_gain_calculation)
+		_gain_calculator->precalculateGainPolls();
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
@@ -134,6 +142,8 @@ void TreeConstructor::runRrtConstruction() {
 				min_distance >= pow(_robot_radius, 2)) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
+		if (_coupled_gain_calculation)
+			publishNodeToUpdate();
 		_node_comparator->maintainList(_rrt);
 		if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
 			_current_goal_node = _node_comparator->getBestNode();
@@ -143,7 +153,8 @@ void TreeConstructor::runRrtConstruction() {
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
-		publishNodeToUpdate();
+		if (!_coupled_gain_calculation)
+			publishNodeToUpdate();
 		if (_nodes_to_update.empty() && _current_goal_node == -1) {
 			_exploration_finished_timer.start();
 		}
@@ -265,10 +276,24 @@ bool TreeConstructor::compareNodeDistancesToRobot(const int &node_one,
 
 void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
-		//ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
 		if (_sort_nodes_to_update)
 			sortNodesToUpdateByDistanceToRobot();
-		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
+		//ROS_INFO_STREAM("Node to update " << _nodes_to_update.front());
+		if (_coupled_gain_calculation) {
+			while (!_nodes_to_update.empty()) {
+				_gain_calculator->calculateGain(_rrt.nodes[_nodes_to_update.front()]);
+				_last_updated_node = _rrt.nodes[_nodes_to_update.front()].index;
+				_nodes_to_update.remove(_rrt.nodes[_nodes_to_update.front()].index);
+				if (_rrt.nodes[_nodes_to_update.front()].status
+						!= rrt_nbv_exploration_msgs::Node::EXPLORED
+						&& _rrt.nodes[_nodes_to_update.front()].status
+								!= rrt_nbv_exploration_msgs::Node::FAILED) {
+					_node_comparator->addNode(_rrt.nodes[_nodes_to_update.front()].index);
+				}
+			}
+		} else
+			_node_to_update_publisher.publish(
+					_rrt.nodes[_nodes_to_update.front()]);
 	}
 }
 

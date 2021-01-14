@@ -16,6 +16,9 @@ GainCalculator::GainCalculator() :
 			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
+	private_nh.param("log_calculations", _log_calculations, false);
+	private_nh.param("coupled_gain_calculation", _coupled_gain_calculation,
+			false);
 	private_nh.param("gain_mode", _gain_mode, 1);
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param<std::string>("file_path", _file_path,
@@ -31,11 +34,12 @@ GainCalculator::GainCalculator() :
 			"raysample_visualization", 1000);
 	raycast_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raycast_visualization", 1000);
-	_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
-			"updated_node", 1);
-	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
-			&GainCalculator::nodeToUpdateCallback, this);
-
+	if (!_coupled_gain_calculation) {
+		_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
+				"updated_node", 1);
+		_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
+				&GainCalculator::nodeToUpdateCallback, this);
+	}
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
@@ -159,7 +163,8 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 }
 
 void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
-	setStartTime();
+	if (_log_calculations)
+		setStartTime();
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raysample_visualization";
@@ -274,14 +279,16 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 	std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
 			+ std::string("	") + std::to_string(best_yaw);
-	setStopTime(infos);
+	if (_log_calculations)
+		setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
 	}
 }
 
 void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
-	setStartTime();
+	if (_log_calculations)
+		setStartTime();
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raycast_visualization";
@@ -410,7 +417,8 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	_node_points.colors.push_back(color);
 	std::string infos = "raycasting	" + std::to_string(best_yaw_score)
 			+ std::string("	") + std::to_string(best_yaw);
-	setStopTime(infos);
+	if (_log_calculations)
+		setStopTime(infos);
 	if (_visualize_gain_calculation) {
 		raycast_visualization.publish(_node_points);
 	}

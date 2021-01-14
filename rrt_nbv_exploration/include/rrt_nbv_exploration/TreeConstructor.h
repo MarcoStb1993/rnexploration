@@ -21,6 +21,7 @@
 #include <rrt_nbv_exploration/TreePathCalculator.h>
 #include <rrt_nbv_exploration/TreeSearcher.h>
 #include <rrt_nbv_exploration/NodeComparator.h>
+#include <rrt_nbv_exploration/GainCalculator.h>
 #include <rrt_nbv_exploration/RneMode.h>
 
 namespace rrt_nbv_exploration {
@@ -89,6 +90,10 @@ private:
 	 * @brief Helper class for calculating the gain cost ratio of a node and sorting them ordered by this ratio
 	 */
 	std::shared_ptr<NodeComparator> _node_comparator;
+	/**
+	 * @brief Helper class for calculating the gain of each node by checking occupancy in the OctoMap
+	 */
+	std::shared_ptr<GainCalculator> _gain_calculator;
 	/**
 	 * @brief Current tree being built as a RRT
 	 */
@@ -169,6 +174,10 @@ private:
 	 * @brief Operating mode of RNE
 	 */
 	RneMode _rne_mode;
+	/**
+	 * @brief If the gain calculation is coupled to the remaining computation or not
+	 */
+	bool _coupled_gain_calculation;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

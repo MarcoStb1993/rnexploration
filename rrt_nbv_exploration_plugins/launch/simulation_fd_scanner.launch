@@ -19,8 +19,9 @@
 	<arg name="edge_length" default="0" />
 	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />
-	<arg name="gain_mode" default="1" />
+	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
+	<arg name="coupled_gain_calculation" default="false" />
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
@@ -176,8 +177,8 @@
 		<arg name="sensor_max_range" value="100" />
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
-		<arg name="delta_phi" value="5" />
-		<arg name="delta_theta" value="5" />
+		<arg name="delta_phi" value="10" />
+		<arg name="delta_theta" value="10" />
 		<arg name="sensor_horizontal_fov" value="360" />
 		<arg name="sensor_vertical_fov" value="360" />
 		<arg name="min_view_score" value="0.05" />	
@@ -191,6 +192,8 @@
 		<arg name="check_init_position" default="false" />
 		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
+		<arg name="log_calculations" default="false" />
+		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
 	</include>
 
 	<!-- RViz für Exploration -->

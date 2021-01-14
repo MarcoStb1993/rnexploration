@@ -61,14 +61,12 @@ public:
 	 * Pre-calculates lists of all gain poll points/rays in cartesian coordinates based on theta and phi steps as well as radial steps depending on the mode
 	 */
 	void precalculateGainPolls();
+
 	/**
-	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 * Calculates the gain of the passed node the selected gain calculation method
+	 * @param Node which gain needs to be calculated
 	 */
-	void precalculateGainPollPoints();
-	/**
-	 * Pre-calculates lists of all poll ray's start and end points in cartesian coordinates based on theta and phi steps
-	 */
-	void precalculateGainPollRays();
+	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
 
 	void dynamicReconfigureCallback(
 			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
@@ -136,6 +134,14 @@ private:
 	 * @brief File path where to save results
 	 */
 	std::string _file_path;
+	/**
+	 * @brief If the gain calculations should be written to the given file path
+	 */
+	bool _log_calculations;
+	/**
+	 * @brief If the gain calculation is coupled to the remaining computation or not
+	 */
+	bool _coupled_gain_calculation;
 
 	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
@@ -163,6 +169,15 @@ private:
 	ros::Time _start_time;
 
 	/**
+	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 */
+	void precalculateGainPollPoints();
+	/**
+	 * Pre-calculates lists of all poll ray's start and end points in cartesian coordinates based on theta and phi steps
+	 */
+	void precalculateGainPollRays();
+
+	/**
 	 * @brief Start gain calculation for first node in list of nodes to be updated
 	 */
 	void updateNodes();
@@ -180,12 +195,6 @@ private:
 	 */
 	void nodeToUpdateCallback(
 			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
-
-	/**
-	 * Calculates the gain of the passed node the selected gain calculation method
-	 * @param Node which gain needs to be calculated
-	 */
-	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
 	 * Calculates the gain of the passed node by sparse ray polling in the octree
