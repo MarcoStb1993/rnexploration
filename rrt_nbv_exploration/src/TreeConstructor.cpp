@@ -283,13 +283,13 @@ void TreeConstructor::publishNodeToUpdate() {
 			while (!_nodes_to_update.empty()) {
 				_gain_calculator->calculateGain(_rrt.nodes[_nodes_to_update.front()]);
 				_last_updated_node = _rrt.nodes[_nodes_to_update.front()].index;
-				_nodes_to_update.remove(_rrt.nodes[_nodes_to_update.front()].index);
 				if (_rrt.nodes[_nodes_to_update.front()].status
 						!= rrt_nbv_exploration_msgs::Node::EXPLORED
 						&& _rrt.nodes[_nodes_to_update.front()].status
 								!= rrt_nbv_exploration_msgs::Node::FAILED) {
 					_node_comparator->addNode(_rrt.nodes[_nodes_to_update.front()].index);
 				}
+				_nodes_to_update.pop_front();
 			}
 		} else
 			_node_to_update_publisher.publish(

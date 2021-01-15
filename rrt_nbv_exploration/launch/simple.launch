@@ -28,7 +28,7 @@
 	<arg name="log_calculations" default="false" />
 	<arg name="coupled_gain_calculation" default="false" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 
-	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
+	<node unless="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
@@ -63,6 +63,37 @@
 		<param name="gain_mode" type="int" value="$(arg gain_mode)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="coupled_gain_calculation" type="bool" value="$(arg coupled_gain_calculation)" />
+		<param name="log_calculations" type="bool" value="$(arg log_calculations)" />
+	</node>
+	
+	<node if="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
+		output="screen">
+		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
+		<param name="edge_length" type="double" value="$(arg edge_length)" />
+		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
+		<param name="robot_width" type="double" value="$(arg robot_width)" />
+		<param name="exploration_finished_timer_duration" type="double" value="$(arg exploration_finished_timer_duration)" />
+		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
+		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
+		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />	
+		<param name="rne_mode" type="int" value="$(arg rne_mode)" />
+		<param name="horizon_length" type="int" value="$(arg horizon_length)" />
+		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
+		<param name="coupled_gain_calculation" type="bool" value="$(arg coupled_gain_calculation)" />
+		
+		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
+		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
+		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
+		<param name="delta_phi" type="int" value="$(arg delta_phi)" />
+		<param name="delta_theta" type="int" value="$(arg delta_theta)" />
+		<param name="delta_radius" type="double" value="$(arg delta_radius)" />
+		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />
+		<param name="sensor_vertical_fov" type="int" value="$(arg sensor_vertical_fov)" />
+		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
+		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
+		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
+		<param name="gain_mode" type="int" value="$(arg gain_mode)" />
+		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="log_calculations" type="bool" value="$(arg log_calculations)" />
 	</node>
 	

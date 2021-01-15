@@ -277,10 +277,13 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	color.a = 1.0f;
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
-	std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw);
-	if (_log_calculations)
+	if (_log_calculations) {
+
+		std::string infos = "ray sampling	" + std::to_string(best_yaw_score)
+				+ std::string("	") + std::to_string(best_yaw);
+
 		setStopTime(infos);
+	}
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
 	}
@@ -415,10 +418,12 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	color.a = 1.0f;
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
-	std::string infos = "raycasting	" + std::to_string(best_yaw_score)
-			+ std::string("	") + std::to_string(best_yaw);
-	if (_log_calculations)
+
+	if (_log_calculations) {
+		std::string infos = "raycasting	" + std::to_string(best_yaw_score)
+				+ std::string("	") + std::to_string(best_yaw);
 		setStopTime(infos);
+	}
 	if (_visualize_gain_calculation) {
 		raycast_visualization.publish(_node_points);
 	}
