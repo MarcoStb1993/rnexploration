@@ -22,6 +22,7 @@
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="coupled_gain_calculation" default="false" />
+	<arg name="max_tree_nodes" default="0" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -79,19 +80,19 @@
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base" output="screen">
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
@@ -105,19 +106,19 @@
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base_reverse" output="screen">
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rrt_nbv_exploration_plugins)/config/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
@@ -153,7 +154,7 @@
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="20" />
 		<arg name="robot_width" value="0.7" />
-		<arg name="robot_radius" value="1.0" />
+		<arg name="robot_radius" value="0.7" />
 		<arg name="sensor_height" value="0.887" />
 		<arg name="sensor_max_range" value="8" />
 		<arg name="sensor_min_range" value="1.0" />
@@ -175,6 +176,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="log_calculations" default="false" />
 		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
+		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
 	</include>
 
 	<!-- RViz für Exploration -->

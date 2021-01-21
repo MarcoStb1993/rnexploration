@@ -27,6 +27,7 @@
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="log_calculations" default="false" />
 	<arg name="coupled_gain_calculation" default="false" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
+	<arg name="max_tree_nodes" default="0" />
 
 	<node unless="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -45,6 +46,7 @@
 		<param name="horizon_length" type="int" value="$(arg horizon_length)" />
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="coupled_gain_calculation" type="bool" value="$(arg coupled_gain_calculation)" />
+		<param name="max_tree_nodes" type="int" value="$(arg max_tree_nodes)" />
 	</node>
 	
 	<node unless="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
@@ -95,6 +97,7 @@
 		<param name="gain_mode" type="int" value="$(arg gain_mode)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="log_calculations" type="bool" value="$(arg log_calculations)" />
+		<param name="max_tree_nodes" type="int" value="$(arg max_tree_nodes)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

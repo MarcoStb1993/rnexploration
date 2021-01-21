@@ -103,6 +103,12 @@ public:
 	int getBestNode();
 
 	/**
+	 * @brief Get the number of nodes currently in the list
+	 * @return The size of the list
+	 */
+	int getListSize();
+
+	/**
 	 * @brief Check if the maintained list of ordered nodes is empty
 	 * @return If the list is empty or not
 	 */
@@ -112,6 +118,11 @@ public:
 	 * @brief Triggers a recalculation of all node's path distances and a sorting of the list
 	 */
 	void robotMoved();
+
+	/**
+	 * @brief Triggers sorting of the list
+	 */
+	void setSortList();
 
 private:
 	/**

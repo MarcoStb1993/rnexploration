@@ -22,6 +22,7 @@
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="coupled_gain_calculation" default="false" />
+	<arg name="max_tree_nodes" default="0" />
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
@@ -194,6 +195,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="log_calculations" default="false" />
 		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
+		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
 	</include>
 
 	<!-- RViz für Exploration -->

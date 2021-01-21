@@ -178,6 +178,10 @@ private:
 	 * @brief If the gain calculation is coupled to the remaining computation or not
 	 */
 	bool _coupled_gain_calculation;
+	/**
+	 * @brief Maximum number of tree nodes with gain>0 allowed before a new goal must be picked
+	 */
+	int _max_tree_nodes;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

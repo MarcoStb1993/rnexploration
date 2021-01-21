@@ -67,12 +67,20 @@ int NodeComparator::getBestNode() {
 	}
 }
 
+int NodeComparator::getListSize(){
+	return _nodes_ordered_by_gcr.size();
+}
+
 bool NodeComparator::isEmpty() {
 	return _nodes_ordered_by_gcr.empty();
 }
 
 void NodeComparator::robotMoved() {
 	_robot_moved = true;
+	_sort_list = true;
+}
+
+void NodeComparator::setSortList() {
 	_sort_list = true;
 }
 
