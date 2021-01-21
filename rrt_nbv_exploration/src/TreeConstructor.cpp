@@ -101,11 +101,12 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_goal_updated = true;
 	_updating = false;
 	_sort_nodes_to_update = false;
-	_nodes_to_update.push_back(0);
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
 	if (_coupled_gain_calculation)
 		_gain_calculator->precalculateGainPolls();
+	else
+		_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
