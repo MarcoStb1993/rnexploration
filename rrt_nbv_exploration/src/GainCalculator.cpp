@@ -49,7 +49,7 @@ GainCalculator::GainCalculator() :
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
 	_last_updated_node.index = -1;
-	_sensor_min_range_squared = pow(_sensor_min_range,2);
+	_sensor_min_range_squared = pow(_sensor_min_range, 2);
 }
 
 GainCalculator::~GainCalculator() {
@@ -72,8 +72,8 @@ void GainCalculator::precalculateGainPollPoints() {
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
 	}
-	for (int phi = _sensor_vertical_fov_top;
-			phi <= _sensor_vertical_fov_bottom; phi += _delta_phi) {
+	for (int phi = _sensor_vertical_fov_top; phi <= _sensor_vertical_fov_bottom;
+			phi += _delta_phi) {
 		double rad = phi * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
@@ -114,8 +114,8 @@ void GainCalculator::precalculateGainPollRays() {
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
 	}
-	for (int phi = _sensor_vertical_fov_top;
-			phi <= _sensor_vertical_fov_bottom; phi += _delta_phi) {
+	for (int phi = _sensor_vertical_fov_top; phi <= _sensor_vertical_fov_bottom;
+			phi += _delta_phi) {
 		double rad = phi * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
@@ -456,13 +456,14 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 }
 
 bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
-	double map_x, map_y, map_z;
-	_octree->getMetricMin(map_x, map_y, map_z);
+	double min_x, min_y, min_z;
+	_octree->getMetricMin(min_x, min_y, min_z);
 	octomap::point3d node_point(node.position.x, node.position.y,
 			node.position.z);
-	octomap::point3d bottom_point(node.position.x, node.position.y, map_z);
+	octomap::point3d bottom_point(node.position.x, node.position.y,
+			min_z - _octomap_resolution); //seems to ignore lowest voxel if using only min_z
 	octomap::KeyRay keyray;
-// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above groun)
+// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above ground)
 	if (_octree->computeRayKeys(node_point, bottom_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
@@ -478,8 +479,10 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 		ROS_INFO_STREAM(
 				"Raytracing for node height measurement to min z out of bounds");
 	}
-	_octree->getMetricMax(map_x, map_y, map_z);
-	octomap::point3d top_point(node.position.x, node.position.y, map_z);
+	double max_x, max_y, max_z;
+	_octree->getMetricMax(max_x, max_y, max_z);
+	octomap::point3d top_point(node.position.x, node.position.y,
+			max_z + _octomap_resolution); //seems to ignore lowest voxel if using only min_z, suspect the same for max z
 // Raytrace from initial node height (parent height) to max z value to find first free voxel after occupied voxel (assume current z pos is below ground)
 	bool ground_detected = false;
 	if (_octree->computeRayKeys(node_point, top_point, keyray)) {

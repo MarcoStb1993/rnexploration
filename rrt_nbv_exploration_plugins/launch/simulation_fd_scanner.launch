@@ -15,7 +15,7 @@
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
 	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
-	<arg name="rviz" default="false" />
+	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
 	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />

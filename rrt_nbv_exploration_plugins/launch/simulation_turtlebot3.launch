@@ -1,9 +1,9 @@
-<!-- Simulation of Husky UGV with RealSense camera in Gazebo running Robot Statemachine 
-	with GMapping and RN Exploration -->
+<!-- Simulation of TurtleBot3 with RealSense camera in Gazebo running Robot 
+	Statemachine with GMapping and RN Exploration -->
 
 <launch>
 	<arg name="world"
-		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+		default="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world" />
 	<arg name="robot_frame" default="base_footprint" />
 	<arg name="autonomy_cmd_vel_topic" default="/autonomy/cmd_vel" />
 	<arg name="teleoperation_cmd_vel_topic"
@@ -13,24 +13,24 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
+	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
-	<arg name="horizon_length" default="0" />
+	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding 
+		horizon -->
+	<arg name="horizon_length" default="3" />
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
-	<arg name="log_gain_calculations" default="true" />
+	<arg name="log_gain_calculations" default="false" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
 
 	<include
-		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
+		file="$(find rsm_additions)/launch/gazebo_turtlebot3.launch">
 		<arg name="world_file" value="$(arg world)" />
-		<arg name="realsense_enabled" value="true" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
@@ -72,7 +72,7 @@
 		output="screen">
 		<param name="update_frequency" value="20" />
 	</node>
-	
+
 	<!-- GMapping -->
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
@@ -81,48 +81,46 @@
 
 	<!-- Navigation -->
 	<node pkg="move_base" type="move_base" respawn="false"
-		name="move_base" output="screen">
+		name="move_base">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/local_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/global_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
-			command="load" />	
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
+			command="load" />
 		<param name="global_costmap/robot_base_frame"
-			value="$(arg 
-		robot_frame)" />
+			value="$(arg robot_frame)" />
 		<param name="local_costmap/robot_base_frame"
-			value="$(arg 
-		robot_frame)" />
+			value="$(arg robot_frame)" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
 	<node pkg="move_base" type="move_base" respawn="false"
-		name="move_base_reverse" output="screen">
+		name="move_base_reverse">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/local_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/global_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
-			command="load" />			
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
+			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
@@ -140,7 +138,9 @@
 		name="base_footprint_reverse"
 		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
 
-	<node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen">
+	<node pkg="hector_trajectory_server"
+		type="hector_trajectory_server" name="hector_trajectory_server"
+		output="screen">
 		<param name="target_frame_name" value="map" />
 		<param name="source_frame_name" value="$(arg robot_frame)" />
 	</node>
@@ -155,38 +155,41 @@
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
 		<remap from="cloud_in" to="/camera/depth/color/points" />
-		<param name="publish_free_space" value="true"/>
+		<param name="publish_free_space" value="true" />
 	</node>
 
 	<!-- RN Exploration -->
 	<include
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="20" />
-		<arg name="robot_width" value="0.7" />
-		<arg name="robot_radius" value="0.7" />
-		<arg name="sensor_height" value="0.887" />
+		<arg name="robot_width" value="0.2" />
+		<arg name="robot_radius" value="0.12" />
+		<arg name="sensor_height" value="0.14" />
 		<arg name="sensor_size" value="0.1" />
 		<arg name="sensor_max_range" value="8" />
 		<arg name="sensor_min_range" value="0.8" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />
 		<arg name="delta_theta" value="$(arg delta_theta)" />
-		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
-		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
-		<arg name="sensor_vertical_fov_top" value="61" />
-		<arg name="min_view_score" value="0.15" />	
+		<arg name="sensor_horizontal_fov" value="75" /> <!-- Swivelling RealSense with 75 degree hFoV -->
+		<arg name="sensor_vertical_fov_bottom" value="129" /> <!-- RealSense with 58 degree vFoV angled 10 degrees towards the bottom (range 
+			from 180 to 0 as the highest angle) -->
+		<arg name="sensor_vertical_fov_top" value="71" />
+		<arg name="min_view_score" value="0.15" />
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
-		<arg name="exploration_finished_timer_duration" value="10.0" />		
+		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
 		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
-		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
+		<arg name="log_calculations"
+			default="$(arg log_gain_calculations)" />
+		<arg name="coupled_gain_calculation"
+			default="$(arg coupled_gain_calculation)" />
 		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
 	</include>
 
