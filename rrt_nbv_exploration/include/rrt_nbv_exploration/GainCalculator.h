@@ -20,13 +20,16 @@ struct StepStruct {
 };
 
 /**
- * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
- * well as radius in meters from the spherical calculation
+ * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees,
+ * radius in meters from the spherical calculation and the information if the poll point is inside
+ * the sensor's sensing range (adds to gain) or just to check if there are no obstacles directly in
+ * front of the sensor
  */
 struct PollPoint {
 	double x, y, z;
 	int theta, phi;
 	double radius;
+	bool in_range;
 };
 
 typedef boost::multi_array<PollPoint, 3> multi_array;
@@ -107,9 +110,13 @@ private:
 	 */
 	int _sensor_horizontal_fov;
 	/**
-	 * Sensor's vertical FoV that is considered for gain calculation in degrees
+	 * Sensor's vertical FoV bottom edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
 	 */
-	int _sensor_vertical_fov;
+	int _sensor_vertical_fov_bottom;
+	/**
+	 * Sensor's vertical FoV top edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
+	 */
+	int _sensor_vertical_fov_top;
 	/**
 	 * Maximum number of points that can be added for each yaw step to calculate gain
 	 */
@@ -155,6 +162,14 @@ private:
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
 	double _sensor_height;
+	/**
+	 * @brief Radius in m of a sphere that best describes the sensor's volume (checking for obstacles begins outside of this radius)
+	 */
+	double _sensor_size;
+	/**
+	 * @brief Sensor minimum range squared for faster distance comparison during raycasting
+	 */
+	double _sensor_min_range_squared;
 	/**
 	 * @brief Node which gain was calculated previously
 	 */

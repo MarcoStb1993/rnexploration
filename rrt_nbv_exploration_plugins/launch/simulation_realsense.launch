@@ -21,6 +21,9 @@
 	<arg name="horizon_length" default="3" />
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
+	<arg name="delta_phi" default="10" />
+	<arg name="delta_theta" default="10" />
+	<arg name="log_gain_calculations" default="true" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
 
@@ -80,19 +83,19 @@
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base" output="screen">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
@@ -106,19 +109,19 @@
 	<node pkg="move_base" type="move_base" respawn="false"
 		name="move_base_reverse" output="screen">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
@@ -137,11 +140,17 @@
 		name="base_footprint_reverse"
 		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
 
+	<node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen">
+		<param name="target_frame_name" value="map" />
+		<param name="source_frame_name" value="$(arg robot_frame)" />
+	</node>
+
 	<!-- Octomap -->
 	<node pkg="octomap_server" type="octomap_server_node"
 		name="octomap_server">
 		<param name="resolution" value="$(arg oc_resolution)" />
 		<param name="frame_id" type="string" value="map" />
+		<param name="sensor_model/min_range" value="0.8" />
 		<param name="sensor_model/max_range" value="8.0" />
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
@@ -156,13 +165,15 @@
 		<arg name="robot_width" value="0.7" />
 		<arg name="robot_radius" value="0.7" />
 		<arg name="sensor_height" value="0.887" />
+		<arg name="sensor_size" value="0.1" />
 		<arg name="sensor_max_range" value="8" />
-		<arg name="sensor_min_range" value="1.0" />
+		<arg name="sensor_min_range" value="0.8" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
-		<arg name="delta_phi" value="10" />
-		<arg name="delta_theta" value="10" />
+		<arg name="delta_phi" value="$(arg delta_phi)" />
+		<arg name="delta_theta" value="$(arg delta_theta)" />
 		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
-		<arg name="sensor_vertical_fov" value="65" />
+		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
+		<arg name="sensor_vertical_fov_top" value="61" />
 		<arg name="min_view_score" value="0.15" />	
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
@@ -174,7 +185,7 @@
 		<arg name="check_init_position" default="false" />
 		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations" default="false" />
+		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
 		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
 		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
 	</include>

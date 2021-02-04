@@ -11,10 +11,13 @@ GainCalculator::GainCalculator() :
 	private_nh.param("delta_theta", _delta_theta, 10);
 	private_nh.param("delta_radius", _delta_radius, 0.1);
 	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
-	private_nh.param("sensor_vertical_fov", _sensor_vertical_fov, 180);
+	private_nh.param("sensor_vertical_fov_bottom", _sensor_vertical_fov_bottom,
+			0);
+	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 180);
 	private_nh.param("visualize_gain_calculation", _visualize_gain_calculation,
 			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
+	private_nh.param("sensor_size", _sensor_size, 0.1);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
 	private_nh.param("log_calculations", _log_calculations, false);
 	private_nh.param("coupled_gain_calculation", _coupled_gain_calculation,
@@ -46,6 +49,7 @@ GainCalculator::GainCalculator() :
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
 	_last_updated_node.index = -1;
+	_sensor_min_range_squared = pow(_sensor_min_range,2);
 }
 
 GainCalculator::~GainCalculator() {
@@ -68,14 +72,14 @@ void GainCalculator::precalculateGainPollPoints() {
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
 	}
-	for (int phi = -_sensor_vertical_fov / 2; phi <= _sensor_vertical_fov / 2;
-			phi += _delta_phi) {
-		double rad = (phi + 90) * M_PI / 180;
+	for (int phi = _sensor_vertical_fov_top;
+			phi <= _sensor_vertical_fov_bottom; phi += _delta_phi) {
+		double rad = phi * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 	}
-	int radius_steps = (int) ((_sensor_max_range - _sensor_min_range)
-			/ _delta_radius);
+	int radius_steps =
+			(int) ((_sensor_max_range - _sensor_size) / _delta_radius);
 	_gain_poll_points.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()][radius_steps]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -83,17 +87,20 @@ void GainCalculator::precalculateGainPollPoints() {
 		for (int p = 0; p < phi_steps.size(); p++) {
 			StepStruct phi = phi_steps.at(p);
 			for (int r = 0; r < radius_steps; r++) {
-				double radius = _sensor_min_range + r * _delta_radius;
-				_gain_poll_points[t][p][r] = { radius * theta.cos * phi.sin,
-						radius * theta.sin * phi.sin, radius * phi.cos,
-						theta.step, phi.step, radius };
+				double radius = _sensor_size + r * _delta_radius;
+				_gain_poll_points[t][p][r] =
+						{ radius * theta.cos * phi.sin, radius * theta.sin
+								* phi.sin, radius * phi.cos, theta.step,
+								phi.step, radius, radius > _sensor_min_range };
 			}
 		}
 	}
 
-	_best_gain_per_view = phi_steps.size() * radius_steps
+	int range_steps = (int) ((_sensor_max_range - _sensor_min_range)
+			/ _delta_radius);
+	_best_gain_per_view = phi_steps.size() * range_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
-	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
+	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
 //	ROS_WARN_STREAM(
 //			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
@@ -107,9 +114,9 @@ void GainCalculator::precalculateGainPollRays() {
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
 	}
-	for (int phi = -_sensor_vertical_fov / 2; phi <= _sensor_vertical_fov / 2;
-			phi += _delta_phi) {
-		double rad = (phi + 90) * M_PI / 180;
+	for (int phi = _sensor_vertical_fov_top;
+			phi <= _sensor_vertical_fov_bottom; phi += _delta_phi) {
+		double rad = phi * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 	}
@@ -120,11 +127,11 @@ void GainCalculator::precalculateGainPollRays() {
 		StepStruct theta = theta_steps.at(t);
 		for (int p = 0; p < phi_steps.size(); p++) {
 			StepStruct phi = phi_steps.at(p);
-			_gain_poll_rays[t][p] = { _sensor_min_range * theta.cos * phi.sin,
-					_sensor_min_range * theta.sin * phi.sin, _sensor_min_range
-							* phi.cos, _sensor_max_range * theta.cos * phi.sin,
-					_sensor_max_range * theta.sin * phi.sin, _sensor_max_range
-							* phi.cos, theta.step, phi.step };
+			_gain_poll_rays[t][p] = { _sensor_size * theta.cos * phi.sin,
+					_sensor_size * theta.sin * phi.sin, _sensor_size * phi.cos,
+					_sensor_max_range * theta.cos * phi.sin, _sensor_max_range
+							* theta.sin * phi.sin, _sensor_max_range * phi.cos,
+					theta.step, phi.step };
 		}
 	}
 
@@ -216,7 +223,14 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 						color.b = 0.0f;
 					}
 				} else {
-					gain_per_yaw[point.theta]++;
+					if (point.in_range)
+						gain_per_yaw[point.theta]++;
+					else {
+						color.r = 0.7f;
+						color.g = 0.7f;
+						color.b = 0.7f;
+					}
+
 				}
 				_node_points.colors.push_back(color);
 			}
@@ -226,7 +240,7 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	int best_yaw = 0;
 	int best_yaw_score = 0;
 	int horizontal_fov =
-			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 normally)
+			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 otherwise)
 
 	for (int yaw = 0; yaw < 360; yaw++) {
 		double yaw_score = 0;
@@ -314,7 +328,6 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 	double z = node.position.z;
 
 	int counter = 0;
-
 	for (multi_array_ray_index theta = 0; theta < _gain_poll_rays.shape()[0];
 			theta++) {
 		for (multi_array_ray_index phi = 0; phi < _gain_poll_rays.shape()[1];
@@ -325,10 +338,17 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 					point.z_start + z);
 			octomap::point3d end_point(point.x_end + x, point.y_end + y,
 					point.z_end + z);
+			bool in_range = false;
 			if (_octree->computeRayKeys(start_point, end_point, keyray)) {
 				for (auto iterator : keyray) {
 					octomap::point3d coords = _octree->keyToCoord(iterator);
 					octomap::OcTreeNode *ocnode = _octree->search(iterator);
+					if (!in_range) {
+						double distance_squared = pow(x - coords.x(), 2)
+								+ pow(y - coords.y(), 2);
+						if (distance_squared >= _sensor_min_range_squared)
+							in_range = true;
+					}
 					geometry_msgs::Point vis_point;
 					vis_point.x = coords.x();
 					vis_point.y = coords.y();
@@ -351,7 +371,13 @@ void GainCalculator::calculateRayGain(rrt_nbv_exploration_msgs::Node &node) {
 							color.b = 0.0f;
 						}
 					} else {
-						gain_per_yaw[point.theta]++;
+						if (in_range)
+							gain_per_yaw[point.theta]++;
+						else {
+							color.r = 0.7f;
+							color.g = 0.7f;
+							color.b = 0.7f;
+						}
 					}
 					_node_points.colors.push_back(color);
 				}
