@@ -26,10 +26,12 @@
 	<arg name="log_gain_calculations" default="true" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
+	<arg name="scanner_angled" default="false" />
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
 		<arg name="fd_scanner_enabled" value="true" />
+		<arg name="fd_scanner_angled" value="$(arg scanner_angled)" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
@@ -191,7 +193,8 @@
 		<arg name="delta_theta" value="$(arg delta_theta)" />
 		<arg name="sensor_horizontal_fov" value="360" />
 		<arg name="sensor_vertical_fov_bottom" value="135" /> <!-- FD Scanner degree vFoV (range from 0 to 180) -->
-		<arg name="sensor_vertical_fov_top" value="0" />
+		<arg if="$(arg scanner_angled)" name="sensor_vertical_fov_top" value="30" />
+		<arg unless="$(arg scanner_angled)" name="sensor_vertical_fov_top" value="0" />
 		<arg name="min_view_score" value="0.05" />	
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
