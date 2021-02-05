@@ -18,6 +18,8 @@ CollisionChecker::CollisionChecker() {
 //				"steering_visualization", 10);
 		_visualization_pub = nh.advertise<nav_msgs::OccupancyGrid>(
 				"collision_visualization", 1);
+		_rrt_collision_visualization_pub = nh.advertise<
+				visualization_msgs::MarkerArray>("rrt_collision_vis", 1000);
 	}
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
@@ -192,6 +194,8 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 		vis_map.info.map_load_time = ros::Time::now();
 		initVisMap(map);
 	}
+	_node_edges.markers.clear();
+	_node_points.markers.clear();
 	if (_check_init_position) {
 		std::vector<int8_t> tmp_vis_map_data = vis_map.data;
 		if (!isCircleInCollision(position.x, position.y, map,
@@ -238,6 +242,55 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		if (_visualize_collision) {
 			vis_map.data = tmp_vis_map_data;
 			_visualization_pub.publish(vis_map);
+
+			visualization_msgs::Marker node_point;
+
+			node_point.header.frame_id = "/map";
+			node_point.header.stamp = ros::Time();
+			node_point.ns = "rrt_collision_vis";
+			node_point.id = 2 * _node_points.markers.size();
+			node_point.action = visualization_msgs::Marker::ADD;
+			node_point.pose.orientation.w = 1.0;
+			node_point.type = visualization_msgs::Marker::CYLINDER;
+			node_point.scale.x = 2 * _robot_radius;
+			node_point.scale.y = 2 * _robot_radius;
+			node_point.scale.z = 0.01;
+			node_point.color.g = 1.0f;
+			node_point.color.a = 0.5f;
+			node_point.pose.position.x = rand_sample.x;
+			node_point.pose.position.y = rand_sample.y;
+			node_point.pose.position.z = 0.005;
+
+			visualization_msgs::Marker node_edge;
+
+			node_edge.header.frame_id = "/map";
+			node_edge.header.stamp = ros::Time();
+			node_edge.ns = "rrt_collision_vis";
+			node_edge.id = 2 * _node_points.markers.size() + 1;
+			node_edge.action = visualization_msgs::Marker::ADD;
+			node_edge.type = visualization_msgs::Marker::CUBE;
+			node_edge.scale.x = (distance - _path_box_distance_thres) / 2 + 0.1;
+			node_edge.scale.y = _robot_width;
+			node_edge.scale.z = 0.01;
+			node_edge.color.g = 1.0f;
+			node_edge.color.a = 0.5f;
+			node_edge.pose.position.x =
+					(nearest_node.position.x + rand_sample.x) / 2;
+			node_edge.pose.position.y =
+					(nearest_node.position.y + rand_sample.y) / 2;
+			node_edge.pose.position.z = 0.005;
+
+			tf2::Quaternion quaternion;
+			double yaw = atan2(rand_sample.y - nearest_node.position.y,
+					rand_sample.x - nearest_node.position.x);
+			quaternion.setRPY(0, 0, yaw);
+			quaternion.normalize();
+			node_edge.pose.orientation = tf2::toMsg(quaternion);
+
+			_node_points.markers.push_back(node_point);
+			_node_edges.markers.push_back(node_edge);
+			_rrt_collision_visualization_pub.publish(_node_points);
+			_rrt_collision_visualization_pub.publish(_node_edges);
 		}
 		return true;
 	}

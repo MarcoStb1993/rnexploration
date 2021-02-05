@@ -1,10 +1,16 @@
 #include "ros/ros.h"
 #include <rrt_nbv_exploration_msgs/Tree.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
+#include "visualization_msgs/MarkerArray.h"
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 struct point {
 	unsigned int x;
@@ -77,6 +83,10 @@ private:
 	 * If the initial position when starting exploration has to be checked for obstacles
 	 */
 	bool _check_init_position;
+
+	ros::Publisher _rrt_collision_visualization_pub;
+	visualization_msgs::MarkerArray _node_points;
+	visualization_msgs::MarkerArray _node_edges;
 
 	/**
 	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking
