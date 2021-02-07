@@ -17,6 +17,16 @@ struct point {
 	unsigned int y;
 };
 
+struct CircleLine {
+	unsigned int x_offset;
+	unsigned int y_offset;
+
+	CircleLine(unsigned int x, unsigned int y) {
+		x_offset = x;
+		y_offset = y;
+	}
+};
+
 namespace rrt_nbv_exploration {
 /**
  * @brief The CollisionChecker class checks if a given position can be connected to the existing tree without collision on the occupancy grid.
@@ -83,6 +93,12 @@ private:
 	 * If the initial position when starting exploration has to be checked for obstacles
 	 */
 	bool _check_init_position;
+	/**
+	 * @brief Grid map cell edge length in m
+	 */
+	double _grid_map_resolution;
+
+	std::vector<CircleLine> _circle_lines_offset;
 
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
@@ -105,6 +121,8 @@ private:
 	 */
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my,
 			nav_msgs::OccupancyGrid &map);
+
+	void precalculateCircleLinesOffset(std::vector<int8_t> &vis_map);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -133,15 +151,15 @@ private:
 			std::vector<int8_t> &vis_map);
 
 	/**
-	 * @brief Check if a line from one y-coordinate to another with consistent x-coordinate is in collision
-	 * @param Starting y-coordinate
-	 * @param Ending y-coordinate
-	 * @param X-coordinate
+	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision
+	 * @param Starting x-coordinate
+	 * @param Ending x-coordinate
+	 * @param y-coordinate
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isLineInCollision(int y_start, int y_end, int x,
+	bool isLineInCollision(int x_start, int x_end, int y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map);
 	/**
 	 * @brief Initialize collision visualization map

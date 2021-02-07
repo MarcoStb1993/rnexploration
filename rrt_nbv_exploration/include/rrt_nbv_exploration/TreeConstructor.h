@@ -103,11 +103,11 @@ private:
 	 */
 	bool _running;
 	/**
-	 * @brief Current min value of bounding box  of the 3D map as x, y and z value
+	 * @brief Current min value of bounding box of the 3D map as x, y and z value
 	 */
 	double _map_min_bounding[3] = { 0, 0, 0 };
 	/**
-	 * @brief Current max value of bounding box  of the 3D map as x, y and z value
+	 * @brief Current max value of bounding box of the 3D map as x, y and z value
 	 */
 	double _map_max_bounding[3] = { 0, 0, 0 };
 	/**
@@ -182,6 +182,10 @@ private:
 	 * @brief Maximum number of tree nodes with gain>0 allowed before a new goal must be picked
 	 */
 	int _max_tree_nodes;
+	/**
+	 * @brief Grid map cell edge length in m
+	 */
+	double _grid_map_resolution;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -190,10 +194,15 @@ private:
 	 */
 	bool initRrt(const geometry_msgs::Point &seed);
 	/**
-	 * @brief Randomly samples a point from the map dimension and returns it
-	 * @return Randomly sampled point
+	 * @brief Randomly samples a point from within the map dimension
+	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 */
 	void samplePoint(geometry_msgs::Point &rand_sample);
+	/**
+	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
+	 * @param Reference to a point which position is aligned
+	 */
+	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
 	/**
 	 * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
 	 * @param Randomly sampled point

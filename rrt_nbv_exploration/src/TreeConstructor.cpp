@@ -20,6 +20,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("edge_length", _edge_length, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 10.0);
 	private_nh.param("coupled_gain_calculation", _coupled_gain_calculation,
@@ -174,6 +175,13 @@ void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
 	rand_sample.y = y_distribution(_generator);
 }
 
+void TreeConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
+	rand_sample.x = (round(rand_sample.x / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+	rand_sample.y = (round(rand_sample.y / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+}
+
 void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		double min_distance, int nearest_node) {
 	double distance = sqrt(min_distance);
@@ -190,6 +198,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		rand_sample.y = y;
 		rand_sample.z = _rrt.nodes[nearest_node].position.z;
 	}
+	alignPointToGridMap(rand_sample);
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
 			_edge_length > 0 ? _edge_length : distance)) {

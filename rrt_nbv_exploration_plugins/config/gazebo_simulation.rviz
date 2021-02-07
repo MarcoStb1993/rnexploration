@@ -309,13 +309,13 @@ Visualization Manager:
       Voxel Coloring: Z-Axis
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/rrt_tree_vis
       Name: RRT
       Namespaces:
-        rrt_tree: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrt_tree_vis_info
@@ -471,8 +471,15 @@ Visualization Manager:
       Marker Topic: /rne/rrt_collision_vis
       Name: Collision
       Namespaces:
-        {}
+        rrt_collision_vis: true
       Queue Size: 100
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.009999999776482582
+      Reference Frame: <Fixed Frame>
       Value: true
   Enabled: true
   Global Options:
@@ -502,25 +509,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.943329334259033
+      Distance: 1.0540703535079956
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -1.1520938873291016
+        Y: -0.14209380745887756
+        Z: 1.0545365810394287
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
+      Pitch: 0.9253982901573181
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 0.9703958034515381
     Saved: ~
 Window Geometry:
   Displays:

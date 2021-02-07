@@ -30,6 +30,9 @@
 	<arg name="log_calculations" default="false" />
 	<arg name="coupled_gain_calculation" default="false" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="max_tree_nodes" default="0" />
+	<arg name="grid_map_resolution" default="0.05" />
+	
+	_grid_map_resolution
 
 	<node unless="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -49,6 +52,7 @@
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="coupled_gain_calculation" type="bool" value="$(arg coupled_gain_calculation)" />
 		<param name="max_tree_nodes" type="int" value="$(arg max_tree_nodes)" />
+		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 	</node>
 	
 	<node unless="$(arg coupled_gain_calculation)" pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
@@ -86,6 +90,8 @@
 		<param name="horizon_length" type="int" value="$(arg horizon_length)" />
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="coupled_gain_calculation" type="bool" value="$(arg coupled_gain_calculation)" />
+		<param name="max_tree_nodes" type="int" value="$(arg max_tree_nodes)" />
+		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
@@ -103,7 +109,6 @@
 		<param name="gain_mode" type="int" value="$(arg gain_mode)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="log_calculations" type="bool" value="$(arg log_calculations)" />
-		<param name="max_tree_nodes" type="int" value="$(arg max_tree_nodes)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

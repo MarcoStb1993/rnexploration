@@ -27,6 +27,7 @@
 	<arg name="log_gain_calculations" default="false" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
+	<arg name="grid_map_resolution" default="0.05" />
 
 	<include
 		file="$(find rsm_additions)/launch/gazebo_turtlebot3.launch">
@@ -77,6 +78,7 @@
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
+		<param name="delta" value="$(arg grid_map_resolution)" />
 	</node>
 
 	<!-- Navigation -->
@@ -97,6 +99,10 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
 			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)" />
 		<param name="local_costmap/robot_base_frame"
@@ -121,6 +127,10 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
 			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
@@ -191,6 +201,8 @@
 		<arg name="coupled_gain_calculation"
 			default="$(arg coupled_gain_calculation)" />
 		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
+		<arg name="grid_map_resolution"
+			default="$(arg grid_map_resolution)" />
 	</include>
 
 	<!-- RViz für Exploration -->

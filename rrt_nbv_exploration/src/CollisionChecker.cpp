@@ -7,6 +7,7 @@ CollisionChecker::CollisionChecker() {
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("visualize_collision", _visualize_collision, false);
 	private_nh.param("check_init_position", _check_init_position, false);
+	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
 			"map");
@@ -26,33 +27,97 @@ CollisionChecker::CollisionChecker() {
 	_init_vis_map = false;
 }
 
+void CollisionChecker::precalculateCircleLinesOffset(
+		std::vector<int8_t> &vis_map) {
+	double half_resolution = _grid_map_resolution / 2;
+	double mx = (round(_robot_radius / _grid_map_resolution) + 1.5)
+			* _grid_map_resolution; //keep circle in positive quadrant
+	double my = mx;
+	double sx, sy;
+	double dist = _robot_radius / _grid_map_resolution;
+	double dist_rounded = round(dist);
+	sy = my - dist_rounded * _grid_map_resolution;
+	sx = mx;
+	ROS_INFO_STREAM(
+			"precalc circle offsets for r=" << _robot_radius << " and res=" << _grid_map_resolution);
+	ROS_INFO_STREAM("dist: " << dist << " dist rounded" << dist_rounded);
+	ROS_INFO_STREAM("m=(" << mx << ", " << my << ")");
+	unsigned int x_offset = (sx - mx) / _grid_map_resolution;
+	unsigned int y_offset = (my - sy) / _grid_map_resolution;
+	_circle_lines_offset.push_back(CircleLine(y_offset, x_offset));
+	ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
+	ROS_INFO_STREAM(
+			"add line: (x=" << x_offset << " y_start=" << -1* y_offset << " y_end=" << y_offset << ")");
+	double robot_radius_squared = pow(_robot_radius, 2);
+	while (sy <= my) {
+		sx += _grid_map_resolution;
+		ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
+		ROS_INFO_STREAM(
+				"robot_radius_squared: " << robot_radius_squared << " cell edge " << (pow(my - sy - half_resolution, 2) + pow(sx - mx - half_resolution, 2)));
+		while (sy < my
+				&& robot_radius_squared
+						< (pow(my - sy - half_resolution, 2)
+								+ pow(sx - mx - half_resolution, 2))) {
+			sy += _grid_map_resolution;
+			ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
+			ROS_INFO_STREAM(
+					"robot_radius_squared: " << robot_radius_squared << " cell edge " << (pow(my-sy - half_resolution-my, 2) + pow(sx -mx- half_resolution-mx, 2)));
+		}
+		if (sy >= my && _robot_radius < (sx - mx - half_resolution)) {
+			ROS_INFO_STREAM("No cells");
+			return; // no cells to add for this last line
+		}
+		unsigned int x_offset = (sx - mx) / _grid_map_resolution;
+		unsigned int y_offset = (my - sy) / _grid_map_resolution;
+		_circle_lines_offset.push_back(CircleLine(y_offset, x_offset));
+		ROS_INFO_STREAM(
+				"add line: (x=" << x_offset << " y_start=" << -1 * y_offset << " y_end=" << y_offset << ")");
+	};
+
+}
+
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
-	unsigned int radius = (int) (_robot_radius / map.info.resolution);
-//	ROS_INFO_STREAM(
-//			"Circle with center " << center_x << ", " << center_y << ": " << map_x << ", " << map_y << ", radius: " << radius);
-	int x = radius, y = 0, err = 0;
-	bool collision = false;
-	while (x >= y) {
-		if (isLineInCollision(map_x - x, map_x + x, map_y + y, map, vis_map))
+	for (auto it : _circle_lines_offset) {
+//		ROS_INFO_STREAM(
+//				"check line: (y=" << map_y + it.y_offset << " x_start=" << map_x - it.x_offset << " x_end=" << map_x + it.x_offset << ")");
+		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
+				map_y + it.y_offset, map, vis_map))
 			return true; //collision = true;
-		if (isLineInCollision(map_x - x, map_x + x, map_y - y, map, vis_map))
-			return true; //collision = true; //return true;
-		if (isLineInCollision(map_x - y, map_x + y, map_y + x, map, vis_map))
-			return true; //collision = true; //return true;
-		if (isLineInCollision(map_x - y, map_x + y, map_y - x, map, vis_map))
-			return true; //collision = true; //return true;
-		if (err <= 0) {
-			y += 1;
-			err += 2 * y + 1;
-		} else {
-			x -= 1;
-			err -= 2 * x + 1;
-		}
+		if (it.y_offset != 0)
+//			ROS_INFO_STREAM(
+//					"check line: (y=" << map_y + it.y_offset << " x_start=" << map_x - it.x_offset << " x_end=" << map_x - it.x_offset << ")");
+
+		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
+				map_y - it.y_offset, map, vis_map))
+			return true; //collision = true;
 	}
+//
+//	unsigned int radius = (int) (_robot_radius / map.info.resolution);
+////	ROS_INFO_STREAM(
+////			"Circle with center " << center_x << ", " << center_y << ": " << map_x << ", " << map_y << ", radius: " << radius);
+//	int x = radius, y = 0, err = 0;
+//	bool collision = false;
+//	while (x >= y) {
+//		if (isLineInCollision(map_x - x, map_x + x, map_y + y, map, vis_map))
+//			return true; //collision = true;
+//		if (isLineInCollision(map_x - x, map_x + x, map_y - y, map, vis_map))
+//			return true; //collision = true; //return true;
+//		if (isLineInCollision(map_x - y, map_x + y, map_y + x, map, vis_map))
+//			return true; //collision = true; //return true;
+//		if (isLineInCollision(map_x - y, map_x + y, map_y - x, map, vis_map))
+//			return true; //collision = true; //return true;
+//		if (err <= 0) {
+//			y += 1;
+//			err += 2 * y + 1;
+//		} else {
+//			x -= 1;
+//			err -= 2 * x + 1;
+//		}
+//	}
 	return false; //return collision; //false;
 }
 
@@ -158,20 +223,20 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 	return false; //return collision;
 }
 
-bool CollisionChecker::isLineInCollision(int y_start, int y_end, int x,
+bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
 //	ROS_INFO_STREAM(
 //			"is line in collision? x: " << x <<" y-start: " << y_start << " y-end: " << y_end);
 //	ROS_INFO_STREAM(
 //			"map width: " << map.info.width << " map height: " << map.info.width << " map data length: " << map.data.size() << "map at 0 " << (int)map.data[0]);
-	if (y_start < 0 || y_end > map.info.width || x < 0 || x > map.info.height)
+	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height)
 		return true;
-	for (int y = x * map.info.width + y_start; y <= x * map.info.width + y_end;
-			y++) {
-		if (map.data[y] == -1 || map.data[y] >= 100) {
+	for (int x = y * map.info.width + x_start; x <= y * map.info.width + x_end;
+			x++) {
+		if (map.data[x] == -1 || map.data[x] >= 100) {
 			return true;
 		} else {
-			vis_map[y] = 0;
+			vis_map[x] = 0;
 		}
 	}
 	return false;
@@ -194,6 +259,7 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 		vis_map.info.map_load_time = ros::Time::now();
 		initVisMap(map);
 	}
+	precalculateCircleLinesOffset(vis_map.data);
 	_node_edges.markers.clear();
 	_node_points.markers.clear();
 	if (_check_init_position) {
@@ -221,16 +287,17 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		vis_map.info.map_load_time = ros::Time::now();
 	}
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-	bool rectangle = (
-			distance > _path_box_distance_thres ?
-					!isRectangleInCollision(
-							(nearest_node.position.x + rand_sample.x) / 2,
-							(nearest_node.position.y + rand_sample.y) / 2,
-							atan2(rand_sample.y - nearest_node.position.y,
-									rand_sample.x - nearest_node.position.x),
-							(distance - _path_box_distance_thres) / 2 + 0.1, //add 0.1 as a margin for rounding errors
-							_robot_width / 2, map, tmp_vis_map_data) :
-					true);
+	bool rectangle = true;
+//			(
+//			distance > _path_box_distance_thres ?
+//					!isRectangleInCollision(
+//							(nearest_node.position.x + rand_sample.x) / 2,
+//							(nearest_node.position.y + rand_sample.y) / 2,
+//							atan2(rand_sample.y - nearest_node.position.y,
+//									rand_sample.x - nearest_node.position.x),
+//							(distance - _path_box_distance_thres) / 2 + 0.1, //add 0.1 as a margin for rounding errors
+//							_robot_width / 2, map, tmp_vis_map_data) :
+//					true);
 	bool circle = !isCircleInCollision(rand_sample.x, rand_sample.y, map,
 			tmp_vis_map_data);
 	if (rectangle && circle) {
@@ -263,32 +330,33 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 
 			visualization_msgs::Marker node_edge;
 
-			node_edge.header.frame_id = "/map";
-			node_edge.header.stamp = ros::Time();
-			node_edge.ns = "rrt_collision_vis";
-			node_edge.id = 2 * _node_points.markers.size() + 1;
-			node_edge.action = visualization_msgs::Marker::ADD;
-			node_edge.type = visualization_msgs::Marker::CUBE;
-			node_edge.scale.x = (distance - _path_box_distance_thres) / 2 + 0.1;
-			node_edge.scale.y = _robot_width;
-			node_edge.scale.z = 0.01;
-			node_edge.color.g = 1.0f;
-			node_edge.color.a = 0.5f;
-			node_edge.pose.position.x =
-					(nearest_node.position.x + rand_sample.x) / 2;
-			node_edge.pose.position.y =
-					(nearest_node.position.y + rand_sample.y) / 2;
-			node_edge.pose.position.z = 0.005;
+			if (distance > _path_box_distance_thres) {
+				node_edge.header.frame_id = "/map";
+				node_edge.header.stamp = ros::Time();
+				node_edge.ns = "rrt_collision_vis";
+				node_edge.id = 2 * _node_points.markers.size() + 1;
+				node_edge.action = visualization_msgs::Marker::ADD;
+				node_edge.type = visualization_msgs::Marker::CUBE;
+				node_edge.scale.x = distance - _path_box_distance_thres;
+				node_edge.scale.y = _robot_width;
+				node_edge.scale.z = 0.01;
+				node_edge.color.g = 1.0f;
+				node_edge.color.a = 0.5f;
+				node_edge.pose.position.x = (nearest_node.position.x
+						+ rand_sample.x) / 2;
+				node_edge.pose.position.y = (nearest_node.position.y
+						+ rand_sample.y) / 2;
+				node_edge.pose.position.z = 0.005;
 
-			tf2::Quaternion quaternion;
-			double yaw = atan2(rand_sample.y - nearest_node.position.y,
-					rand_sample.x - nearest_node.position.x);
-			quaternion.setRPY(0, 0, yaw);
-			quaternion.normalize();
-			node_edge.pose.orientation = tf2::toMsg(quaternion);
-
+				tf2::Quaternion quaternion;
+				double yaw = atan2(rand_sample.y - nearest_node.position.y,
+						rand_sample.x - nearest_node.position.x);
+				quaternion.setRPY(0, 0, yaw);
+				quaternion.normalize();
+				node_edge.pose.orientation = tf2::toMsg(quaternion);
+				_node_edges.markers.push_back(node_edge);
+			}
 			_node_points.markers.push_back(node_point);
-			_node_edges.markers.push_back(node_edge);
 			_rrt_collision_visualization_pub.publish(_node_points);
 			_rrt_collision_visualization_pub.publish(_node_edges);
 		}

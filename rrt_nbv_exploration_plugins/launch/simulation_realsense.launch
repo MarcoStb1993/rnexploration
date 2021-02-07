@@ -1,5 +1,5 @@
-<!-- Simulation of Husky UGV with RealSense camera in Gazebo running Robot Statemachine 
-	with GMapping and RN Exploration -->
+<!-- Simulation of Husky UGV with RealSense camera in Gazebo running Robot 
+	Statemachine with GMapping and RN Exploration -->
 
 <launch>
 	<arg name="world"
@@ -17,7 +17,8 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
+	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding 
+		horizon -->
 	<arg name="horizon_length" default="0" />
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
@@ -26,6 +27,7 @@
 	<arg name="log_gain_calculations" default="true" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
+	<arg name="grid_map_resolution" default="0.05" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -72,11 +74,12 @@
 		output="screen">
 		<param name="update_frequency" value="20" />
 	</node>
-	
+
 	<!-- GMapping -->
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
+		<param name="delta" value="$(arg grid_map_resolution)" />
 	</node>
 
 	<!-- Navigation -->
@@ -96,7 +99,11 @@
 			command="load" />
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
-			command="load" />	
+			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
@@ -122,7 +129,11 @@
 			command="load" />
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
-			command="load" />			
+			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
@@ -140,7 +151,9 @@
 		name="base_footprint_reverse"
 		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
 
-	<node pkg="hector_trajectory_server" type="hector_trajectory_server" name="hector_trajectory_server" output="screen">
+	<node pkg="hector_trajectory_server"
+		type="hector_trajectory_server" name="hector_trajectory_server"
+		output="screen">
 		<param name="target_frame_name" value="map" />
 		<param name="source_frame_name" value="$(arg robot_frame)" />
 	</node>
@@ -155,7 +168,7 @@
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
 		<remap from="cloud_in" to="/camera/depth/color/points" />
-		<param name="publish_free_space" value="true"/>
+		<param name="publish_free_space" value="true" />
 	</node>
 
 	<!-- RN Exploration -->
@@ -174,20 +187,24 @@
 		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
 		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
 		<arg name="sensor_vertical_fov_top" value="61" />
-		<arg name="min_view_score" value="0.15" />	
+		<arg name="min_view_score" value="0.15" />
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
-		<arg name="exploration_finished_timer_duration" value="10.0" />		
+		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
 		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
 		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
-		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
+		<arg name="log_calculations"
+			default="$(arg log_gain_calculations)" />
+		<arg name="coupled_gain_calculation"
+			default="$(arg coupled_gain_calculation)" />
 		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
+		<arg name="grid_map_resolution"
+			default="$(arg grid_map_resolution)" />
 	</include>
 
 	<!-- RViz für Exploration -->
