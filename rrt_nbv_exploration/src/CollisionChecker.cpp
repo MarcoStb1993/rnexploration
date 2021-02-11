@@ -36,42 +36,28 @@ void CollisionChecker::precalculateCircleLinesOffset(
 	double sx, sy;
 	double dist = _robot_radius / _grid_map_resolution;
 	double dist_rounded = round(dist);
-	sy = my - dist_rounded * _grid_map_resolution;
-	sx = mx;
-	ROS_INFO_STREAM(
-			"precalc circle offsets for r=" << _robot_radius << " and res=" << _grid_map_resolution);
-	ROS_INFO_STREAM("dist: " << dist << " dist rounded" << dist_rounded);
-	ROS_INFO_STREAM("m=(" << mx << ", " << my << ")");
+	sy = my;
+	sx = mx + dist_rounded * _grid_map_resolution;
 	unsigned int x_offset = (sx - mx) / _grid_map_resolution;
 	unsigned int y_offset = (my - sy) / _grid_map_resolution;
-	_circle_lines_offset.push_back(CircleLine(y_offset, x_offset));
-	ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
-	ROS_INFO_STREAM(
-			"add line: (x=" << x_offset << " y_start=" << -1* y_offset << " y_end=" << y_offset << ")");
+	_circle_lines_offset.push_back(CircleLine(x_offset, y_offset));
 	double robot_radius_squared = pow(_robot_radius, 2);
-	while (sy <= my) {
-		sx += _grid_map_resolution;
-		ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
-		ROS_INFO_STREAM(
-				"robot_radius_squared: " << robot_radius_squared << " cell edge " << (pow(my - sy - half_resolution, 2) + pow(sx - mx - half_resolution, 2)));
-		while (sy < my
+	while (sx >= mx) {
+		sy -= _grid_map_resolution;
+		while (sx > mx
 				&& robot_radius_squared
 						< (pow(my - sy - half_resolution, 2)
 								+ pow(sx - mx - half_resolution, 2))) {
-			sy += _grid_map_resolution;
-			ROS_INFO_STREAM("s=(" << sx << ", " << sy << ")");
-			ROS_INFO_STREAM(
-					"robot_radius_squared: " << robot_radius_squared << " cell edge " << (pow(my-sy - half_resolution-my, 2) + pow(sx -mx- half_resolution-mx, 2)));
+			sx -= _grid_map_resolution;
 		}
-		if (sy >= my && _robot_radius < (sx - mx - half_resolution)) {
-			ROS_INFO_STREAM("No cells");
+		if (sx <= mx && _robot_radius < (my - sy - half_resolution)) {
 			return; // no cells to add for this last line
 		}
-		unsigned int x_offset = (sx - mx) / _grid_map_resolution;
-		unsigned int y_offset = (my - sy) / _grid_map_resolution;
-		_circle_lines_offset.push_back(CircleLine(y_offset, x_offset));
-		ROS_INFO_STREAM(
-				"add line: (x=" << x_offset << " y_start=" << -1 * y_offset << " y_end=" << y_offset << ")");
+		unsigned int x_offset = (unsigned int) round(
+				(sx - mx) / _grid_map_resolution);
+		unsigned int y_offset = (unsigned int) round(
+				(my - sy) / _grid_map_resolution); //round necessary because of double->int conversion inaccuracies
+		_circle_lines_offset.push_back(CircleLine(x_offset, y_offset));
 	};
 
 }
@@ -82,43 +68,15 @@ bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
 	for (auto it : _circle_lines_offset) {
-//		ROS_INFO_STREAM(
-//				"check line: (y=" << map_y + it.y_offset << " x_start=" << map_x - it.x_offset << " x_end=" << map_x + it.x_offset << ")");
 		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
 				map_y + it.y_offset, map, vis_map))
 			return true; //collision = true;
 		if (it.y_offset != 0)
-//			ROS_INFO_STREAM(
-//					"check line: (y=" << map_y + it.y_offset << " x_start=" << map_x - it.x_offset << " x_end=" << map_x - it.x_offset << ")");
-
-		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-				map_y - it.y_offset, map, vis_map))
-			return true; //collision = true;
+			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
+					map_y - it.y_offset, map, vis_map))
+				return true;
 	}
-//
-//	unsigned int radius = (int) (_robot_radius / map.info.resolution);
-////	ROS_INFO_STREAM(
-////			"Circle with center " << center_x << ", " << center_y << ": " << map_x << ", " << map_y << ", radius: " << radius);
-//	int x = radius, y = 0, err = 0;
-//	bool collision = false;
-//	while (x >= y) {
-//		if (isLineInCollision(map_x - x, map_x + x, map_y + y, map, vis_map))
-//			return true; //collision = true;
-//		if (isLineInCollision(map_x - x, map_x + x, map_y - y, map, vis_map))
-//			return true; //collision = true; //return true;
-//		if (isLineInCollision(map_x - y, map_x + y, map_y + x, map, vis_map))
-//			return true; //collision = true; //return true;
-//		if (isLineInCollision(map_x - y, map_x + y, map_y - x, map, vis_map))
-//			return true; //collision = true; //return true;
-//		if (err <= 0) {
-//			y += 1;
-//			err += 2 * y + 1;
-//		} else {
-//			x -= 1;
-//			err -= 2 * x + 1;
-//		}
-//	}
-	return false; //return collision; //false;
+	return false;
 }
 
 bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
