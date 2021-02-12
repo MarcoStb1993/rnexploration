@@ -175,11 +175,16 @@ void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
 	rand_sample.y = y_distribution(_generator);
 }
 
-void TreeConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
+void TreeConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample,
+		int nearest_node, double &distance) {
 	rand_sample.x = (round(rand_sample.x / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
 	rand_sample.y = (round(rand_sample.y / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
+	distance = sqrt(
+			pow(rand_sample.x - _rrt.nodes[nearest_node].position.x, 2)
+					+ pow(rand_sample.y - _rrt.nodes[nearest_node].position.y,
+							2));
 }
 
 void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
@@ -198,7 +203,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		rand_sample.y = y;
 		rand_sample.z = _rrt.nodes[nearest_node].position.z;
 	}
-	alignPointToGridMap(rand_sample);
+	alignPointToGridMap(rand_sample, nearest_node, distance);
 	rrt_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(node, _rrt.nodes[nearest_node], rand_sample,
 			_edge_length > 0 ? _edge_length : distance)) {

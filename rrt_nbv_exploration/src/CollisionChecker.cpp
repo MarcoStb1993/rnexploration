@@ -64,16 +64,17 @@ void CollisionChecker::precalculateCircleLinesOffset(
 
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
+	std::vector<int8_t> tmp = vis_map; //TODO: remove
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
 	for (auto it : _circle_lines_offset) {
 		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-				map_y + it.y_offset, map, vis_map))
+				map_y + it.y_offset, map, tmp))
 			return true; //collision = true;
 		if (it.y_offset != 0)
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y - it.y_offset, map, vis_map))
+					map_y - it.y_offset, map, tmp))
 				return true;
 	}
 	return false;
@@ -82,111 +83,150 @@ bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		double half_height, double half_width, nav_msgs::OccupancyGrid &map,
 		std::vector<int8_t> &vis_map) {
-	std::array<point, 4> corners;
+	std::array<MapPoint, 4> map_corners;
+	std::array<GridPoint, 4> grid_corners;
 	double cos_yaw, sin_yaw;
-	bool collision = false;
+	if (yaw < 0)
+		yaw += M_PI; //	combine mirrored cases (-PI < yaw < -PI/2 => 0 < yaw < PI/2, -PI/2 < yaw < 0 => PI/2 < yaw < PI)
 	cos_yaw = cos(yaw);
 	sin_yaw = sin(yaw);
-//	ROS_INFO_STREAM(
-//			std::setprecision(3) << std::fixed << "Square with center " << x << ", " << y << ": yaw: " << yaw* (180.0/3.141592653589793238463) <<", 0:" << x - half_height * cos_yaw + half_width * sin_yaw << ", " << y - half_height * sin_yaw - half_width * cos_yaw << ", 1: " << x + half_height * cos_yaw + half_width * sin_yaw << ", " << y + half_height * sin_yaw - half_width * cos_yaw << ", 2: " << x + half_height * cos_yaw - half_width * sin_yaw << ", " << y + half_height * sin_yaw + half_width * cos_yaw << ", 3: " << x - half_height * cos_yaw - half_width * sin_yaw << ", " << y - half_height * sin_yaw + half_width * cos_yaw);
-	if (!worldToMap(x - half_height * cos_yaw - half_width * sin_yaw,
-			y - half_height * sin_yaw + half_width * cos_yaw, corners[3].x,
-			corners[3].y, map)
-			|| !worldToMap(x + half_height * cos_yaw - half_width * sin_yaw,
-					y + half_height * sin_yaw + half_width * cos_yaw,
-					corners[2].x, corners[2].y, map)
-			|| !worldToMap(x + half_height * cos_yaw + half_width * sin_yaw,
-					y + half_height * sin_yaw - half_width * cos_yaw,
-					corners[1].x, corners[1].y, map)
-			|| !worldToMap(x - half_height * cos_yaw + half_width * sin_yaw,
-					y - half_height * sin_yaw - half_width * cos_yaw,
-					corners[0].x, corners[0].y, map))
-		return true;
-//	ROS_INFO_STREAM(
-//			"Square with center " << x << ", " << y << ": 0:" << corners[0].x << ", " << corners[0].y << ", 1: " << corners[1].x << ", " << corners[1].y << ", 2: " << corners[2].x << ", " << corners[2].y << ", 3: " << corners[3].x << ", " << corners[3].y);
-	if ((corners[0].x == corners[1].x && corners[1].y == corners[2].y)
-			|| (corners[1].x == corners[2].x && corners[2].y == corners[3].y)) {
-//		ROS_INFO("aligned");
-//		ROS_INFO_STREAM(
-//				"Square with center " << x << ", " << y << ": 0:" << corners[0].x << ", " << corners[0].y << ", 1: " << corners[1].x << ", " << corners[1].y << ", 2: " << corners[2].x << ", " << corners[2].y << ", 3: " << corners[3].x << ", " << corners[3].y);
-		bool y0_top = corners[0].y > corners[2].y;
-		bool x0_left = corners[0].x < corners[2].x;
-//		ROS_INFO_STREAM("Top=x0: " << y0_top << " Left=y0: " << x0_left);
-		for (unsigned int i = (y0_top ? corners[2].y : corners[0].y);
-				i <= (y0_top ? corners[0].y : corners[2].y); i++) {
-//			ROS_INFO_STREAM("line at x: " << i << " from " << (x0_left ? corners[0].y : corners[2].y) << " to " << (x0_left ? corners[2].y : corners[0].y));
-			if (isLineInCollision(x0_left ? corners[0].x : corners[2].x,
-					x0_left ? corners[2].x : corners[0].x, i, map, vis_map))
-				return true; //collision = true; //return true;
-		}
-	} else {
-		//Mid point
-		auto it_bot = std::min_element(std::begin(corners), std::end(corners),
-				[](const point &p1, const point &p2) {
-					return p1.y < p2.y;
-				});
-		std::size_t bot_corner = std::distance(std::begin(corners), it_bot);
-		auto it_left = std::min_element(std::begin(corners), std::end(corners),
-				[](const point &p1, const point &p2) {
-					return p1.x < p2.x;
-				});
-		std::size_t left_corner = std::distance(std::begin(corners), it_left);
-		std::size_t right_corner = (left_corner + 2) % 4, top_corner =
-				(bot_corner + 2) % 4;
-//		ROS_INFO_STREAM(
-//				"Bot: " << bot_corner << " left: " << left_corner<< " right: " << right_corner << " top: " << top_corner);
-		float l_m = ((float) corners[left_corner].x
-				- (float) corners[bot_corner].x)
-				/ ((float) corners[left_corner].y
-						- (float) corners[bot_corner].y);
-		float r_m = ((float) corners[right_corner].x
-				- (float) corners[bot_corner].x)
-				/ ((float) corners[right_corner].y
-						- (float) corners[bot_corner].y);
-//		ROS_INFO_STREAM("l_m: " << l_m << " r_m: " <<r_m);
-		unsigned int lr_y = corners[bot_corner].y;
-		float l_x = (float) corners[bot_corner].x, r_x = l_x;
-		if (isLineInCollision(l_x, r_x, lr_y, map, vis_map))
-			return true; //collision = true; //return true;
-		while (lr_y < corners[top_corner].y) {
-			if (lr_y == corners[left_corner].y) {
-				l_m = ((float) corners[top_corner].x
-						- (float) corners[left_corner].x)
-						/ ((float) corners[top_corner].y
-								- (float) corners[left_corner].y);
-				l_x = (float) corners[left_corner].x;
-//				ROS_INFO_STREAM("new l_m: " << l_m);
-			}
-			if (lr_y == corners[right_corner].y) {
-				r_m = ((float) corners[top_corner].x
-						- (float) corners[right_corner].x)
-						/ ((float) corners[top_corner].y
-								- (float) corners[right_corner].y);
-				r_x = (float) corners[right_corner].x;
-//				ROS_INFO_STREAM("new r_m: " <<r_m);
-			}
-			l_x += l_m;
-			r_x += r_m;
-			lr_y++;
-//			ROS_INFO_STREAM(
-//					"line x: " << lr_y << " l_x: " << l_x << " r_x: " << r_x);
-//			ROS_INFO_STREAM(
-//					"line(rounded) x: " << lr_y << " l_x: " << (unsigned int) round(l_x) << " r_x: " << (unsigned int) round(r_y));
-			if (isLineInCollision((unsigned int) round(l_x),
-					(unsigned int) round(r_x), lr_y, map, vis_map))
-				return true; //collision = true; //return true;
-		}
-
+	double width_cos = half_width * cos_yaw;
+	double width_sin = half_width * sin_yaw;
+	double height_cos = half_height * cos_yaw;
+	double height_sin = half_height * sin_yaw;
+	if (yaw > 0 && yaw < M_PI / 2) { //height from top left to bottom right
+		map_corners[0] = { x + width_cos - height_sin, y + width_sin
+				+ height_cos }; //left corner
+		map_corners[1] = { x + width_cos + height_sin, y + width_sin
+				- height_cos }; //bottom corner
+		map_corners[2] = { x - width_cos - height_sin, y - width_sin
+				+ height_cos }; //top corner
+		map_corners[3] = { x - width_cos + height_sin, y - width_sin
+				- height_cos }; //right corner
+	} else { // yaw >  M_PI / 2 && yaw < M_PI (height from bottem left to top right)
+		map_corners[0] = { x - width_cos - height_sin, y - width_sin
+				+ height_cos }; //left corner
+		map_corners[1] = { x + width_cos - height_sin, y + width_sin
+				+ height_cos }; //bottom corner
+		map_corners[2] = { x - width_cos + height_sin, y - width_sin
+				- height_cos }; //top corner
+		map_corners[3] = { x + width_cos + height_sin, y + width_sin
+				- height_cos }; //right corner
 	}
-	return false; //return collision;
+	ROS_INFO_STREAM(
+			"Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
+
+	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
+			grid_corners[0].y, map)
+			|| !worldToMap(map_corners[1].x, map_corners[1].y,
+					grid_corners[1].x, grid_corners[1].y, map)
+			|| !worldToMap(map_corners[2].x, map_corners[2].y,
+					grid_corners[2].x, grid_corners[2].y, map)
+			|| !worldToMap(map_corners[3].x, map_corners[3].y,
+					grid_corners[3].x, grid_corners[3].y, map))
+		return true;
+	ROS_INFO_STREAM(
+			"Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
+	double gradient_down = (map_corners[0].x - map_corners[2].x)
+			/ (map_corners[0].y - map_corners[2].y); //(c0-c2) M1
+	double gradient_up = (map_corners[2].x - map_corners[3].x)
+			/ (map_corners[2].y - map_corners[3].y); //(c2-c3) M2
+	ROS_INFO_STREAM("M1: " << gradient_down << ", M2: " << gradient_up);
+	unsigned int grid_x = map_corners[3].x;
+	unsigned int grid_y = map_corners[3].y;
+	double gradient_top = gradient_up;
+	double gradient_bot = gradient_down;
+	double step_top = gradient_top * _grid_map_resolution;
+	double step_bot = gradient_bot * _grid_map_resolution;
+	double iterator_y = (round(map_corners[3].y / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+	double iterator_x = (round(map_corners[3].x / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+	ROS_INFO_STREAM("s=(" << iterator_x << ", " << iterator_y << ")");
+	double iterator_x_top = map_corners[3].x
+			+ gradient_top * (iterator_y - map_corners[3].y);
+	double offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
+	ROS_INFO_STREAM(
+			"x top: " << iterator_x_top << ", offset: " << offset_x_top);
+	double iterator_x_bot = map_corners[3].x
+			+ gradient_bot * (iterator_y - map_corners[3].y);
+	double offset_x_bot = (iterator_x_bot - iterator_x) / _grid_map_resolution;
+	ROS_INFO_STREAM(
+			"x bot: " << iterator_x_bot << ", offset: " << offset_x_bot);
+	while (iterator_y < map_corners[0].y) {
+		if (iterator_y <= map_corners[2].y) { // top corner reached, change gradient
+			gradient_top = gradient_down;
+			step_top = gradient_top * _grid_map_resolution;
+			double iterator_x_top = map_corners[2].x
+					+ gradient_top * (iterator_y - map_corners[2].y);
+			double offset_x_top = (iterator_x_top - iterator_x)
+					/ _grid_map_resolution;
+			ROS_INFO_STREAM("Top corner reached");
+		}
+		if (iterator_y <= map_corners[1].y) { // bot corner reached, change gradient
+			gradient_bot = gradient_up;
+			step_bot = gradient_bot * _grid_map_resolution;
+			double iterator_x_bot = map_corners[1].x
+					+ gradient_bot * (iterator_y - map_corners[1].y);
+			double offset_x_bot = (iterator_x_bot - iterator_x)
+					/ _grid_map_resolution;
+			ROS_INFO_STREAM("Bot corner reached");
+		}
+		if (isLineInCollision(grid_x + (int) round(offset_x_bot),
+				grid_x + (int) round(offset_x_top), grid_y, map, vis_map))
+			return true;
+		grid_y += 1;
+		iterator_y += _grid_map_resolution;
+		if (grid_y < grid_corners[0].y) {
+			offset_x_top += step_top;
+			offset_x_bot += step_bot;
+		}
+		ROS_INFO_STREAM("map y: " << iterator_y << ", grid y: " << grid_y);
+		ROS_INFO_STREAM(
+				"x top: " << iterator_x_top << ", offset: " << offset_x_top);
+		ROS_INFO_STREAM(
+				"x bot: " << iterator_x_bot << ", offset: " << offset_x_bot);
+	}
+	ROS_INFO_STREAM("Left corner reached");
+	if (isLineInCollision(grid_x + (int) round(offset_x_bot),
+			grid_x + (int) round(offset_x_top), grid_y, map, vis_map))
+		return true;
+	return false;
+}
+
+bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
+		double yaw, double half_height, double half_width,
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
+	std::array<MapPoint, 2> map_corners;
+	std::array<GridPoint, 2> grid_corners;
+	if (yaw == -M_PI / 2 || yaw == M_PI / 2) { //height in y direction
+		map_corners[0] = { x - half_width, y + half_height }; //bottom left corner
+		map_corners[1] = { x + half_width, y - half_height }; //top right corner
+	} else { //yaw == -M_PI || 0 || M_PI (height in x direction)
+		map_corners[0] = { x - half_height, y + half_width }; //bottom left corner
+		map_corners[1] = { x + half_height, y - half_width }; //top right corner
+	}
+	ROS_INFO_STREAM(
+			"Aligned Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
+
+	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
+			grid_corners[0].y, map)
+			|| !worldToMap(map_corners[1].x, map_corners[1].y,
+					grid_corners[1].x, grid_corners[1].y, map))
+		return true;
+	ROS_INFO_STREAM(
+			"Aligned Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
+
+	for (unsigned int i = grid_corners[1].y; i <= grid_corners[0].y; i++) {
+		if (isLineInCollision(grid_corners[0].x, grid_corners[1].x, i, map,
+				vis_map))
+			return true;
+	}
+	return false;
 }
 
 bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
-//	ROS_INFO_STREAM(
-//			"is line in collision? x: " << x <<" y-start: " << y_start << " y-end: " << y_end);
-//	ROS_INFO_STREAM(
-//			"map width: " << map.info.width << " map height: " << map.info.width << " map data length: " << map.data.size() << "map at 0 " << (int)map.data[0]);
 	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height)
 		return true;
 	for (int x = y * map.info.width + x_start; x <= y * map.info.width + x_end;
@@ -245,17 +285,27 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		vis_map.info.map_load_time = ros::Time::now();
 	}
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-	bool rectangle = true;
-//			(
-//			distance > _path_box_distance_thres ?
-//					!isRectangleInCollision(
-//							(nearest_node.position.x + rand_sample.x) / 2,
-//							(nearest_node.position.y + rand_sample.y) / 2,
-//							atan2(rand_sample.y - nearest_node.position.y,
-//									rand_sample.x - nearest_node.position.x),
-//							(distance - _path_box_distance_thres) / 2 + 0.1, //add 0.1 as a margin for rounding errors
-//							_robot_width / 2, map, tmp_vis_map_data) :
-//					true);
+	double yaw = atan2(rand_sample.y - nearest_node.position.y,
+			rand_sample.x - nearest_node.position.x);
+	bool rectangle = (
+			distance > _path_box_distance_thres ?
+					fmod(yaw, M_PI / 2) == 0 ?
+							!isAlignedRectangleInCollision(
+									(nearest_node.position.x + rand_sample.x)
+											/ 2,
+									(nearest_node.position.y + rand_sample.y)
+											/ 2, yaw,
+									(distance - _path_box_distance_thres) / 2,
+									_robot_width / 2, map, tmp_vis_map_data) :
+							!isRectangleInCollision(
+									(nearest_node.position.x + rand_sample.x)
+											/ 2,
+									(nearest_node.position.y + rand_sample.y)
+											/ 2, yaw,
+									(distance - _path_box_distance_thres) / 2,
+									_robot_width / 2, map, tmp_vis_map_data)
+					:
+					true);
 	bool circle = !isCircleInCollision(rand_sample.x, rand_sample.y, map,
 			tmp_vis_map_data);
 	if (rectangle && circle) {

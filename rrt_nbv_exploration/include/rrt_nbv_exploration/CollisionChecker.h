@@ -12,9 +12,14 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-struct point {
+struct GridPoint {
 	unsigned int x;
 	unsigned int y;
+};
+
+struct MapPoint {
+	double x;
+	double y;
 };
 
 struct CircleLine {
@@ -149,6 +154,22 @@ private:
 	bool isRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map);
+
+	/**
+	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
+	 * @param X-coordinate of the rectangle's center
+	 * @param Y-coordinate of the rectangle's center
+	 * @param Yaw rotation of the rectangle around its center
+	 * @param Height of the rectangle divided by 2
+	 * @param Width of the rectangle divided by 2
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @return True if a collision was registered, false otherwise
+	 */
+	bool isAlignedRectangleInCollision(double x, double y, double yaw,
+			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map);
+
 
 	/**
 	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision

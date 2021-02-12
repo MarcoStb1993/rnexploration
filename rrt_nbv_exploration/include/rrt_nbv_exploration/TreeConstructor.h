@@ -201,8 +201,10 @@ private:
 	/**
 	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
 	 * @param Reference to a point which position is aligned
+	 * @param Index of nearest node in the tree to randomly sampled point which is aligned
+	 * @param Reference to current distance, will be adjusted accordingly
 	 */
-	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
+	void alignPointToGridMap(geometry_msgs::Point &rand_sample,int nearest_node, double &distance);
 	/**
 	 * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
 	 * @param Randomly sampled point
