@@ -64,17 +64,16 @@ void CollisionChecker::precalculateCircleLinesOffset(
 
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
-	std::vector<int8_t> tmp = vis_map; //TODO: remove
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
 	for (auto it : _circle_lines_offset) {
 		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-				map_y + it.y_offset, map, tmp))
+				map_y + it.y_offset, map, vis_map))
 			return true; //collision = true;
 		if (it.y_offset != 0)
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y - it.y_offset, map, tmp))
+					map_y - it.y_offset, map, vis_map))
 				return true;
 	}
 	return false;
@@ -86,35 +85,45 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 	std::array<MapPoint, 4> map_corners;
 	std::array<GridPoint, 4> grid_corners;
 	double cos_yaw, sin_yaw;
-	if (yaw < 0)
-		yaw += M_PI; //	combine mirrored cases (-PI < yaw < -PI/2 => 0 < yaw < PI/2, -PI/2 < yaw < 0 => PI/2 < yaw < PI)
+	if (yaw < -PI_HALF) {
+		yaw += M_PI; //	combine mirrored case (-PI < yaw < -PI/2 => 0 < yaw < PI/2)
+//		ROS_INFO_STREAM("Add PI to yaw, new yaw= " << yaw);
+	} else if (yaw > PI_HALF) {
+		yaw -= M_PI; //	combine mirrored case (PI > yaw > PI/2 => 0 > yaw > -PI/2)
+//		ROS_INFO_STREAM("Subtract PI from yaw, new yaw= " << yaw);
+	}
 	cos_yaw = cos(yaw);
 	sin_yaw = sin(yaw);
 	double width_cos = half_width * cos_yaw;
 	double width_sin = half_width * sin_yaw;
 	double height_cos = half_height * cos_yaw;
 	double height_sin = half_height * sin_yaw;
-	if (yaw > 0 && yaw < M_PI / 2) { //height from top left to bottom right
-		map_corners[0] = { x + width_cos - height_sin, y + width_sin
-				+ height_cos }; //left corner
-		map_corners[1] = { x + width_cos + height_sin, y + width_sin
-				- height_cos }; //bottom corner
-		map_corners[2] = { x - width_cos - height_sin, y - width_sin
-				+ height_cos }; //top corner
-		map_corners[3] = { x - width_cos + height_sin, y - width_sin
-				- height_cos }; //right corner
-	} else { // yaw >  M_PI / 2 && yaw < M_PI (height from bottem left to top right)
-		map_corners[0] = { x - width_cos - height_sin, y - width_sin
-				+ height_cos }; //left corner
-		map_corners[1] = { x + width_cos - height_sin, y + width_sin
-				+ height_cos }; //bottom corner
-		map_corners[2] = { x - width_cos + height_sin, y - width_sin
-				- height_cos }; //top corner
-		map_corners[3] = { x + width_cos + height_sin, y + width_sin
-				- height_cos }; //right corner
+	if (yaw > 0 && yaw < PI_HALF) { //height from top left to bottom right
+//		ROS_INFO_STREAM("height from top left to bottom right");
+		map_corners[0] = { x + height_cos - width_sin, y + width_cos
+				+ height_sin }; //left corner
+		map_corners[1] = { x - height_cos - width_sin, y + width_cos
+				- height_sin }; //bottom corner
+		map_corners[2] = { x + height_cos + width_sin, y - width_cos
+				+ height_sin }; //top corner
+		map_corners[3] = { x - height_cos + width_sin, y - width_cos
+				- height_sin }; //right corner
+	} else { // yaw >  -PI_HALF && yaw < 0 (height from bottom left to top right)
+//		ROS_INFO_STREAM("height from bottom left to top right");
+		map_corners[0] = { x - height_cos - width_sin, y + width_cos
+				- height_sin }; //left corner
+		map_corners[1] = { x - height_cos + width_sin, y - width_cos
+				- height_sin }; //bottom corner
+		map_corners[2] = { x + height_cos - width_sin, y + width_cos
+				+ height_sin }; //top corner
+		map_corners[3] = { x + height_cos + width_sin, y - width_cos
+				+ height_sin }; //right corner
 	}
-	ROS_INFO_STREAM(
-			"Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
+	double gradient_up = (map_corners[2].x - map_corners[3].x)
+			/ (map_corners[2].y - map_corners[3].y);
+	double gradient_down = -1 / gradient_up;
+//	ROS_INFO_STREAM(
+//			"Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << "), c1=(" << map_corners[1].x << ", " << map_corners[1].y << "), c2=(" << map_corners[2].x << ", " << map_corners[2].y << "), c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
 
 	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
 			grid_corners[0].y, map)
@@ -125,69 +134,74 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			|| !worldToMap(map_corners[3].x, map_corners[3].y,
 					grid_corners[3].x, grid_corners[3].y, map))
 		return true;
-	ROS_INFO_STREAM(
-			"Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
-	double gradient_down = (map_corners[0].x - map_corners[2].x)
-			/ (map_corners[0].y - map_corners[2].y); //(c0-c2) M1
-	double gradient_up = (map_corners[2].x - map_corners[3].x)
-			/ (map_corners[2].y - map_corners[3].y); //(c2-c3) M2
-	ROS_INFO_STREAM("M1: " << gradient_down << ", M2: " << gradient_up);
-	unsigned int grid_x = map_corners[3].x;
-	unsigned int grid_y = map_corners[3].y;
+//	ROS_INFO_STREAM(
+//			"Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << "), c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << "), c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << "), c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
+//	ROS_INFO_STREAM("M down: " << gradient_down << ", M up: " << gradient_up);
+	unsigned int grid_x = grid_corners[3].x;
+	unsigned int grid_y = grid_corners[3].y;
 	double gradient_top = gradient_up;
 	double gradient_bot = gradient_down;
-	double step_top = gradient_top * _grid_map_resolution;
-	double step_bot = gradient_bot * _grid_map_resolution;
-	double iterator_y = (round(map_corners[3].y / _grid_map_resolution) + 0.5)
+	double iterator_y = (floor(map_corners[3].y / _grid_map_resolution) + 1.0)
 			* _grid_map_resolution;
-	double iterator_x = (round(map_corners[3].x / _grid_map_resolution) + 0.5)
+	double iterator_x = (floor(map_corners[3].x / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
-	ROS_INFO_STREAM("s=(" << iterator_x << ", " << iterator_y << ")");
+//	ROS_INFO_STREAM("s=(" << iterator_x << ", " << iterator_y << ")");
 	double iterator_x_top = map_corners[3].x
 			+ gradient_top * (iterator_y - map_corners[3].y);
 	double offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
-	ROS_INFO_STREAM(
-			"x top: " << iterator_x_top << ", offset: " << offset_x_top);
 	double iterator_x_bot = map_corners[3].x
 			+ gradient_bot * (iterator_y - map_corners[3].y);
 	double offset_x_bot = (iterator_x_bot - iterator_x) / _grid_map_resolution;
-	ROS_INFO_STREAM(
-			"x bot: " << iterator_x_bot << ", offset: " << offset_x_bot);
+	bool top_corner_reached = false;
+	bool bot_corner_reached = false;
 	while (iterator_y < map_corners[0].y) {
-		if (iterator_y <= map_corners[2].y) { // top corner reached, change gradient
+		int x_start, x_end;
+		if (!top_corner_reached && iterator_y >= map_corners[2].y) { // top corner reached, change gradient
 			gradient_top = gradient_down;
-			step_top = gradient_top * _grid_map_resolution;
-			double iterator_x_top = map_corners[2].x
-					+ gradient_top * (iterator_y - map_corners[2].y);
-			double offset_x_top = (iterator_x_top - iterator_x)
-					/ _grid_map_resolution;
-			ROS_INFO_STREAM("Top corner reached");
-		}
-		if (iterator_y <= map_corners[1].y) { // bot corner reached, change gradient
+			iterator_x_top = map_corners[2].x
+					+ gradient_top
+							* (iterator_y - map_corners[2].y
+									- _grid_map_resolution);
+			offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
+			top_corner_reached = true;
+//			ROS_INFO_STREAM(
+//					"Top corner reached sy="<< iterator_y << " top y=" << map_corners[2].y);
+			x_end = grid_corners[2].x;
+		} else
+			x_end = grid_x + (int) round(offset_x_top);
+		if (!bot_corner_reached && iterator_y >= map_corners[1].y) { // bot corner reached, change gradient
 			gradient_bot = gradient_up;
-			step_bot = gradient_bot * _grid_map_resolution;
-			double iterator_x_bot = map_corners[1].x
-					+ gradient_bot * (iterator_y - map_corners[1].y);
-			double offset_x_bot = (iterator_x_bot - iterator_x)
-					/ _grid_map_resolution;
-			ROS_INFO_STREAM("Bot corner reached");
-		}
-		if (isLineInCollision(grid_x + (int) round(offset_x_bot),
-				grid_x + (int) round(offset_x_top), grid_y, map, vis_map))
+			iterator_x_bot = map_corners[1].x
+					+ gradient_bot
+							* (iterator_y - map_corners[1].y
+									- _grid_map_resolution);
+			offset_x_bot = (iterator_x_bot - iterator_x) / _grid_map_resolution;
+			bot_corner_reached = true;
+//			ROS_INFO_STREAM(
+//					"Bot corner reached sy="<< iterator_y << " bot y=" << map_corners[1].y);
+			x_start = grid_corners[1].x;
+		} else
+			x_start = grid_x + (int) round(offset_x_bot);
+//		ROS_INFO_STREAM(
+//				"xtop=(" << iterator_x_top << ","<< iterator_y << "), offset: " << offset_x_top);
+//		ROS_INFO_STREAM(
+//				"xbot=(" << iterator_x_bot << ","<< iterator_y << "), offset: " << offset_x_bot);
+//		ROS_INFO_STREAM(
+//				"Line start=(" << x_start << ","<<grid_y <<") line end=(" << x_end << "," << grid_y << ")");
+		if (isLineInCollision(x_start, x_end, grid_y, map, vis_map))
 			return true;
+		if (iterator_y < map_corners[0].y) {
+			offset_x_top += gradient_top;
+			offset_x_bot += gradient_bot;
+		}
 		grid_y += 1;
 		iterator_y += _grid_map_resolution;
-		if (grid_y < grid_corners[0].y) {
-			offset_x_top += step_top;
-			offset_x_bot += step_bot;
-		}
-		ROS_INFO_STREAM("map y: " << iterator_y << ", grid y: " << grid_y);
-		ROS_INFO_STREAM(
-				"x top: " << iterator_x_top << ", offset: " << offset_x_top);
-		ROS_INFO_STREAM(
-				"x bot: " << iterator_x_bot << ", offset: " << offset_x_bot);
+//		ROS_INFO_STREAM("map y: " << iterator_y << ", grid y: " << grid_y);
 	}
-	ROS_INFO_STREAM("Left corner reached");
+//	ROS_INFO_STREAM(
+//			"Left corner reached sy="<< iterator_y << " left y=" << map_corners[0].y);
+//	ROS_INFO_STREAM(
+//			"Line start=(" << grid_x + (int) round(offset_x_bot) << ","<<grid_y <<") line end=(" << grid_x + (int) round(offset_x_top) << "," << grid_y << ")");
 	if (isLineInCollision(grid_x + (int) round(offset_x_bot),
 			grid_x + (int) round(offset_x_top), grid_y, map, vis_map))
 		return true;
@@ -206,16 +220,16 @@ bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
 		map_corners[0] = { x - half_height, y + half_width }; //bottom left corner
 		map_corners[1] = { x + half_height, y - half_width }; //top right corner
 	}
-	ROS_INFO_STREAM(
-			"Aligned Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
+//	ROS_INFO_STREAM(
+//			"Aligned Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
 
 	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
 			grid_corners[0].y, map)
 			|| !worldToMap(map_corners[1].x, map_corners[1].y,
 					grid_corners[1].x, grid_corners[1].y, map))
 		return true;
-	ROS_INFO_STREAM(
-			"Aligned Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
+//	ROS_INFO_STREAM(
+//			"Aligned Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
 
 	for (unsigned int i = grid_corners[1].y; i <= grid_corners[0].y; i++) {
 		if (isLineInCollision(grid_corners[0].x, grid_corners[1].x, i, map,
@@ -287,6 +301,8 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
 	double yaw = atan2(rand_sample.y - nearest_node.position.y,
 			rand_sample.x - nearest_node.position.x);
+//	ROS_INFO_STREAM(
+//			"node: (" << nearest_node.position.x << ", " << nearest_node.position.y << "), rand sample: (" << rand_sample.x << ", " << rand_sample.y << "), yaw=" << yaw);
 	bool rectangle = (
 			distance > _path_box_distance_thres ?
 					fmod(yaw, M_PI / 2) == 0 ?

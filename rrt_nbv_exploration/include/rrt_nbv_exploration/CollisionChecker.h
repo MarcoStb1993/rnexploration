@@ -12,6 +12,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+#define PI_HALF (M_PI / 2)
+
 struct GridPoint {
 	unsigned int x;
 	unsigned int y;
@@ -169,7 +171,6 @@ private:
 	bool isAlignedRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map);
-
 
 	/**
 	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision
