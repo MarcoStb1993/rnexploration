@@ -17,17 +17,17 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding 
-		horizon -->
+	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
 	<arg name="horizon_length" default="3" />
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
-	<arg name="log_gain_calculations" default="false" />
+	<arg name="log_gain_calculations" default="true" />
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
 	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="navigation_global_planner" default="global_planner/GlobalPlanner" /> <!-- rrt_nbv_exploration::RneGlobalPlanner -->
 
 	<include
 		file="$(find rsm_additions)/launch/gazebo_turtlebot3.launch">
@@ -107,6 +107,7 @@
 			value="$(arg robot_frame)" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)" />
+		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -135,6 +136,7 @@
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
+		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />

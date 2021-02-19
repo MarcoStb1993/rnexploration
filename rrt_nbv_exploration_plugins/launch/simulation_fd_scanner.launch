@@ -28,6 +28,7 @@
 	<arg name="max_tree_nodes" default="0" />
 	<arg name="scanner_angled" default="false" />
 	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="navigation_global_planner" default="global_planner/GlobalPlanner" /> <!-- rrt_nbv_exploration::RneGlobalPlanner -->
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
@@ -106,6 +107,7 @@
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
+		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -134,6 +136,7 @@
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
+		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
