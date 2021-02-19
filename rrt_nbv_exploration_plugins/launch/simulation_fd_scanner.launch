@@ -18,7 +18,7 @@
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
 	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
-	<arg name="horizon_length" default="3" />
+	<arg name="horizon_length" default="0" />
 	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=sparse raycasting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
@@ -27,6 +27,7 @@
 	<arg name="coupled_gain_calculation" default="false" />
 	<arg name="max_tree_nodes" default="0" />
 	<arg name="scanner_angled" default="false" />
+	<arg name="grid_map_resolution" default="0.05" />
 
 	<include file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
@@ -95,6 +96,10 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
@@ -121,6 +126,10 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
@@ -209,6 +218,8 @@
 		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
 		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
 		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
+		<arg name="grid_map_resolution"
+			default="$(arg grid_map_resolution)" />
 	</include>
 
 	<!-- RViz für Exploration -->

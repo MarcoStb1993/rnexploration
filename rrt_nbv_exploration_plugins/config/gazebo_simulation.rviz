@@ -106,12 +106,17 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        base_link:
+        base_laser:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        base_scan:
+        base_laser_mount:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -129,7 +134,17 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        caster_back_link:
+        front_bumper_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_left_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_right_wheel_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -138,17 +153,54 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        inertial_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         realsense_mountpoint:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        wheel_left_link:
+        rear_bumper_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        wheel_right_link:
+        rear_left_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rear_right_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        sensor_arch_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        top_chassis_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        top_plate_front_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        top_plate_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        top_plate_rear_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        user_rail_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -309,13 +361,13 @@ Visualization Manager:
       Voxel Coloring: Z-Axis
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /rne/rrt_tree_vis
       Name: RRT
       Namespaces:
-        {}
+        rrt_tree: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrt_tree_vis_info
@@ -467,13 +519,13 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/rrt_collision_vis
       Name: Collision
       Namespaces:
-        rrt_collision_vis: true
+        {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Axes
       Enabled: true
       Length: 1
@@ -509,25 +561,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.0540703535079956
+      Distance: 10
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.1520938873291016
-        Y: -0.14209380745887756
-        Z: 1.0545365810394287
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9253982901573181
+      Pitch: 0.7853981852531433
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.9703958034515381
+      Yaw: 0.7853981852531433
     Saved: ~
 Window Geometry:
   Displays:

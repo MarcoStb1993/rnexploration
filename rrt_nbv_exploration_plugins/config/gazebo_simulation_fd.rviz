@@ -383,13 +383,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: true
+      Enabled: false
       Marker Topic: /rne/raysample_visualization
       Name: RRT Ray Polling
       Namespaces:
         {}
       Queue Size: 100
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /rne/raycast_visualization
@@ -574,7 +574,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 16.180381774902344
+      Distance: 21.930875778198242
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
