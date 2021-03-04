@@ -32,7 +32,6 @@ private:
 	ros::NodeHandle _nh;
 
 	ros::Subscriber _exploration_goal_subscriber;
-	ros::ServiceClient _set_goal_obsolete_service;
 	ros::ServiceClient _update_current_goal_service;
 	ros::ServiceClient _set_rrt_state_service;
 	ros::Subscriber _best_and_current_goal_subscriber;

@@ -255,7 +255,7 @@ Visualization Manager:
       Class: rviz/Path
       Color: 25; 255; 0
       Enabled: true
-      Head Diameter: 0.30000001192092896
+      Head Diameter: 0.10000000149011612
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
       Line Style: Lines
@@ -268,7 +268,7 @@ Visualization Manager:
       Pose Color: 255; 85; 255
       Pose Style: Arrows
       Radius: 0.029999999329447746
-      Shaft Diameter: 0.10000000149011612
+      Shaft Diameter: 0.05000000074505806
       Shaft Length: 0.10000000149011612
       Topic: /move_base/plan
       Unreliable: false
@@ -509,25 +509,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.19424819946289
+      Distance: 10
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.5619021654129028
-        Y: 1.0630404949188232
-        Z: 0.2641766667366028
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.805398166179657
+      Pitch: 0.7853981852531433
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.8585591316223145
+      Yaw: 0.7853981852531433
     Saved: ~
 Window Geometry:
   Displays:

@@ -11,25 +11,13 @@
 	<arg name="cmd_vel_topic" default="/cmd_vel" />
 	<arg name="joystick_used" default="false" />
 	<arg name="joystick_topic" default="/joy" />
-	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
+	<arg name="calculate_goal_plugin" default="rsm::CalculateGoalState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
 	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
-	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
-	<arg name="horizon_length" default="0" />
-	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=raycasting, 3=sparse ray casting -->
 	<arg name="oc_resolution" default="0.1" />
-	<arg name="delta_phi" default="10" />
-	<arg name="delta_theta" default="10" />
-	<arg name="log_gain_calculations" default="false" />
-	<arg name="coupled_gain_calculation" default="false" />
-	<arg name="max_tree_nodes" default="0" />
-	<arg name="scanner_angled" default="true" />
-	<arg name="grid_map_resolution" default="0.05" />
-	<arg name="navigation_global_planner" default="global_planner/GlobalPlanner" /> <!-- rrt_nbv_exploration::RneGlobalPlanner -->
-	<!-- Robot starting position in world -->
+	<arg name="scanner_angled" default="true" />	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
 	<arg name="z" default="0.0" />
@@ -79,11 +67,7 @@
 		<param name="exploration_goal_tolerance" value="0.05" />
 	</node>
 
-	<node pkg="rrt_nbv_exploration_plugins"
-		type="rneServiceProviderNode" name="rneServiceProviderNode" output="screen">
-		<param name="update_frequency" value="20" />
-	</node>
-
+	<!-- GMapping -->
 	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
@@ -106,26 +90,12 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
-		<param name="global_costmap/resolution"
-			value="$(arg grid_map_resolution)" />
-		<param name="local_costmap/resolution"
-			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
-		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -146,24 +116,10 @@
 		<rosparam
 			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
 			command="load" />
-		<param name="global_costmap/resolution"
-			value="$(arg grid_map_resolution)" />
-		<param name="local_costmap/resolution"
-			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
-		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
@@ -217,44 +173,26 @@
 		<remap from="cloud_in" to="velodyne_points" />
 	</node>
 
-	<!-- RN Exploration -->
-	<include
-		file="$(find rrt_nbv_exploration)/launch/simple.launch" >
-		<arg name="update_frequency" value="20" />
-		<arg name="robot_width" value="0.7" />
-		<arg name="robot_radius" value="0.7" />
-		<arg name="sensor_height" value="0.576" />
-		<arg name="sensor_size" value="0.15" />
-		<arg name="sensor_max_range" value="100" />
-		<arg name="sensor_min_range" value="0.5" />
-		<arg name="delta_radius" value="$(arg oc_resolution)" />
-		<arg name="delta_phi" value="$(arg delta_phi)" />
-		<arg name="delta_theta" value="$(arg delta_theta)" />
-		<arg name="sensor_horizontal_fov" value="360" />
-		<arg name="sensor_vertical_fov_bottom" value="135" /> <!-- FD Scanner degree vFoV (range from 0 to 180) -->
-		<arg if="$(arg scanner_angled)" name="sensor_vertical_fov_top" value="30" />
-		<arg unless="$(arg scanner_angled)" name="sensor_vertical_fov_top" value="0" />
-		<arg name="min_view_score" value="0.05" />	
-		<arg name="visualize_collision" value="true" />
-		<arg name="visualize_gain_calculation" value="true" />
-		<arg name="occupancy_grid_topic" value="map" />
-		<arg name="edge_length" value="$(arg edge_length)" />
-		<arg name="exploration_finished_timer_duration" value="10.0" />		
-		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
-		<arg name="horizon_length" default="$(arg horizon_length)" />
-		<arg name="check_init_position" default="false" />
-		<arg name="gain_mode" default="$(arg gain_mode)" />
-		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
-		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
-		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
-		<arg name="grid_map_resolution"
-			default="$(arg grid_map_resolution)" />
-	</include>
-
+	<!-- Explore Lite -->
+	<node pkg="explore_lite" type="explore" respawn="false"
+		name="explore">
+		<param name="robot_base_frame" value="base_footprint" />
+		<param name="costmap_topic" value="map" />
+		<param name="costmap_updates_topic" value="map_updates" />
+		<param name="visualize" value="true" />
+		<param name="planner_frequency" value="5" />
+		<param name="progress_timeout" value="3600.0" />
+		<param name="potential_scale" value="3.0" />
+		<param name="orientation_scale" value="0.0" />
+		<param name="gain_scale" value="1.0" />
+		<param name="transform_tolerance" value="0.3" />
+		<param name="min_frontier_size" value="0.75" />
+		<remap from="/move_base" to="/frontier_move_base" />
+	</node>
+	
 	<!-- RViz für Exploration -->
 	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"
-		args="-d $(find rrt_nbv_exploration_plugins)/config/gazebo_simulation_fd.rviz">
+		args="-d $(find rsm_additions)/config/gazebo_sim/husky_simulation.rviz">
 		<remap from="/move_base_simple/goal" to="/rsm/simpleGoal" />
 	</node>
 	<include if="$(arg rviz)"
