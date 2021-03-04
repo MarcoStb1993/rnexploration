@@ -29,9 +29,10 @@ void TreePathCalculator::initializePathToRobot(rrt_nbv_exploration_msgs::Node &n
 	std::vector<int> path(parentPathtoRobot);
 	path.push_back(index);
 	node.pathToRobot = path;
-	double distance = parentDistanceToRobot;
-	distance += _edge_length > 0 ? _edge_length : node.distanceToParent;
-	node.distanceToRobot = distance;
+	//double distance = parentDistanceToRobot;
+	//distance += _edge_length > 0 ? _edge_length : node.distanceToParent;
+	geometry_msgs::Pose robot = getRobotPose();
+	node.distanceToRobot = sqrt(pow(robot.position.x-node.position.x,2)+pow(robot.position.y-node.position.y,2));
 }
 
 void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
