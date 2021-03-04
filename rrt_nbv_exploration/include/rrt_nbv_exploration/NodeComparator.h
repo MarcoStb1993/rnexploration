@@ -22,6 +22,7 @@ namespace rrt_nbv_exploration {
 struct CompareStruct {
 	int node;
 	double gain_cost_ratio;
+	std::vector<int> horizon;
 
 	/**
 	 * @brief Constructor to initialize struct with node index in tree list
@@ -37,6 +38,15 @@ struct CompareStruct {
 	CompareStruct(int n, double gcr) {
 		node = n;
 		gain_cost_ratio = gcr;
+	}
+
+	/**
+	 * @brief Constructor to initialize struct with node index in tree list and gain-cost-ratio
+	 */
+	CompareStruct(int n, double gcr, std::vector<int> h) {
+		node = n;
+		gain_cost_ratio = gcr;
+		horizon = h;
 	}
 };
 
@@ -101,7 +111,11 @@ public:
 	 * @return Index of the node with the best cost-gain-ratio in the tree
 	 */
 	int getBestNode();
-
+	/**
+	 * @brief Get the branch of the node with the ebst horizon-gain-cost-ratio
+	 * @return List of nodes in the branch
+	 */
+	std::vector<int> getBestBranch();
 	/**
 	 * @brief Get the number of nodes currently in the list
 	 * @return The size of the list
@@ -133,22 +147,6 @@ private:
 	 * @brief All nodes (their position in the rrt node list) and their respective horizon gain-cost-ratio ordered ascendingly
 	 */
 	std::list<CompareStruct> _nodes_ordered_by_hgcr;
-	/**
-	 * @brief Operating mode of RNE
-	 */
-	RneMode _rne_mode;
-	/**
-	 * @brief Should the list be sorted or not
-	 */
-	bool _sort_list;
-	/**
-	 * @brief Did the robot move or not? Implies that all gain-cost-ratios must be recalculated
-	 */
-	bool _robot_moved;
-	/**
-	 * @brief Number of nodes to be considered for horizon evaluation, infinite if set to <= 0
-	 */
-	int _horizon_length;
 
 	/**
 	 * @brief Sorts list of nodes with a gain function which depends on the RNE mode, the node with the best

@@ -20,36 +20,23 @@ NodeComparator::~NodeComparator() {
 
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
-	int rne_mode;
-	private_nh.param("rne_mode", rne_mode, (int) RneMode::classic);
-	_rne_mode = static_cast<RneMode>(rne_mode);
-	private_nh.param("horizon_length", _horizon_length, 3);
-	_horizon_length = std::max(1, _horizon_length);	//horizon length must be at least 1
-
-	_sort_list = false;
-	_robot_moved = false;
 	_nodes_ordered_by_gcr.clear();
 	_nodes_ordered_by_hgcr.clear();
 }
 
 void NodeComparator::maintainList(rrt_nbv_exploration_msgs::Tree &rrt) {
-	if (_sort_list) {
-		calculateGainCostRatios(rrt);
-		if (_rne_mode == RneMode::horizon)
-			calculateHorizonGainCostRatios(rrt);
-		sortByGain(rrt);
-	}
+	calculateGainCostRatios(rrt);
+	calculateHorizonGainCostRatios(rrt);
+	sortByGain(rrt);
 }
 
 void NodeComparator::clear() {
 	_nodes_ordered_by_gcr.clear();
 	_nodes_ordered_by_hgcr.clear();
-	_sort_list = false;
 }
 
 void NodeComparator::addNode(int node) {
 	_nodes_ordered_by_gcr.emplace_back(node);
-	_sort_list = true;
 }
 
 void NodeComparator::removeNode(int node) {
@@ -59,15 +46,14 @@ void NodeComparator::removeNode(int node) {
 }
 
 int NodeComparator::getBestNode() {
-	if (_rne_mode == RneMode::horizon
-			&& _nodes_ordered_by_hgcr.front().gain_cost_ratio > 0) {//if no gain in horizon, get overall best node
-		return _nodes_ordered_by_hgcr.front().node;
-	} else {
-		return _nodes_ordered_by_gcr.front().node;
-	}
+	return _nodes_ordered_by_hgcr.front().node;
 }
 
-int NodeComparator::getListSize(){
+std::vector<int> NodeComparator::getBestBranch() {
+	return _nodes_ordered_by_hgcr.front().horizon;
+}
+
+int NodeComparator::getListSize() {
 	return _nodes_ordered_by_gcr.size();
 }
 
@@ -75,26 +61,11 @@ bool NodeComparator::isEmpty() {
 	return _nodes_ordered_by_gcr.empty();
 }
 
-void NodeComparator::robotMoved() {
-	_robot_moved = true;
-	_sort_list = true;
-}
-
-void NodeComparator::setSortList() {
-	_sort_list = true;
-}
-
 void NodeComparator::sortByGain(rrt_nbv_exploration_msgs::Tree &rrt) {
-	_nodes_ordered_by_gcr.sort(
+	_nodes_ordered_by_hgcr.sort(
 			[this](CompareStruct node_one, CompareStruct node_two) {
 				return compareNodeByRatios(node_one, node_two);
 			});
-	if (_rne_mode == RneMode::horizon)
-		_nodes_ordered_by_hgcr.sort(
-				[this](CompareStruct node_one, CompareStruct node_two) {
-					return compareNodeByRatios(node_one, node_two);
-				});
-	_sort_list = false;
 }
 
 void NodeComparator::calculateGainCostRatios(
@@ -103,7 +74,7 @@ void NodeComparator::calculateGainCostRatios(
 		if (node.gain_cost_ratio == 0) {
 			node.gain_cost_ratio = rrt.nodes[node.node].gain
 					* exp(-1 * rrt.nodes[node.node].distanceToRobot);
-			if(rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
+			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
 				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
 		}
 	}
@@ -112,12 +83,10 @@ void NodeComparator::calculateGainCostRatios(
 void NodeComparator::calculateHorizonGainCostRatios(
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	_nodes_ordered_by_hgcr.clear();
-	std::vector<int> start_nodes(rrt.nodes[rrt.nearest_node].children);
-	if (rrt.nearest_node != 0) //root node has no parent
-		start_nodes.push_back(rrt.nodes[rrt.nearest_node].parent);
-	double nearest_node_gcr = getNodeGainCostRatio(rrt.nearest_node);
-	if (nearest_node_gcr > 0) {	//add nearest node to list if it still has gain
-		_nodes_ordered_by_hgcr.emplace_back(rrt.nearest_node, nearest_node_gcr);
+	std::vector<int> start_nodes(rrt.nodes[rrt.root].children);
+	double root_node_gcr = getNodeGainCostRatio(rrt.root);
+	if (root_node_gcr > 0) {	//add nearest node to list if it still has gain
+		_nodes_ordered_by_hgcr.emplace_back(rrt.root, root_node_gcr);
 	}
 	for (auto &node : start_nodes) {
 		_nodes_ordered_by_hgcr.push_back(
@@ -133,36 +102,20 @@ CompareStruct NodeComparator::calculateHorizonGainCostRatio(
 	int last_node = rrt.nearest_node;
 	std::vector<int> current_horizon; //maintain for determining first unexplored node in horizon
 	current_horizon.push_back(current_node);
-	//initialize list of horizons to check with all children and parent of node except for nearest to robot
+	//initialize list of horizons to check with all children of node
 	std::stack<HorizonStruct> horizon_list;
 	do {
-		//ros::Duration(3).sleep();
 		double current_hgcr = getCurrentHorizonGainCostRatio(horizon_list,
 				current_node);
 		bool next_node = false;
-		if (horizon_list.size() < _horizon_length) { //try to add new nodes if horizon is not reached
-			std::vector<int> node_list;
-			if (current_node != 0
-					&& last_node != rrt.nodes[current_node].parent) { //root node has no parent
-				node_list.push_back(rrt.nodes[current_node].parent);
-			}
-			for (auto child : rrt.nodes[current_node].children) {
-				if (last_node != child) {
-					node_list.push_back(child);
-				}
-			}
-			if (node_list.empty()) { //last node in branch, go to next node
-				best_hgcr = std::max(current_hgcr, best_hgcr);
-				next_node = true;
-			} else { //additional layers to add
-				horizon_list.emplace(current_node, node_list, current_hgcr);
-				last_node = current_node;
-				current_node = horizon_list.top().nodes.top();
-				current_horizon.push_back(current_node);
-			}
-		} else { //horizon reached, go to next node
+		if (rrt.nodes[current_node].children.empty()) { //last node in branch, go to next node
 			best_hgcr = std::max(current_hgcr, best_hgcr);
 			next_node = true;
+		} else { //additional layers to add
+			horizon_list.emplace(current_node, rrt.nodes[current_node].children,
+					current_hgcr);
+			current_node = horizon_list.top().nodes.top();
+			current_horizon.push_back(current_node);
 		}
 		if (best_hgcr == current_hgcr)
 			best_horizon = current_horizon;
@@ -170,7 +123,6 @@ CompareStruct NodeComparator::calculateHorizonGainCostRatio(
 			horizon_list.top().nodes.pop();
 			current_horizon.pop_back();
 			if (!horizon_list.top().nodes.empty()) {
-				last_node = horizon_list.top().previous_node;
 				current_node = horizon_list.top().nodes.top();
 				current_horizon.push_back(current_node);
 				next_node = false;
@@ -179,15 +131,7 @@ CompareStruct NodeComparator::calculateHorizonGainCostRatio(
 			}
 		}
 	} while (!horizon_list.empty());
-	for (auto i : best_horizon) { //find first unexplored node in horizon
-		if (rrt.nodes[i].status != rrt_nbv_exploration_msgs::Node::EXPLORED) {
-			if (i != node) {
-				node = i;
-			}
-			break;
-		}
-	}
-	return CompareStruct(node, best_hgcr);;
+	return CompareStruct(node, best_hgcr, best_horizon);;
 }
 
 double NodeComparator::getCurrentHorizonGainCostRatio(

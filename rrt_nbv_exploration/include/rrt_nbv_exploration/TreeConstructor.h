@@ -59,9 +59,6 @@ private:
 	ros::NodeHandle _nh;
 
 	ros::Publisher _rrt_publisher;
-	ros::Publisher _best_and_current_goal_publisher;
-	ros::Publisher _node_to_update_publisher;
-	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
 	ros::ServiceServer _request_path_service;
@@ -103,6 +100,10 @@ private:
 	 */
 	bool _running;
 	/**
+	 * @brief If the tree is currently being constructed
+	 */
+	bool _constructing;
+	/**
 	 * @brief Current min value of bounding box of the 3D map as x, y and z value
 	 */
 	double _map_min_bounding[3] = { 0, 0, 0 };
@@ -111,17 +112,9 @@ private:
 	 */
 	double _map_max_bounding[3] = { 0, 0, 0 };
 	/**
-	 * @brief List of nodes (their position in the rrt node list) that require their gain to be calculated
-	 */
-	std::list<int> _nodes_to_update;
-	/**
 	 * @brief The node that is currently being pursued as a navigation goal
 	 */
 	int _current_goal_node;
-	/**
-	 * @brief Previously visited goal node
-	 */
-	int _last_goal_node;
 	/**
 	 * @brief Maximal sensor range that is considered for gain calculation
 	 */
@@ -139,53 +132,37 @@ private:
 	 */
 	double _edge_length;
 	/**
-	 * @brief Previous recorded robot position
-	 */
-	geometry_msgs::Point _last_robot_pos;
-	/**
-	 * @brief Index of previously updated node
-	 */
-	int _last_updated_node;
-	/**
 	 * @brief Time until exploration counts as finished because no new nodes were placed
 	 */
 	double _exploration_finished_timer_duration;
-	/**
-	 * @brief If the robot already moved past a neighbor node towards the current goal
-	 */
-	bool _moved_to_current_goal;
-	/**
-	 * @brief Indicator if current goal was already updated before a new goal can be requested
-	 */
-	bool _goal_updated;
 	/**
 	 * @brief Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
 	/**
-	 * @brief If current goal is currently updating
+	 * @brief Number of nodes at which tree generation is stopped
 	 */
-	bool _updating;
+	int _n_max;
 	/**
-	 * @brief If sorting the list of nodes to update is required
+	 * @brief Number of nodes at which exploration is assumed finished
 	 */
-	bool _sort_nodes_to_update;
-	/**
-	 * @brief Operating mode of RNE
-	 */
-	RneMode _rne_mode;
-	/**
-	 * @brief If the gain calculation is coupled to the remaining computation or not
-	 */
-	bool _coupled_gain_calculation;
-	/**
-	 * @brief Maximum number of tree nodes with gain>0 allowed before a new goal must be picked
-	 */
-	int _max_tree_nodes;
+	int _n_tol;
 	/**
 	 * @brief Grid map cell edge length in m
 	 */
 	double _grid_map_resolution;
+	/**
+	 * @brief If current goal is currently updated
+	 */
+	bool _updating;
+	/**
+	 * @brief Indicator if current goal was already updated before a new goal can be requested
+	 */
+	bool _goal_updated;
+	/**
+	 * @brief Tree with nodes of the best branch from the previous run
+	 */
+	rrt_nbv_exploration_msgs::Tree _best_branch;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -193,6 +170,15 @@ private:
 	 * @return If initialization was successful
 	 */
 	bool initRrt(const geometry_msgs::Point &seed);
+	/**
+	 * @brief Store the best branch from the previous iteration
+	 * @param List of nodes that are in the best branch
+	 */
+	void storeBestBranch(std::vector<int> nodes);
+	/**
+	 * @brief Reset nodes in best branch
+	 */
+	 void resetBestBranch();
 	/**
 	 * @brief Randomly samples a point from within the map dimension
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -204,7 +190,8 @@ private:
 	 * @param Index of nearest node in the tree to randomly sampled point which is aligned
 	 * @param Reference to current distance, will be adjusted accordingly
 	 */
-	void alignPointToGridMap(geometry_msgs::Point &rand_sample,int nearest_node, double &distance);
+	void alignPointToGridMap(geometry_msgs::Point &rand_sample,
+			int nearest_node, double &distance);
 	/**
 	 * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
 	 * @param Randomly sampled point
@@ -213,40 +200,6 @@ private:
 	 */
 	void placeNewNode(geometry_msgs::Point rand_sample, double min_distance,
 			int nearest_node);
-	/**
-	 * @brief Update the RRT message variable holding the index of the node currently nearest to the robot
-	 */
-	void determineNearestNodeToRobot();
-	/**
-	 * @brief Publish the node that currently has the best gain-cost-ratio
-	 */
-	void publishNodeWithBestGain();
-	/**
-	 * @brief Sorts the nodes which gain needs to be (re)calculated by their distance to the robot (closest first)
-	 */
-	void sortNodesToUpdateByDistanceToRobot();
-	/**
-	 * @brief Compares the distances to the robot of two nodes
-	 * @param Node index of the first node
-	 * @param Node index of the second node
-	 * @return Returns true if the first node's distance to the robot is smaller than the second
-	 */
-	bool compareNodeDistancesToRobot(const int &node_one, const int &node_two);
-	/**
-	 * @brief Publish a node which gain needs to be (re)calculated
-	 */
-	void publishNodeToUpdate();
-	/**
-	 * @brief Updates all nodes' gains in the doubled sensor range around the specified center node
-	 * @param Node in the center of the update circle
-	 */
-	void updateNodes(geometry_msgs::Point center_node);
-	/**
-	 * @brief Callback for subscriber to "updated_node" topic which refreshes the list of nodes to update
-	 * @param Node which gain was updated
-	 */
-	void updatedNodeCallback(
-			const rrt_nbv_exploration_msgs::Node::ConstPtr &updated_node);
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message
@@ -257,11 +210,6 @@ private:
 	 * @brief Updates the map's dimension (x,y,z) after a new octomap was received
 	 */
 	void updateMapDimensions();
-	/**
-	 * @brief Updates the current goal and the goals around it depending on the status navigation returned, also resets
-	 * the tree for receding modes
-	 */
-	void updateCurrentGoal();
 	/**
 	 * Timer callback for setting exploration to finished
 	 * @param event

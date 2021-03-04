@@ -17,18 +17,15 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding horizon -->
-	<arg name="horizon_length" default="0" />
-	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=raycasting, 3=sparse ray casting -->
+	<arg name="gain_mode" default="2" /> <!-- 0=comparison, 1=sparse ray polling, 2=raycasting, 3=sparse ray casting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="log_gain_calculations" default="false" />
-	<arg name="coupled_gain_calculation" default="false" />
-	<arg name="max_tree_nodes" default="0" />
+	<arg name="n_max" default="15" />
+	<arg name="n_tol" default="50" />
 	<arg name="scanner_angled" default="true" />
 	<arg name="grid_map_resolution" default="0.05" />
-	<arg name="navigation_global_planner" default="global_planner/GlobalPlanner" /> <!-- rrt_nbv_exploration::RneGlobalPlanner -->
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -116,16 +113,6 @@
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
-		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -154,16 +141,6 @@
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
-		<param name="base_global_planner" value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
@@ -240,14 +217,12 @@
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />		
-		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
-		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
 		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="log_calculations" default="$(arg log_gain_calculations)" />
-		<arg name="coupled_gain_calculation" default="$(arg coupled_gain_calculation)" />
-		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
+		<arg name="n_max" default="$(arg n_max)" />
+		<arg name="n_tol" default="$(arg n_tol)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
 	</include>
