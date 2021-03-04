@@ -113,17 +113,19 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 		for (int i = 1; i < nodes.size(); i++) {
 			rrt_nbv_exploration_msgs::Node node;
 			node.position = _rrt.nodes[nodes[i]].position;
-			node.parent = i-1;
+			node.parent = i - 1;
 			node.status = _rrt.nodes[nodes[i]].status;
 			node.gain = _rrt.nodes[nodes[i]].gain;
 			_gain_calculator->calculateGain(node);
 			node.index = i;
 			node.distanceToParent = _rrt.nodes[nodes[i]].distanceToParent;
-			node.distanceToRobot = sqrt(pow(root.position.x-node.position.x,2)+pow(root.position.y-node.position.y,2));
+			node.distanceToRobot = sqrt(
+					pow(root.position.x - node.position.x, 2)
+							+ pow(root.position.y - node.position.y, 2));
 			node.pathToRobot = _rrt.nodes[nodes[i - 1]].pathToRobot;
 			node.pathToRobot.push_back(nodes[i]);
 			if (i + 1 < nodes.size()) {
-				node.children.push_back(i+1);
+				node.children.push_back(i + 1);
 				node.children_counter = 1;
 			}
 			_best_branch.nodes.push_back(node);
@@ -275,6 +277,9 @@ void TreeConstructor::explorationFinishedTimerCallback(
 		_node_comparator->maintainList(_rrt);
 		_current_goal_node = _node_comparator->getBestNode();
 		_constructing = false;
+		_updating = false;
+		_goal_updated = true;
+		_exploration_finished_timer.stop();
 		ROS_INFO_STREAM(
 				"Timer set current goal node to " << _current_goal_node);
 	} else {
