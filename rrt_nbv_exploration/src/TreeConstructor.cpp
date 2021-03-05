@@ -343,10 +343,8 @@ bool TreeConstructor::updateCurrentGoal(
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
 	if (_current_goal_node != -1 && !_updating) {
-		if (_rrt.nodes[_current_goal_node].status
-				== rrt_nbv_exploration_msgs::Node::VISITED
-				|| _rrt.nodes[_current_goal_node].status
-						== rrt_nbv_exploration_msgs::Node::EXPLORED) {
+		if (req.status == rrt_nbv_exploration_msgs::Node::VISITED
+				|| req.status == rrt_nbv_exploration_msgs::Node::EXPLORED) {
 			storeBestBranch(_node_comparator->getBestBranch());
 		}
 		_updating = true;

@@ -86,7 +86,8 @@ void NodeComparator::calculateHorizonGainCostRatios(
 	std::vector<int> start_nodes(rrt.nodes[rrt.root].children);
 	double root_node_gcr = getNodeGainCostRatio(rrt.root);
 	if (root_node_gcr > 0) {	//add nearest node to list if it still has gain
-		_nodes_ordered_by_hgcr.emplace_back(rrt.root, root_node_gcr);
+		std::vector<int> horizon(1,rrt.root);
+		_nodes_ordered_by_hgcr.emplace_back(rrt.root, root_node_gcr, horizon);
 	}
 	for (auto &node : start_nodes) {
 		_nodes_ordered_by_hgcr.push_back(
