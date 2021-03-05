@@ -50,10 +50,9 @@ public:
 	 */
 	void stopRrtConstruction();
 	/**
-	 * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
-	 * @param kd-tree for faster nearest neighbour queries
+	 * @brief Publish RRT
 	 */
-	void runRrtConstruction();
+	void publishRrt();
 
 private:
 	ros::NodeHandle _nh;
@@ -102,7 +101,7 @@ private:
 	/**
 	 * @brief If the tree is currently being constructed
 	 */
-	bool _constructing;
+	bool _construction_running;
 	/**
 	 * @brief Current min value of bounding box of the 3D map as x, y and z value
 	 */
@@ -164,6 +163,11 @@ private:
 	 */
 	rrt_nbv_exploration_msgs::Tree _best_branch;
 
+	/**
+	 * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
+	 * @param kd-tree for faster nearest neighbour queries
+	 */
+	void runRrtConstruction();
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
 	 * @param Seed position for RRT at which the root node is placed

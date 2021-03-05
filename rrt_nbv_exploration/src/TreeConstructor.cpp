@@ -54,7 +54,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_node_comparator.reset(new NodeComparator());
 	_gain_calculator.reset(new GainCalculator());
 	_running = false;
-	_constructing = false;
+	_construction_running = false;
+	_gain_calculator->precalculateGainPolls();
 	initRrt(seed);
 }
 
@@ -73,7 +74,6 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 		root.children_counter = 0;
 		root.parent = -1;
 		root.status = rrt_nbv_exploration_msgs::Node::VISITED;
-		root.gain = -1;
 		root.index = 0;
 		root.distanceToParent = 0;
 		root.pathToRobot.push_back(0);
@@ -86,7 +86,6 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_updating = false;
 	_goal_updated = false;
 	_tree_searcher->initialize(_rrt);
-	_gain_calculator->precalculateGainPolls();
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
@@ -100,7 +99,7 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 		root.parent = -1;
 		root.status = _rrt.nodes[nodes[0]].status;
 		root.gain = _rrt.nodes[nodes[0]].gain;
-		_gain_calculator->calculateGain(root);
+		root.best_yaw = _rrt.nodes[nodes[0]].best_yaw;
 		root.index = 0;
 		root.distanceToParent = 0;
 		root.distanceToRobot = 0;
@@ -116,6 +115,7 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 			node.parent = i - 1;
 			node.status = _rrt.nodes[nodes[i]].status;
 			node.gain = _rrt.nodes[nodes[i]].gain;
+			node.best_yaw = _rrt.nodes[nodes[i]].best_yaw;
 			_gain_calculator->calculateGain(node);
 			node.index = i;
 			node.distanceToParent = _rrt.nodes[nodes[i]].distanceToParent;
@@ -145,10 +145,14 @@ void TreeConstructor::startRrtConstruction() {
 	_node_comparator->clear();
 	if (initRrt(_tree_path_calculator->getRobotPose().position)) {
 		_running = true;
-		_constructing = true;
+		_construction_running = true;
 		_gain_calculator->calculateGain(_rrt.nodes[0]);
-		if (_rrt.nodes[0].status != rrt_nbv_exploration_msgs::Node::EXPLORED)
-			_node_comparator->addNode(_rrt.nodes[0].index);
+		for (auto node : _rrt.nodes) {
+			if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
+				_node_comparator->addNode(node.index);
+		}
+		runRrtConstruction();
+
 	} else {
 		ROS_WARN_STREAM(
 				"Unable to start RNE because of obstacles too close to the robot!");
@@ -157,12 +161,17 @@ void TreeConstructor::startRrtConstruction() {
 
 void TreeConstructor::stopRrtConstruction() {
 	_running = false;
-	_constructing = false;
+	_construction_running = false;
 	_exploration_finished_timer.stop();
 }
 
+void TreeConstructor::publishRrt() {
+	_rrt.header.stamp = ros::Time::now();
+	_rrt_publisher.publish(_rrt);
+}
+
 void TreeConstructor::runRrtConstruction() {
-	if (_running && _constructing && _map_min_bounding[0]
+	while (_running && _construction_running && _map_min_bounding[0]
 			&& _map_min_bounding[1] && _map_min_bounding[2]) {
 		geometry_msgs::Point rand_sample;
 		samplePoint(rand_sample);
@@ -179,7 +188,7 @@ void TreeConstructor::runRrtConstruction() {
 		if (_rrt.node_counter >= _n_max && !_node_comparator->isEmpty()) {
 			_node_comparator->maintainList(_rrt);
 			_current_goal_node = _node_comparator->getBestNode();
-			_constructing = false;
+			_construction_running = false;
 			_updating = false;
 			_goal_updated = true;
 			_exploration_finished_timer.stop();
@@ -187,12 +196,10 @@ void TreeConstructor::runRrtConstruction() {
 		} else if (_rrt.node_counter >= _n_tol) {
 			ROS_INFO_STREAM("Exploration finished");
 			_running = false;
-			_constructing = false;
+			_construction_running = false;
 			_exploration_finished_timer.stop();
 		}
 	}
-	_rrt.header.stamp = ros::Time::now();
-	_rrt_publisher.publish(_rrt);
 }
 
 void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
@@ -252,6 +259,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
+		publishRrt();
 		_exploration_finished_timer.stop();
 		_exploration_finished_timer.start();
 	}
@@ -276,7 +284,7 @@ void TreeConstructor::explorationFinishedTimerCallback(
 	if (!_node_comparator->isEmpty()) {
 		_node_comparator->maintainList(_rrt);
 		_current_goal_node = _node_comparator->getBestNode();
-		_constructing = false;
+		_construction_running = false;
 		_updating = false;
 		_goal_updated = true;
 		_exploration_finished_timer.stop();
@@ -285,7 +293,7 @@ void TreeConstructor::explorationFinishedTimerCallback(
 	} else {
 		ROS_INFO_STREAM("Exploration finished");
 		_running = false;
-		_constructing = false;
+		_construction_running = false;
 		_exploration_finished_timer.stop();
 	}
 }
