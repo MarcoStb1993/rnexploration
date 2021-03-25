@@ -5,12 +5,6 @@ TreeConstructor::TreeConstructor() {
 }
 
 TreeConstructor::~TreeConstructor() {
-	//test for double free error
-//	_tree_searcher.reset();
-//	_gain_calculator.reset();
-//	_collision_checker.reset();
-//	_octree.reset();
-//	_abstract_octree.reset();
 }
 
 void TreeConstructor::initialization(geometry_msgs::Point seed) {
@@ -23,23 +17,14 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 10.0);
-	private_nh.param("coupled_gain_calculation", _coupled_gain_calculation,
-			false);
-	private_nh.param("max_tree_nodes", _max_tree_nodes, 0);
-	int rne_mode;
-	private_nh.param("rne_mode", rne_mode, (int) RneMode::classic);
-	_rne_mode = static_cast<RneMode>(rne_mode);
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
 			1);
-	if (!_coupled_gain_calculation) {
-		_node_to_update_publisher =
-				nh.advertise<rrt_nbv_exploration_msgs::Node>("node_to_update",
-						1);
-		_updated_node_subscriber = nh.subscribe("updated_node", 1,
-				&TreeConstructor::updatedNodeCallback, this);
-	}
+	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
+			"node_to_update", 1);
+	_updated_node_subscriber = nh.subscribe("updated_node", 1,
+			&TreeConstructor::updatedNodeCallback, this);
 	_best_and_current_goal_publisher = nh.advertise<
 			rrt_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
 			1);
@@ -72,8 +57,6 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_tree_path_calculator.reset(new TreePathCalculator());
 	_node_comparator.reset(new NodeComparator());
-	if (_coupled_gain_calculation)
-		_gain_calculator.reset(new GainCalculator());
 	_running = false;
 	initRrt(seed);
 }
@@ -104,10 +87,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_sort_nodes_to_update = false;
 	_last_robot_pos = seed;
 	_tree_searcher->initialize(_rrt);
-	if (_coupled_gain_calculation)
-		_gain_calculator->precalculateGainPolls();
-	else
-		_nodes_to_update.push_back(0);
+	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
@@ -134,19 +114,16 @@ void TreeConstructor::runRrtConstruction() {
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
 		determineNearestNodeToRobot();
-		if (_max_tree_nodes <= 0
-				|| _node_comparator->getListSize() <= _max_tree_nodes) {
-			geometry_msgs::Point rand_sample;
-			samplePoint(rand_sample);
-			double min_distance;
-			int nearest_node;
-			_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
-					nearest_node);
-			if (_edge_length > 0 ?
-					min_distance >= pow(_edge_length, 2) :
-					min_distance >= pow(_robot_radius, 2)) {
-				placeNewNode(rand_sample, min_distance, nearest_node);
-			}
+		geometry_msgs::Point rand_sample;
+		samplePoint(rand_sample);
+		double min_distance;
+		int nearest_node;
+		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
+				nearest_node);
+		if (_edge_length > 0 ?
+				min_distance >= pow(_edge_length, 2) :
+				min_distance >= pow(_robot_radius, 2)) {
+			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
 		_node_comparator->maintainList(_rrt);
 		if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
@@ -157,8 +134,7 @@ void TreeConstructor::runRrtConstruction() {
 			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 		}
 		publishNodeWithBestGain();
-		if (!_coupled_gain_calculation)
-			publishNodeToUpdate();
+		publishNodeToUpdate();
 		if (_nodes_to_update.empty() && _current_goal_node == -1) {
 			_exploration_finished_timer.start();
 		}
@@ -215,14 +191,8 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		_tree_path_calculator->initializePathToRobot(node, _rrt.node_counter,
 				_rrt.nodes[nearest_node].pathToRobot,
 				_rrt.nodes[nearest_node].distanceToRobot);
-		if (_coupled_gain_calculation) {
-			_gain_calculator->calculateGain(node);
-			if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
-				_node_comparator->addNode(node.index);
-		} else {
-			_nodes_to_update.push_back(_rrt.node_counter);
-			_sort_nodes_to_update = true;
-		}
+		_nodes_to_update.push_back(_rrt.node_counter);
+		_sort_nodes_to_update = true;
 		_rrt.nodes.push_back(node);
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children_counter++;
@@ -275,21 +245,10 @@ void TreeConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrt_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrt.nodes[iterator].status
 						!= rrt_nbv_exploration_msgs::Node::FAILED) {
-			if (_coupled_gain_calculation) {
-				_gain_calculator->calculateGain(_rrt.nodes[iterator]);
-				if (_rrt.nodes[iterator].status
-						== rrt_nbv_exploration_msgs::Node::EXPLORED
-						|| _rrt.nodes[iterator].status
-								== rrt_nbv_exploration_msgs::Node::FAILED)
-					_node_comparator->removeNode(iterator);
-				else
-					_node_comparator->setSortList();
-			} else {
-				_node_comparator->removeNode(iterator);
-				_nodes_to_update.push_back(iterator);
-				_sort_nodes_to_update = true;
-				_rrt.nodes[iterator].gain = -1;
-			}
+			_node_comparator->removeNode(iterator);
+			_nodes_to_update.push_back(iterator);
+			_sort_nodes_to_update = true;
+			_rrt.nodes[iterator].gain = -1;
 		}
 	}
 }
@@ -319,52 +278,37 @@ void TreeConstructor::publishNodeToUpdate() {
 void TreeConstructor::updateCurrentGoal() {
 //	ROS_INFO_STREAM(
 //			"Update current goal " << _current_goal_node << " with status " << (int)_rrt.nodes[_current_goal_node].status);
-	if (_rne_mode == RneMode::receding
-			|| _rne_mode == RneMode::receding_horizon) {
-		if (_rrt.nodes[_current_goal_node].status
-				!= rrt_nbv_exploration_msgs::Node::ABORTED
-				|| (_rrt.nodes[_current_goal_node].status
-						== rrt_nbv_exploration_msgs::Node::ABORTED
-						&& _moved_to_current_goal)) { //only restart if robot moved towards goal when aborted
-			startRrtConstruction();
-			return;
-		}
-	}
 	geometry_msgs::Point update_center;
 	switch (_rrt.nodes[_current_goal_node].status) {
 	case rrt_nbv_exploration_msgs::Node::EXPLORED:
-		ROS_INFO("goal explored");
+		ROS_INFO("RNE goal explored");
 		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrt.nodes[_current_goal_node].position;
 		updateNodes(update_center);
 		break;
 	case rrt_nbv_exploration_msgs::Node::VISITED:
-		if (!_coupled_gain_calculation) {
-			_node_comparator->removeNode(_current_goal_node);
-			_nodes_to_update.push_front(_current_goal_node);
-			_sort_nodes_to_update = true;
-		}
+		_node_comparator->removeNode(_current_goal_node);
+		_nodes_to_update.push_front(_current_goal_node);
+		_sort_nodes_to_update = true;
 		_rrt.nodes[_current_goal_node].gain = 0;
 		update_center = _rrt.nodes[_current_goal_node].position;
 		updateNodes(update_center);
 		break;
 	case rrt_nbv_exploration_msgs::Node::ABORTED:
-		ROS_INFO("goal aborted");
+		ROS_INFO("RNE goal aborted");
 		_rrt.nodes[_current_goal_node].status =
 				rrt_nbv_exploration_msgs::Node::INITIAL;
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
-			if (!_coupled_gain_calculation) {
-				_node_comparator->removeNode(_current_goal_node);
-				_nodes_to_update.push_back(_current_goal_node);
-				_sort_nodes_to_update = true;
-			}
+			_node_comparator->removeNode(_current_goal_node);
+			_nodes_to_update.push_back(_current_goal_node);
+			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
 		}
 		break;
 	case rrt_nbv_exploration_msgs::Node::FAILED:
-		ROS_INFO("goal failed");
+		ROS_INFO("RNE goal failed");
 		_node_comparator->removeNode(_current_goal_node);
 		_rrt.nodes[_current_goal_node].gain = 0;
 		if (_moved_to_current_goal) {
@@ -374,7 +318,7 @@ void TreeConstructor::updateCurrentGoal() {
 		break;
 	default:
 		//active or waiting (should not occur)
-		ROS_INFO("goal active or waiting");
+		ROS_INFO("RNE goal active or waiting");
 		return;
 	}
 	_last_goal_node = (_current_goal_node == -1 ? 0 : _current_goal_node);

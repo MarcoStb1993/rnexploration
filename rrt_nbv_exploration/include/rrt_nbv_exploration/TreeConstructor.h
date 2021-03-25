@@ -91,10 +91,6 @@ private:
 	 */
 	std::shared_ptr<NodeComparator> _node_comparator;
 	/**
-	 * @brief Helper class for calculating the gain of each node by checking occupancy in the OctoMap
-	 */
-	std::shared_ptr<GainCalculator> _gain_calculator;
-	/**
 	 * @brief Current tree being built as a RRT
 	 */
 	rrt_nbv_exploration_msgs::Tree _rrt;
@@ -170,18 +166,6 @@ private:
 	 * @brief If sorting the list of nodes to update is required
 	 */
 	bool _sort_nodes_to_update;
-	/**
-	 * @brief Operating mode of RNE
-	 */
-	RneMode _rne_mode;
-	/**
-	 * @brief If the gain calculation is coupled to the remaining computation or not
-	 */
-	bool _coupled_gain_calculation;
-	/**
-	 * @brief Maximum number of tree nodes with gain>0 allowed before a new goal must be picked
-	 */
-	int _max_tree_nodes;
 	/**
 	 * @brief Grid map cell edge length in m
 	 */
