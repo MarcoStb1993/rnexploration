@@ -30,11 +30,10 @@ public:
 	 * @brief Initializes given nodes path from the robot's current position to it and its distance by taking the node's
 	 * parent's path and adding the new node to it
 	 * @param Reference to the node to be initialized
-	 * @param Index of the new node
 	 * @param Parent node's path to robot
 	 * @param Parent node's distance to robot
 	 */
-	void initializePathToRobot(rrt_nbv_exploration_msgs::Node &node, int index,
+	void initializePathToRobot(rrt_nbv_exploration_msgs::Node &node,
 			std::vector<int> parentPathtoRobot, double parentDistanceToRobot);
 
 	/**
@@ -94,7 +93,8 @@ public:
 	 * @param Current tree
 	 * @return Path length in m
 	 */
-	double updatePathDistance(int prevNode, int newNode, double path_length, bool add, rrt_nbv_exploration_msgs::Tree &rrt);
+	double updatePathDistance(int prevNode, int newNode, double path_length,
+			bool add, rrt_nbv_exploration_msgs::Tree &rrt);
 
 	/**
 	 * @brief Calculate the distance of the given path depending on the edge length (if lesser equals 0, retrieve

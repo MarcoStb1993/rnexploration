@@ -24,47 +24,40 @@ geometry_msgs::Pose TreePathCalculator::getRobotPose() {
 	return robot_pose;
 }
 
-void TreePathCalculator::initializePathToRobot(rrt_nbv_exploration_msgs::Node &node, int index,
+void TreePathCalculator::initializePathToRobot(
+		rrt_nbv_exploration_msgs::Node &node,
 		std::vector<int> parentPathtoRobot, double parentDistanceToRobot) {
 	std::vector<int> path(parentPathtoRobot);
-	path.push_back(index);
+	path.push_back(node.index);
 	node.pathToRobot = path;
-	double distance = parentDistanceToRobot;
-	distance += _edge_length > 0 ? _edge_length : node.distanceToParent;
-	node.distanceToRobot = distance;
+	node.distanceToRobot = parentDistanceToRobot + node.distanceToParent;
 }
 
 void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	for (auto &it : rrt.nodes) {
-		if (it.status != rrt_nbv_exploration_msgs::Node::EXPLORED
-				&& it.status != rrt_nbv_exploration_msgs::Node::FAILED) { //only update if node still unexplored
-			bool add = true;
-			if (it.pathToRobot.size() <= 1) { //robot currently at this node
+		bool add = true;
+		if (it.pathToRobot.size() <= 1) { //robot currently at this node
+			it.pathToRobot.insert(it.pathToRobot.begin(), newNode);
+		} else {
+			if (it.pathToRobot.at(1) == newNode) { //robot moving towards this node
+				it.pathToRobot.erase(it.pathToRobot.begin());
+				add = false;
+			} else { //robot moving away from this node
 				it.pathToRobot.insert(it.pathToRobot.begin(), newNode);
-			} else {
-				if (it.pathToRobot.at(1) == newNode) { //robot moving towards this node
-					it.pathToRobot.erase(it.pathToRobot.begin());
-					add = false;
-				} else { //robot moving away from this node
-					it.pathToRobot.insert(it.pathToRobot.begin(), newNode);
-				}
 			}
-			it.distanceToRobot = updatePathDistance(prevNode, newNode,
-					it.distanceToRobot, add, rrt);
 		}
+		it.distanceToRobot = updatePathDistance(prevNode, newNode,
+				it.distanceToRobot, add, rrt);
 	}
 }
 
 void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	for (auto &it : rrt.nodes) {
-		if (it.status != rrt_nbv_exploration_msgs::Node::EXPLORED
-				&& it.status != rrt_nbv_exploration_msgs::Node::FAILED) { //only update if node still unexplored
-			it.pathToRobot = findConnectingPath(newNode, it.index, rrt);
-			it.distanceToRobot = it.distanceToRobot = calculatePathDistance(rrt,
-					it.pathToRobot);
-		}
+		it.pathToRobot = findConnectingPath(newNode, it.index, rrt);
+		it.distanceToRobot = it.distanceToRobot = calculatePathDistance(rrt,
+				it.pathToRobot);
 	}
 }
 

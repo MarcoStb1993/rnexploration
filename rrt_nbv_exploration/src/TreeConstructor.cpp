@@ -188,7 +188,7 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.parent = nearest_node;
 		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
 		node.index = _rrt.node_counter;
-		_tree_path_calculator->initializePathToRobot(node, _rrt.node_counter,
+		_tree_path_calculator->initializePathToRobot(node,
 				_rrt.nodes[nearest_node].pathToRobot,
 				_rrt.nodes[nearest_node].distanceToRobot);
 		_nodes_to_update.push_back(_rrt.node_counter);
@@ -210,13 +210,13 @@ void TreeConstructor::determineNearestNodeToRobot() {
 		double min_distance;
 		int nearest_node;
 		_tree_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
-		if (nearest_node != _rrt.nearest_node) {
+		if (nearest_node != _rrt.nearest_node) { //if nearest node changed
 			_moved_to_current_goal = true;
 			if (_tree_path_calculator->neighbourNodes(_rrt, _rrt.nearest_node,
-					nearest_node)) {
+					nearest_node)) { //if moved to a neighboring node
 				_tree_path_calculator->updatePathsToRobot(_rrt.nearest_node,
 						nearest_node, _rrt);
-			} else {
+			} else { //if deviated from global path
 				_tree_path_calculator->recalculatePathsToRobot(
 						_rrt.nearest_node, nearest_node, _rrt);
 			}
