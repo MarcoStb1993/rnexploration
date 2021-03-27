@@ -26,8 +26,6 @@ GainCalculator::GainCalculator() :
 	ros::NodeHandle nh("rne");
 	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raysample_visualization", 1000);
-	raycast_visualization = nh.advertise<visualization_msgs::Marker>(
-			"raycast_visualization", 1000);
 	_updated_node_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
@@ -285,21 +283,21 @@ void GainCalculator::convertOctomapMsgToOctree(
 }
 
 void GainCalculator::nodeToUpdateCallback(
-		const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update) {
-//	ROS_WARN_STREAM("update node: " << node_to_update->index << " previous node: " << _last_updated_node.index);
-	if (_last_updated_node.index != node_to_update->index) {
+		const rrt_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update) {
+	if (_last_updated_node.index != node_to_update->node.index
+			|| node_to_update->force_update) {
 		rrt_nbv_exploration_msgs::Node node;
 		geometry_msgs::Point pos;
-		pos.x = node_to_update->position.x;
-		pos.y = node_to_update->position.y;
-		pos.z = node_to_update->position.z;
+		pos.x = node_to_update->node.position.x;
+		pos.y = node_to_update->node.position.y;
+		pos.z = node_to_update->node.position.z;
 		node.position = pos;
-		node.status = node_to_update->status;
-		node.index = node_to_update->index;
-		node.gain = node_to_update->gain;
-		node.best_yaw = node_to_update->best_yaw;
-		node.distanceToParent = node_to_update->distanceToParent;
-		node.distanceToRobot = node_to_update->distanceToRobot;
+		node.status = node_to_update->node.status;
+		node.index = node_to_update->node.index;
+		node.gain = node_to_update->node.gain;
+		node.best_yaw = node_to_update->node.best_yaw;
+		node.distanceToParent = node_to_update->node.distanceToParent;
+		node.distanceToRobot = node_to_update->node.distanceToRobot;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);

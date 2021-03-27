@@ -21,7 +21,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
 			1);
-	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::Node>(
+	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::NodeToUpdate>(
 			"node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
 			&TreeConstructor::updatedNodeCallback, this);
@@ -58,7 +58,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_tree_path_calculator.reset(new TreePathCalculator());
 	_node_comparator.reset(new NodeComparator());
 	_running = false;
-	initRrt(seed);
+	//initRrt(seed);
 }
 
 bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
@@ -80,7 +80,7 @@ bool TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_rrt.root = 0;
 	_rrt.nearest_node = 0;
 	_current_goal_node = -1;
-	_last_goal_node = 0;
+	_last_goal_node = -1;
 	_last_updated_node = -1;
 	_goal_updated = true;
 	_updating = false;
@@ -271,7 +271,10 @@ void TreeConstructor::publishNodeToUpdate() {
 	if (!_nodes_to_update.empty()) {
 		if (_sort_nodes_to_update)
 			sortNodesToUpdateByDistanceToRobot();
-		_node_to_update_publisher.publish(_rrt.nodes[_nodes_to_update.front()]);
+		rrt_nbv_exploration_msgs::NodeToUpdate msg;
+		msg.node = _rrt.nodes[_nodes_to_update.front()];
+		msg.force_update = _nodes_to_update.front() == _last_goal_node;
+		_node_to_update_publisher.publish(msg);
 	}
 }
 
@@ -287,8 +290,8 @@ void TreeConstructor::updateCurrentGoal() {
 		updateNodes(update_center);
 		break;
 	case rrt_nbv_exploration_msgs::Node::VISITED:
+		ROS_INFO("RNE goal visited");
 		_node_comparator->removeNode(_current_goal_node);
-		_nodes_to_update.push_front(_current_goal_node);
 		_sort_nodes_to_update = true;
 		_rrt.nodes[_current_goal_node].gain = 0;
 		update_center = _rrt.nodes[_current_goal_node].position;
@@ -301,7 +304,6 @@ void TreeConstructor::updateCurrentGoal() {
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
 			_node_comparator->removeNode(_current_goal_node);
-			_nodes_to_update.push_back(_current_goal_node);
 			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
@@ -321,7 +323,7 @@ void TreeConstructor::updateCurrentGoal() {
 		ROS_INFO("RNE goal active or waiting");
 		return;
 	}
-	_last_goal_node = (_current_goal_node == -1 ? 0 : _current_goal_node);
+	_last_goal_node = _current_goal_node;
 	_current_goal_node = -1;
 }
 

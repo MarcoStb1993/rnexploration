@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
+#include <rrt_nbv_exploration_msgs/NodeToUpdate.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -65,7 +66,6 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
-	ros::Publisher raycast_visualization;
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -169,7 +169,7 @@ private:
 	 * @param Node which gain needs to be calculated
 	 */
 	void nodeToUpdateCallback(
-			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
+			const rrt_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update);
 
 	/**
 	 * Calculates the gain of the passed node by sparse ray polling in the octree

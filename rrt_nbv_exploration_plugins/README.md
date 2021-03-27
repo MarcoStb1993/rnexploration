@@ -44,9 +44,9 @@ A global planner which uses the edges between the robot and the goal node along 
 
 ## Starting RNE
 
-This package includes a configuration and URDF to launch a gazebo based simulation of RNE deploying a [Clearpath Robotics Husky](http://wiki.ros.org/Robots/Husky) robot which simulation is available as a [ROS package](http://wiki.ros.org/husky_simulator?distro=melodic) and is required to run this launch file.
+This package includes a configuration and URDF to launch a gazebo based simulation of RNE deploying a [Clearpath Robotics Husky](http://wiki.ros.org/Robots/Husky) robot which simulation is available as a [ROS package](http://wiki.ros.org/husky_simulator?distro=melodic) and is required to run this launch file. Also, a simulation for a [TurtleBot3 Burger](https://emanual.robotis.com/docs/en/platform/turtlebot3/overview) can be launched wherefore your system requires the following two meta-packages: [turtlebot3](http://wiki.ros.org/turtlebot3) and [turtlebot3_simulations](http://wiki.ros.org/turtlebot3_simulations).
 
-The simulated robot has a 2D laser scanner used for SLAM with [GMapping](http://wiki.ros.org/slam_gmapping) (must be installed as well) and a simulated Intel RealSense depth camera for building the required OctoMap. To run the simulation, follow the steps below.
+The simulated robots have a 2D laser scanner used for SLAM with [GMapping](http://wiki.ros.org/slam_gmapping) (must be installed as well) and a simulated Intel RealSense depth camera for building the required OctoMap. To run the simulations, follow the steps below.
 
 Furthermore, you need [OctoMap](http://wiki.ros.org/octomap) for gain evaluation and the RSM melodic branch to run the exploration.
 
@@ -54,6 +54,10 @@ If you did not already have the below installed, do so now:
 
 ```
 sudo apt install ros-melodic-husky-simulator
+
+sudo apt install ros-melodic-turtlebot3
+sudo apt install ros-melodic-turtlebot3-simulations
+
 sudo apt install ros-melodic-slam-gmapping
 sudo apt install ros-melodic-octomap ros-melodic-octomap-mapping ros-melodic-octomap-rviz-plugins
 
@@ -62,13 +66,17 @@ clone https://github.com/MarcoStb1993/robot_statemachine.git --branch melodic-de
 catkin build robot_statemachine
 ```
 
-Now you can launch RNE using the following command:
+Now you can launch RNE using one of the following commands (the first for the Husky, the second for the Turtlebot3):
 
 ```
-roslaunch rrt_nbv_exploration_plugins simulation_realsense.launch rviz:=true edge_length:=1.0
+roslaunch rrt_nbv_exploration_plugins simulation_realsense.launch rviz:=true edge_length:=1.5 min_view_score:=0.5
+
+roslaunch rrt_nbv_exploration_plugins simulation_turtlebot3.launch rviz:=true edge_length:=1.0
 ```
 
 If `rviz` is set to true, the RViz configuration including the RSM RViz plugin and all required displays is loaded. You can change the `min_view_score` using dynamic reconfigure (start it with `rosrun rqt_reconfigure rqt_reconfigure`). You can load another gazebo world by supplying its path to the `world` parameter.
+
+**Note**: Be aware that the simulated depth camera only clears free space in the OctoMap for a ray if the ray ends at an obstacle. This requires comparingly large values for `min_view_score` in open spaces (f.e. 0.5 for the Husky simulation above). Values between 0.05 and 0.15 were found to lead to good results in confined spaces.
 
 
 

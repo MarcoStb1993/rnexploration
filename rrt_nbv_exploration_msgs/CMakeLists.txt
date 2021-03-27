@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
    Tree.msg
    Node.msg
    BestAndCurrentNode.msg
+   NodeToUpdate.msg
    )
    
 add_service_files(

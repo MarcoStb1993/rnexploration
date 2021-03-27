@@ -10,6 +10,7 @@
 #include <rrt_nbv_exploration_msgs/Tree.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration_msgs/NodeList.h>
+#include <rrt_nbv_exploration_msgs/NodeToUpdate.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
 #include <rrt_nbv_exploration_msgs/RequestPath.h>

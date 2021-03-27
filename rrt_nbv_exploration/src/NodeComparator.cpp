@@ -50,10 +50,10 @@ void NodeComparator::removeNode(int node) {
 }
 
 int NodeComparator::getBestNode() {
-		return _nodes_ordered_by_gcr.front().node;
+	return _nodes_ordered_by_gcr.front().node;
 }
 
-int NodeComparator::getListSize(){
+int NodeComparator::getListSize() {
 	return _nodes_ordered_by_gcr.size();
 }
 
@@ -84,7 +84,7 @@ void NodeComparator::calculateGainCostRatios(
 		if (node.gain_cost_ratio == 0) {
 			node.gain_cost_ratio = rrt.nodes[node.node].gain
 					* exp(-1 * rrt.nodes[node.node].distanceToRobot);
-			if(rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
+			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
 				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
 		}
 	}

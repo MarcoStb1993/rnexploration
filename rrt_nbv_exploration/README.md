@@ -12,7 +12,7 @@ Each node in the tree stores its position in the map, its parent and children, i
 
 ![Node states State Diagram](../images/NodeStateDiagram.png)
 
-The NBV is determined by choosing the node with the best gain-cost-ratio. The gain calculation uses sparse ray sampling in which sample points are determined by the utilized sensor's FoV, range and the step size defined by the user. This should be set regarding the OctoMap's voxel's edge length and the computing power of the system running the RNE. This set of sample points is calculated at the RNE's initialization, so that during its execution the sample points can be placed at the particular node to be evaluated by adding the node's position to each sample point. This and the execution in a node separate from the RRT construction aims to speed up the exploration. Below a set of sample points is employed to evaluate a node. Blue denotes unknown space, green free space and red occupied space. The particular ray is not evaluated further when an obstacle was detected. Also, the best yaw orientation for the robot at this node is calcualted by adding up all sampling slices that could be observed if the sensor is pointed at this particular direction. The direction with the highest combined gain is set as the best yaw. The horizontal FoV of the sensor is required for this.
+The NBV is determined by choosing the node with the best gain-cost-ratio (GCR). The gain calculation uses Sparse Ray Polling (SRP) in which sample points are determined by the utilized sensor's FoV, range and the step size defined by the user. This should be set regarding the OctoMap's voxel's edge length and the computing power of the system running the RNE. This set of sample points is calculated at the RNE's initialization, so that during its execution the sample points can be placed at the particular node to be evaluated by adding the node's position to each sample point. This and the execution in a node separate from the RRT construction aims to speed up the exploration. Below a set of sample points is employed to evaluate a node. Blue denotes unknown space, green free space and red occupied space. The particular ray is not evaluated further when an obstacle was detected. Also, the best yaw orientation for the robot at this node is calculated by adding up all sampling slices that could be observed if the sensor is pointed at this particular direction. The direction with the highest combined gain is set as the best yaw. The horizontal FoV of the sensor is required for this.
 
 ![Sparse Ray Sampling](../images/raysampling.png)
 
@@ -38,7 +38,7 @@ The CollisonChecker subscribes to an occupancy grid map topic and checks if a ne
 
 ### TreePathCalculator
 
-The TreePathCalculator monitors the robot's position in the map, so that the node closest to the robot is always known. When the robot moves from one node to the next, the TreePathCalculator updates the path from each particular node to the robot that is maintained in the node.
+The TreePathCalculator monitors the robot's position in the map, so that the node closest to the robot is always known. When the robot moves from one node to the next, the TreePathCalculator updates the path from each particular node to the robot that is maintained in the node. This path can be retrieved for navigation.
 
 ### GainCalculator
 
@@ -59,8 +59,8 @@ Controls the RRT construction and offers interfaces to it.
 **rrt_tree** ([rrt_nbv_exploration_msgs/Tree](../rrt_nbv_exploration_msgs/msg/Tree.msg))  
 Current RRT tree with list of all nodes
 
-**node_to_update** ([rrt_nbv_exploration_msgs/Node](../rrt_nbv_exploration_msgs/msg/Node.msg))  
-Node which gain must be calculated
+**node_to_update** ([rrt_nbv_exploration_msgs/NodeToUpdate](../rrt_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
+Node which gain should be calculated and a flag if it must be recalculated
 
 **bestAndCurrentGoal** ([rrt_nbv_exploration_msgs/BestAndCurrentNode](../rrt_nbv_exploration_msgs/msg/BestAndCurrentNode.msg))  
 Current exploration goal and node with best gain-cost-ratio
@@ -134,6 +134,12 @@ Frame name of the robot's base frame
 **~visualize_collision** (bool, default: false)  
 If the collision checking should be visualized
 
+**~check_init_position** (bool, default: false)  
+If the position at which the robot currently is when starting RNE should be checked for collision
+
+**~grid_map_resolution** (double, default: 0.05)  
+Resolution of the grid map for collision checking
+
 #### Required tf Transforms
 
 **map -> <robot_frame>**  
@@ -156,8 +162,8 @@ Node which gain was recently calculated
 **<octomap_topic>** ([octomap_msgs/Octomap](http://docs.ros.org/en/melodic/api/octomap_msgs/html/msg/Octomap.html))  
 OctoMap voxel grid for gain calculation
 
-**node_to_update** ([rrt_nbv_exploration_msgs/Node](../rrt_nbv_exploration_msgs/msg/Node.msg))  
-Node which gain must be calculated
+**node_to_update** ([rrt_nbv_exploration_msgs/NodeToUpdate](../rrt_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
+Node which gain should be calculated and a flag if it must be recalculated
 
 #### Parameters
 
@@ -169,6 +175,9 @@ Min sensor range
 
 **~sensor_height** (float, default: 0.5)  
 Height of the sensor measured from the robot's base frame (obtain with `rosrun tf_echo robot_frame sensor_frame` if unsure)
+
+**~sensor_size** (float, default: 0.1)  
+Radius in m of a sphere that best describes the sensor's volume (checking for obstacles begins outside of this radius)
 
 **~delta_phi** (int, default: 10)  
 Step size in Phi-direction in degrees (corresponds to vertical FoV)
@@ -182,14 +191,20 @@ Step size in radius-direction in m
 **~sensor_horizontal_fov** (int, default: 360)  
 Horizontal field of view for the sensor in degrees
 
-**~sensor_vertical_fov** (int, default: 180)  
-Vertical field of view for the sensor in degrees
+**~sensor_vertical_fov_bottom** (int, default: 0)  
+Sensor's vertical FoV bottom edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
+
+**~sensor_vertical_fov_top** (int, default: 180)  
+Sensor's vertical FoV top edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
 
 **~min_view_score** (float, default: 1.0)  
-Min percentage of max possible gain for a node to be considered as a goal, if the node's gain is below this threshold, it is set to the *explored* state
+Min percentage of max possible gain for a node to be considered as a goal, if the node's gain is below this threshold, it is set to the *explored* state (see [here](../rrt_nbv_exploration_plugins#starting-rne) for additional details)
 
 **~octomap_topic** (string, default: "octomap_binary")  
 Topic name of the OctoMap required for gain calculation
+
+**~oc_resolution** (float, default: 0.1)  
+Resolution of octomap (edge length of voxels in m)
 
 **~visualize_gain_calculation** (bool, default: false)  
 If the gain calculation should be visualized

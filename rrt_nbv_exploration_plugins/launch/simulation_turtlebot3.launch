@@ -24,6 +24,7 @@
 	<arg name="navigation_global_planner"
 		default="rrt_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.12" />
+	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="-2.0" />
 	<arg name="y" default="0.0" />
@@ -224,7 +225,7 @@
 		<arg name="sensor_vertical_fov_bottom" value="129" /> <!-- RealSense with 58 degree vFoV angled 10 degrees towards the bottom (range 
 			from 180 to 0 as the highest angle) -->
 		<arg name="sensor_vertical_fov_top" value="71" />
-		<arg name="min_view_score" value="0.15" />
+		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
