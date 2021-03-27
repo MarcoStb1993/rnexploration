@@ -18,4 +18,5 @@ int32[] children     			# Position of the node's children in the nodes array of 
 int32 children_counter  		# Number of children nodes in the children array
 
 int32[] pathToRobot				# Position of the nodes that connect this node (end) to the node nearest to the robot (begin)
+float64 distanceToRobot			# Distance along the tree's edges from this node to the node nearest to the robot
 float64 distanceToParent		# Distance in m to this node's parent node			

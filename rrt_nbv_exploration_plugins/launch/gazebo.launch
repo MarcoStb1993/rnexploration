@@ -5,6 +5,7 @@
 		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
 	<arg name="realsense_enabled" default="false" />
 	<arg name="fd_scanner_enabled" default="false" />
+	<arg name="fd_scanner_angled" default="false" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -21,8 +22,8 @@
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
-	<arg name="z" default="0.5" />
-	<arg name="yaw" default="0.0" />
+	<arg name="z" default="0.0" />
+	<arg name="yaw" default="1.5707963" />
 
 	<arg name="urdf_extras" default="$(optenv HUSKY_URDF_EXTRAS)" />	<!-- set to path with additions to Husky URDF -->
 
@@ -39,6 +40,7 @@
 		    robot_namespace:=$(arg robot_namespace)
 		    realsense_enabled:=$(arg realsense_enabled)
 		    fd_scanner_enabled:=$(arg fd_scanner_enabled)
+		    fd_scanner_angled:=$(arg fd_scanner_angled)
 		    laser_enabled:=true
 		    urdf_extras:=$(arg urdf_extras)
 		    " />

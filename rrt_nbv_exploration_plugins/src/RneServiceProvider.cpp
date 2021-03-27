@@ -11,8 +11,6 @@ namespace rsm {
 
 RneServiceProvider::RneServiceProvider() {
 	ros::NodeHandle nh("rsm");
-	_set_goal_obsolete_service = nh.serviceClient<std_srvs::Trigger>(
-			"setGoalObsolete");
 	_exploration_goal_subscriber = nh.subscribe("explorationGoalStatus", 1,
 			&RneServiceProvider::explorationGoalCallback, this);
 	_exploration_mode_subscriber = nh.subscribe("explorationMode", 1,
@@ -91,7 +89,7 @@ void RneServiceProvider::explorationModeCallback(
 		const std_msgs::Bool::ConstPtr &exploration_mode) {
 	if (_exploration_mode != exploration_mode->data) {
 		_exploration_mode = exploration_mode->data;
-		if (exploration_mode) {
+		if (_exploration_mode) {
 			ros::NodeHandle rne_nh("rne");
 			_best_and_current_goal_subscriber = rne_nh.subscribe(
 					"bestAndCurrentGoal", 1,
@@ -110,8 +108,8 @@ void RneServiceProvider::bestGoalCallback(
 		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal) {
 	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
 		if (!_goal_obsolete)
-//			ROS_INFO_STREAM(
-//					"goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
+			ROS_INFO_STREAM(
+					"goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;

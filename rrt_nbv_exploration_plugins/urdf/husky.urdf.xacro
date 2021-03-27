@@ -41,6 +41,7 @@
 		value="$(optenv HUSKY_REAR_BUMPER_EXTEND 0)" />
 
 	<xacro:arg name="fd_scanner_enabled" default="false" />
+	<xacro:arg name="fd_scanner_angled" default="false" />
 	<xacro:arg name="fd_scanner_xyz"
 		default="$(optenv HUSKY_FD_SCANNER_XYZ -0.3 0 0)" />
 	<xacro:arg name="fd_scanner_rpy"
@@ -232,6 +233,7 @@
 
 		<fd_scanner prefix="fd_scanner"
 			robot_namespace="$(arg robot_namespace)"
+			angled="$(arg fd_scanner_angled)"
 			simulated_velodyne="true" />
 
 		<joint name="fd_scanner_joint" type="fixed">

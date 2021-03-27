@@ -9,7 +9,7 @@ boost::shared_ptr<rrt_nbv_exploration::GainCalculator> gain_calculator;
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "gainCalcNode");
 	gain_calculator.reset(new rrt_nbv_exploration::GainCalculator());
-	gain_calculator->precalculateGainPollPoints();
+	gain_calculator->precalculateGainPolls();
 
 	dynamic_reconfigure::Server<rrt_nbv_exploration::GainCalculatorConfig> server;
 	dynamic_reconfigure::Server<rrt_nbv_exploration::GainCalculatorConfig>::CallbackType f;

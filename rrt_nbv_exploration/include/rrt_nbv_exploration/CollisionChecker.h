@@ -1,14 +1,37 @@
 #include "ros/ros.h"
 #include <rrt_nbv_exploration_msgs/Tree.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
+#include "visualization_msgs/MarkerArray.h"
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-struct point {
+#define PI_HALF (M_PI / 2)
+
+struct GridPoint {
 	unsigned int x;
 	unsigned int y;
+};
+
+struct MapPoint {
+	double x;
+	double y;
+};
+
+struct CircleLine {
+	unsigned int x_offset;
+	unsigned int y_offset;
+
+	CircleLine(unsigned int x, unsigned int y) {
+		x_offset = x;
+		y_offset = y;
+	}
 };
 
 namespace rrt_nbv_exploration {
@@ -35,8 +58,9 @@ public:
 			geometry_msgs::Point rand_sample, double min_distance);
 
 	/**
-	 * @brief Initialize collision checking by checking circle around robot
+	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
 	 * @param Robot's position where RRT root is placed
+	 * @return If initialization succeeded
 	 */
 	bool initialize(geometry_msgs::Point position);
 
@@ -72,6 +96,20 @@ private:
 	 * Occupancy map for visualizing collision checking on a 2D grid
 	 */
 	nav_msgs::OccupancyGrid vis_map;
+	/**
+	 * If the initial position when starting exploration has to be checked for obstacles
+	 */
+	bool _check_init_position;
+	/**
+	 * @brief Grid map cell edge length in m
+	 */
+	double _grid_map_resolution;
+
+	std::vector<CircleLine> _circle_lines_offset;
+
+	ros::Publisher _rrt_collision_visualization_pub;
+	visualization_msgs::MarkerArray _node_points;
+	visualization_msgs::MarkerArray _node_edges;
 
 	/**
 	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking
@@ -90,6 +128,8 @@ private:
 	 */
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my,
 			nav_msgs::OccupancyGrid &map);
+
+	void precalculateCircleLinesOffset(std::vector<int8_t> &vis_map);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -118,15 +158,30 @@ private:
 			std::vector<int8_t> &vis_map);
 
 	/**
-	 * @brief Check if a line from one y-coordinate to another with consistent x-coordinate is in collision
-	 * @param Starting y-coordinate
-	 * @param Ending y-coordinate
-	 * @param X-coordinate
+	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
+	 * @param X-coordinate of the rectangle's center
+	 * @param Y-coordinate of the rectangle's center
+	 * @param Yaw rotation of the rectangle around its center
+	 * @param Height of the rectangle divided by 2
+	 * @param Width of the rectangle divided by 2
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isLineInCollision(int y_start, int y_end, int x,
+	bool isAlignedRectangleInCollision(double x, double y, double yaw,
+			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map);
+
+	/**
+	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision
+	 * @param Starting x-coordinate
+	 * @param Ending x-coordinate
+	 * @param y-coordinate
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @return True if a collision was registered, false otherwise
+	 */
+	bool isLineInCollision(int x_start, int x_end, int y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map);
 	/**
 	 * @brief Initialize collision visualization map

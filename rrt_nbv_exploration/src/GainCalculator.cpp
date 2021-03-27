@@ -11,11 +11,15 @@ GainCalculator::GainCalculator() :
 	private_nh.param("delta_theta", _delta_theta, 10);
 	private_nh.param("delta_radius", _delta_radius, 0.1);
 	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
-	private_nh.param("sensor_vertical_fov", _sensor_vertical_fov, 180);
+	private_nh.param("sensor_vertical_fov_bottom", _sensor_vertical_fov_bottom,
+			0);
+	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 180);
 	private_nh.param("visualize_gain_calculation", _visualize_gain_calculation,
 			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
+	private_nh.param("sensor_size", _sensor_size, 0.1);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
+	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -26,35 +30,39 @@ GainCalculator::GainCalculator() :
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
 			&GainCalculator::nodeToUpdateCallback, this);
-
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
 	_last_updated_node.index = -1;
+	_sensor_min_range_squared = pow(_sensor_min_range, 2);
 }
 
 GainCalculator::~GainCalculator() {
 	_gain_poll_points.resize(boost::extents[0][0][0]);
 }
 
+void GainCalculator::precalculateGainPolls() {
+	precalculateGainPollPoints();
+}
+
 void GainCalculator::precalculateGainPollPoints() {
 	std::vector<StepStruct> theta_steps;
 	std::vector<StepStruct> phi_steps;
-	for (int theta = 0; theta <= 360; theta += _delta_theta) {
+	for (int theta = 0; theta < 360; theta += _delta_theta) {
 		double rad = theta * M_PI / 180;
 		StepStruct step = { theta, cos(rad), sin(rad) };
 		theta_steps.push_back(step);
 	}
-	for (int phi = -_sensor_vertical_fov / 2; phi <= _sensor_vertical_fov / 2;
+	for (int phi = _sensor_vertical_fov_top; phi <= _sensor_vertical_fov_bottom;
 			phi += _delta_phi) {
-		double rad = (phi + 90) * M_PI / 180;
+		double rad = phi * M_PI / 180;
 		StepStruct step = { phi, cos(rad), sin(rad) };
 		phi_steps.push_back(step);
 	}
-	int radius_steps = (int) ((_sensor_max_range - _sensor_min_range)
-			/ _delta_radius);
+	int radius_steps =
+			(int) ((_sensor_max_range - _sensor_size) / _delta_radius);
 	_gain_poll_points.resize(
 			boost::extents[theta_steps.size()][phi_steps.size()][radius_steps]);
 	for (int t = 0; t < theta_steps.size(); t++) {
@@ -62,22 +70,34 @@ void GainCalculator::precalculateGainPollPoints() {
 		for (int p = 0; p < phi_steps.size(); p++) {
 			StepStruct phi = phi_steps.at(p);
 			for (int r = 0; r < radius_steps; r++) {
-				double radius = _sensor_min_range + r * _delta_radius;
-				_gain_poll_points[t][p][r] = { radius * theta.cos * phi.sin,
-						radius * theta.sin * phi.sin, radius * phi.cos,
-						theta.step, phi.step, radius };
+				double radius = _sensor_size + r * _delta_radius;
+				_gain_poll_points[t][p][r] =
+						{ radius * theta.cos * phi.sin, radius * theta.sin
+								* phi.sin, radius * phi.cos, theta.step,
+								phi.step, radius, radius > _sensor_min_range };
 			}
 		}
 	}
 
-	_best_gain_per_view = phi_steps.size() * radius_steps
+	int range_steps = (int) ((_sensor_max_range - _sensor_min_range)
+			/ _delta_radius);
+	_best_gain_per_view = phi_steps.size() * range_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
-	_max_gain_points = theta_steps.size() * phi_steps.size() * radius_steps;
-	ROS_INFO_STREAM(
-			"Gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
+//	ROS_WARN_STREAM(
+//			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
+	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
+		//node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
+		node.gain = -1;
+		return;
+	}
+	calculatePointGain(node);
+}
+
+void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 	visualization_msgs::Marker _node_points;
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "raysample_visualization";
@@ -94,12 +114,6 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	node.gain = 0.0;
 
 	std::map<int, int> gain_per_yaw;
-
-	if (node.index != 0 && !measureNodeHeight(node)) {
-		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-		node.gain = -1;
-		return;
-	}
 
 	double x = node.position.x;
 	double y = node.position.y;
@@ -135,7 +149,14 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 						color.b = 0.0f;
 					}
 				} else {
-					gain_per_yaw[point.theta]++;
+					if (point.in_range)
+						gain_per_yaw[point.theta]++;
+					else {
+						color.r = 0.7f;
+						color.g = 0.7f;
+						color.b = 0.7f;
+					}
+
 				}
 				_node_points.colors.push_back(color);
 			}
@@ -144,10 +165,12 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
+	int horizontal_fov =
+			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 otherwise)
+
 	for (int yaw = 0; yaw < 360; yaw++) {
 		double yaw_score = 0;
-		for (int fov = -_sensor_horizontal_fov / 2;
-				fov < _sensor_horizontal_fov / 2; fov++) {
+		for (int fov = -horizontal_fov / 2; fov < horizontal_fov / 2; fov++) {
 			int theta = yaw + fov;
 			if (theta < 0)
 				theta += 360;
@@ -162,6 +185,9 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	}
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
+
+//	ROS_INFO_STREAM(
+//			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
 	if (view_score < _min_view_score
 			|| (node.status == rrt_nbv_exploration_msgs::Node::VISITED
@@ -191,20 +217,20 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 	color.a = 1.0f;
 	_node_points.points.push_back(vis_point);
 	_node_points.colors.push_back(color);
-
 	if (_visualize_gain_calculation) {
 		raysample_visualization.publish(_node_points);
 	}
 }
 
 bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
-	double map_x, map_y, map_z;
-	_octree->getMetricMin(map_x, map_y, map_z);
+	double min_x, min_y, min_z;
+	_octree->getMetricMin(min_x, min_y, min_z);
 	octomap::point3d node_point(node.position.x, node.position.y,
 			node.position.z);
-	octomap::point3d bottom_point(node.position.x, node.position.y, map_z);
+	octomap::point3d bottom_point(node.position.x, node.position.y,
+			min_z - _octomap_resolution); //seems to ignore lowest voxel if using only min_z
 	octomap::KeyRay keyray;
-	// Raytrace from initial node height (parent height) to min z value to find first occupied voxel
+// Raytrace from initial node height (parent height) to min z value to find first occupied voxel (assume current z pos is above ground)
 	if (_octree->computeRayKeys(node_point, bottom_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
@@ -220,17 +246,26 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 		ROS_INFO_STREAM(
 				"Raytracing for node height measurement to min z out of bounds");
 	}
-	_octree->getMetricMin(map_x, map_y, map_z);
-	octomap::point3d top_point(node.position.x, node.position.y, map_z);
-	// Raytrace from initial node height (parent height) to max z value to find first free voxel
+	double max_x, max_y, max_z;
+	_octree->getMetricMax(max_x, max_y, max_z);
+	octomap::point3d top_point(node.position.x, node.position.y,
+			max_z + _octomap_resolution); //seems to ignore lowest voxel if using only min_z, suspect the same for max z
+// Raytrace from initial node height (parent height) to max z value to find first free voxel after occupied voxel (assume current z pos is below ground)
+	bool ground_detected = false;
 	if (_octree->computeRayKeys(node_point, top_point, keyray)) {
 		for (auto iterator : keyray) {
 			octomap::point3d coords = _octree->keyToCoord(iterator);
 			octomap::OcTreeNode *ocnode = _octree->search(iterator);
 			if (ocnode != NULL) {
-				if (!_octree->isNodeOccupied(ocnode)) {
-					node.position.z = coords.z() + _sensor_height;
-					return true;
+				if (!ground_detected) {	//find first occupied voxel
+					if (_octree->isNodeOccupied(ocnode)) {
+						ground_detected = true;
+					}
+				} else {//find first empty voxel above ground, if there are none, it was probably the ceiling
+					if (!_octree->isNodeOccupied(ocnode)) {
+						node.position.z = coords.z() + _sensor_height;
+						return true;
+					}
 				}
 			}
 		}
@@ -248,19 +283,21 @@ void GainCalculator::convertOctomapMsgToOctree(
 }
 
 void GainCalculator::nodeToUpdateCallback(
-		const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update) {
-//	ROS_WARN_STREAM("update node: " << node_to_update->index << " previous node: " << _last_updated_node.index);
-	if (_last_updated_node.index != node_to_update->index) {
+		const rrt_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update) {
+	if (_last_updated_node.index != node_to_update->node.index
+			|| node_to_update->force_update) {
 		rrt_nbv_exploration_msgs::Node node;
 		geometry_msgs::Point pos;
-		pos.x = node_to_update->position.x;
-		pos.y = node_to_update->position.y;
-		pos.z = node_to_update->position.z;
+		pos.x = node_to_update->node.position.x;
+		pos.y = node_to_update->node.position.y;
+		pos.z = node_to_update->node.position.z;
 		node.position = pos;
-		node.status = node_to_update->status;
-		node.index = node_to_update->index;
-		node.gain = node_to_update->gain;
-		node.best_yaw = node_to_update->best_yaw;
+		node.status = node_to_update->node.status;
+		node.index = node_to_update->node.index;
+		node.gain = node_to_update->node.gain;
+		node.best_yaw = node_to_update->node.best_yaw;
+		node.distanceToParent = node_to_update->node.distanceToParent;
+		node.distanceToRobot = node_to_update->node.distanceToRobot;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);

@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
+#include <rrt_nbv_exploration_msgs/NodeToUpdate.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -8,6 +9,7 @@
 #include <rrt_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
+#include <fstream>
 
 /**
  * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
@@ -19,13 +21,16 @@ struct StepStruct {
 };
 
 /**
- * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees as
- * well as radius in meters from the spherical calculation
+ * Point in Cartesian coordinates that includes theta (azimuth) and phi (polar) angles in degrees,
+ * radius in meters from the spherical calculation and the information if the poll point is inside
+ * the sensor's sensing range (adds to gain) or just to check if there are no obstacles directly in
+ * front of the sensor
  */
 struct PollPoint {
 	double x, y, z;
 	int theta, phi;
 	double radius;
+	bool in_range;
 };
 
 typedef boost::multi_array<PollPoint, 3> multi_array;
@@ -45,9 +50,15 @@ public:
 	~GainCalculator();
 
 	/**
-	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 * Pre-calculates lists of all gain poll points/rays in cartesian coordinates based on theta and phi steps as well as radial steps depending on the mode
 	 */
-	void precalculateGainPollPoints();
+	void precalculateGainPolls();
+
+	/**
+	 * Calculates the gain of the passed node the selected gain calculation method
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
 
 	void dynamicReconfigureCallback(
 			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
@@ -87,9 +98,13 @@ private:
 	 */
 	int _sensor_horizontal_fov;
 	/**
-	 * Sensor's vertical FoV that is considered for gain calculation in degrees
+	 * Sensor's vertical FoV bottom edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
 	 */
-	int _sensor_vertical_fov;
+	int _sensor_vertical_fov_bottom;
+	/**
+	 * Sensor's vertical FoV top edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
+	 */
+	int _sensor_vertical_fov_top;
 	/**
 	 * Maximum number of points that can be added for each yaw step to calculate gain
 	 */
@@ -116,9 +131,26 @@ private:
 	 */
 	double _sensor_height;
 	/**
+	 * @brief Radius in m of a sphere that best describes the sensor's volume (checking for obstacles begins outside of this radius)
+	 */
+	double _sensor_size;
+	/**
+	 * @brief Sensor minimum range squared for faster distance comparison during raycasting
+	 */
+	double _sensor_min_range_squared;
+	/**
 	 * @brief Node which gain was calculated previously
 	 */
 	rrt_nbv_exploration_msgs::Node _last_updated_node;
+	/**
+	 * @brief Resolution of octomap (edge length of voxels in m)
+	 */
+	double _octomap_resolution;
+
+	/**
+	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
+	 */
+	void precalculateGainPollPoints();
 
 	/**
 	 * @brief Start gain calculation for first node in list of nodes to be updated
@@ -137,16 +169,18 @@ private:
 	 * @param Node which gain needs to be calculated
 	 */
 	void nodeToUpdateCallback(
-			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
+			const rrt_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update);
 
 	/**
 	 * Calculates the gain of the passed node by sparse ray polling in the octree
 	 * @param Node which gain needs to be calculated
 	 */
-	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
-	 * Measures the  by raytracing in the octree
+	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
+	 * node's initial position until it finds the ground, then sets the z coordinate at sensor height above ground -
+	 * if no collision occurs, raytraces upward and does the same)
 	 * @param Node which height needs to be measured
 	 * @return If height could be measured
 	 */

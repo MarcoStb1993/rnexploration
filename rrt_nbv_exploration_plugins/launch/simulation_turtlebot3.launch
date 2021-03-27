@@ -1,9 +1,9 @@
-<!-- Simulation of Husky UGV with RealSense camera in Gazebo running Robot 
+<!-- Simulation of TurtleBot3 with RealSense camera in Gazebo running Robot 
 	Statemachine with GMapping and RN Exploration -->
 
 <launch>
 	<arg name="world"
-		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+		default="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world" />
 	<arg name="robot_frame" default="base_footprint" />
 	<arg name="autonomy_cmd_vel_topic" default="/autonomy/cmd_vel" />
 	<arg name="teleoperation_cmd_vel_topic"
@@ -13,7 +13,7 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
+	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="0" />
@@ -23,18 +23,17 @@
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="navigation_global_planner"
 		default="rrt_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
-	<arg name="robot_radius" default="0.7" />
+	<arg name="robot_radius" default="0.12" />
 	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
-	<arg name="x" default="0.0" />
+	<arg name="x" default="-2.0" />
 	<arg name="y" default="0.0" />
 	<arg name="z" default="0.0" />
 	<arg name="yaw" default="0.0" />
 
 	<include
-		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
+		file="$(find rsm_additions)/launch/gazebo_turtlebot3.launch">
 		<arg name="world_file" value="$(arg world)" />
-		<arg name="realsense_enabled" value="true" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
 		<arg name="z" default="$(arg z)" />
@@ -90,32 +89,30 @@
 
 	<!-- Navigation -->
 	<node pkg="move_base" type="move_base" respawn="false"
-		name="move_base" output="screen">
+		name="move_base">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/local_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/global_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
 			command="load" />
 		<param name="global_costmap/resolution"
 			value="$(arg grid_map_resolution)" />
 		<param name="local_costmap/resolution"
 			value="$(arg grid_map_resolution)" />
 		<param name="global_costmap/robot_base_frame"
-			value="$(arg 
-		robot_frame)" />
+			value="$(arg robot_frame)" />
 		<param name="local_costmap/robot_base_frame"
-			value="$(arg 
-		robot_frame)" />
+			value="$(arg robot_frame)" />
 		<param name="base_global_planner"
 			value="$(arg navigation_global_planner)" />
 		<param
@@ -129,29 +126,29 @@
 			name="DWAPlannerROS/prune_plan" value="true" />
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/width" value="$(eval 2.5 * arg('robot_radius'))" />
+			name="local_costmap/width" value="1.5" />
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/height" value="$(eval 2.5 * arg('robot_radius'))" />
+			name="local_costmap/height" value="1.5" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
 	<node pkg="move_base" type="move_base" respawn="false"
-		name="move_base_reverse" output="screen">
+		name="move_base_reverse">
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="global_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_common.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/costmap_common_params_burger.yaml"
 			command="load" ns="local_costmap" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_local.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/local_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/costmap_global.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/global_costmap_params.yaml"
 			command="load" />
 		<rosparam
-			file="$(find rsm_additions)/config/gazebo_sim/navigation_husky/planner.yaml"
+			file="$(find rsm_additions)/config/gazebo_sim/navigation_turtlebot3/move_base_params.yaml"
 			command="load" />
 		<param name="global_costmap/resolution"
 			value="$(arg grid_map_resolution)" />
@@ -174,10 +171,10 @@
 			name="DWAPlannerROS/prune_plan" value="true" />
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/width" value="$(eval 2.5 * arg('robot_radius'))" />
+			name="local_costmap/width" value="1.5" />
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/height" value="$(eval 2.5 * arg('robot_radius'))" />
+			name="local_costmap/height" value="1.5" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
@@ -215,18 +212,19 @@
 	<include
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="20" />
-		<arg name="robot_width" value="0.7" />
+		<arg name="robot_width" value="0.2" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
-		<arg name="sensor_height" value="0.887" />
+		<arg name="sensor_height" value="0.14" />
 		<arg name="sensor_size" value="0.1" />
 		<arg name="sensor_max_range" value="8" />
 		<arg name="sensor_min_range" value="0.8" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />
 		<arg name="delta_theta" value="$(arg delta_theta)" />
-		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
-		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
-		<arg name="sensor_vertical_fov_top" value="61" />
+		<arg name="sensor_horizontal_fov" value="75" /> <!-- Swivelling RealSense with 75 degree hFoV -->
+		<arg name="sensor_vertical_fov_bottom" value="129" /> <!-- RealSense with 58 degree vFoV angled 10 degrees towards the bottom (range 
+			from 180 to 0 as the highest angle) -->
+		<arg name="sensor_vertical_fov_top" value="71" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
