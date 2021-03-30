@@ -171,6 +171,10 @@ private:
 	 * @brief Grid map cell edge length in m
 	 */
 	double _grid_map_resolution;
+	/**
+	 * @brief If >0 samples additional nodes in the given radius near the robot
+	 */
+	double _robot_subtree_radius;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -179,7 +183,11 @@ private:
 	 */
 	bool initRrt(const geometry_msgs::Point &seed);
 	/**
-	 * @brief Randomly samples a point from within the map dimension
+	 * @brief Samples new nodes and tries to connect them to the tree
+	 */
+	void expandTree();
+	/**
+	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 */
 	void samplePoint(geometry_msgs::Point &rand_sample);
@@ -191,13 +199,17 @@ private:
 	 */
 	void alignPointToGridMap(geometry_msgs::Point &rand_sample,int nearest_node, double &distance);
 	/**
-	 * @brief Returns a new point for the tree to incorporate as node regarding the randomly sampled point and it's nearest neighbour in the tree
+	 * @brief Tries to connect a randomly sampled point to the nearest neighbor in the existing tree
 	 * @param Randomly sampled point
 	 * @param Minimum squared distance calculated between a node in the tree and the randomly sampled point
 	 * @param Nearest node in the tree from the randomly sampled point
 	 */
-	void placeNewNode(geometry_msgs::Point rand_sample, double min_distance,
+	void connectNewNode(geometry_msgs::Point rand_sample, double min_distance,
 			int nearest_node);
+	/**
+	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
+	 */
+	void checkCurrentGoal();
 	/**
 	 * @brief Update the RRT message variable holding the index of the node currently nearest to the robot
 	 */

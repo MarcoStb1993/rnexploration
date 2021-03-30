@@ -21,8 +21,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
 			1);
-	_node_to_update_publisher = nh.advertise<rrt_nbv_exploration_msgs::NodeToUpdate>(
-			"node_to_update", 1);
+	_node_to_update_publisher = nh.advertise<
+			rrt_nbv_exploration_msgs::NodeToUpdate>("node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
 			&TreeConstructor::updatedNodeCallback, this);
 	_best_and_current_goal_publisher = nh.advertise<
@@ -114,25 +114,9 @@ void TreeConstructor::runRrtConstruction() {
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
 		determineNearestNodeToRobot();
-		geometry_msgs::Point rand_sample;
-		samplePoint(rand_sample);
-		double min_distance;
-		int nearest_node;
-		_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
-				nearest_node);
-		if (_edge_length > 0 ?
-				min_distance >= pow(_edge_length, 2) :
-				min_distance >= pow(_robot_radius, 2)) {
-			placeNewNode(rand_sample, min_distance, nearest_node);
-		}
+		expandTree();
 		_node_comparator->maintainList(_rrt);
-		if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
-			_current_goal_node = _node_comparator->getBestNode();
-			_moved_to_current_goal = false;
-			_goal_updated = true;
-			_updating = false;
-			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
-		}
+		checkCurrentGoal();
 		publishNodeWithBestGain();
 		publishNodeToUpdate();
 		if (_nodes_to_update.empty() && _current_goal_node == -1) {
@@ -140,6 +124,20 @@ void TreeConstructor::runRrtConstruction() {
 		}
 	}
 	_rrt_publisher.publish(_rrt);
+}
+
+void TreeConstructor::expandTree() {
+	geometry_msgs::Point rand_sample;
+	samplePoint(rand_sample);
+	double min_distance;
+	int nearest_node;
+	_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
+			nearest_node);
+	if (_edge_length > 0 ?
+			min_distance >= pow(_edge_length, 2) :
+			min_distance >= pow(_robot_radius, 2)) {
+		connectNewNode(rand_sample, min_distance, nearest_node);
+	}
 }
 
 void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
@@ -163,7 +161,7 @@ void TreeConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample,
 							2));
 }
 
-void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
+void TreeConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		double min_distance, int nearest_node) {
 	double distance = sqrt(min_distance);
 	if (_edge_length > 0) {
@@ -199,6 +197,16 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
 		_exploration_finished_timer.stop();
+	}
+}
+
+void TreeConstructor::checkCurrentGoal() {
+	if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
+		_current_goal_node = _node_comparator->getBestNode();
+		_moved_to_current_goal = false;
+		_goal_updated = true;
+		_updating = false;
+		ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 	}
 }
 
