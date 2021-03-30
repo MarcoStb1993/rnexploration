@@ -63,7 +63,8 @@ void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 
 void TreePathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
-		rrt_nbv_exploration_msgs::Tree &rrt, int goal_node) {
+		rrt_nbv_exploration_msgs::Tree &rrt, int goal_node,
+		geometry_msgs::Point robot_pose) {
 	if (rrt.nearest_node == goal_node) { //start and goal are the same node, just rotate on spot
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
@@ -80,7 +81,6 @@ void TreePathCalculator::getNavigationPath(
 		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
 		std::vector<int> pathToRobot = rrt.nodes[goal_node].pathToRobot;
 		if (pathToRobot.size() >= 2) {
-			geometry_msgs::Pose robot = getRobotPose();
 			double distance_first_second_squared = pow(
 					rrt.nodes[pathToRobot.at(0)].position.x
 							- rrt.nodes[pathToRobot.at(1)].position.x, 2)
@@ -89,10 +89,9 @@ void TreePathCalculator::getNavigationPath(
 									- rrt.nodes[pathToRobot.at(1)].position.y,
 							2);
 			double distance_second_squared = pow(
-					robot.position.x - rrt.nodes[pathToRobot.at(1)].position.x,
-					2)
+					robot_pose.x - rrt.nodes[pathToRobot.at(1)].position.x, 2)
 					+ pow(
-							robot.position.y
+							robot_pose.y
 									- rrt.nodes[pathToRobot.at(1)].position.y,
 							2);
 			if (distance_first_second_squared > distance_second_squared) {

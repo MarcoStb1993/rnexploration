@@ -174,7 +174,7 @@ private:
 	/**
 	 * @brief If >0 samples additional nodes in the given radius near the robot
 	 */
-	double _robot_subtree_radius;
+	double _local_sampling_radius;
 
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -184,13 +184,20 @@ private:
 	bool initRrt(const geometry_msgs::Point &seed);
 	/**
 	 * @brief Samples new nodes and tries to connect them to the tree
+	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
 	 */
-	void expandTree();
+	void expandTree(bool local=false);
 	/**
 	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 */
 	void samplePoint(geometry_msgs::Point &rand_sample);
+	/**
+	 * @brief Randomly samples a point from within a circle around the given center
+	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
+	 * @return If the point is inside map dimensions
+	 */
+	bool samplePointLocally(geometry_msgs::Point &rand_sample, geometry_msgs::Point center);
 	/**
 	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
 	 * @param Reference to a point which position is aligned

@@ -15,6 +15,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("edge_length", _edge_length, 1.0);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
+	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
 	private_nh.param("exploration_finished_timer_duration",
 			_exploration_finished_timer_duration, 10.0);
 
@@ -115,6 +116,8 @@ void TreeConstructor::runRrtConstruction() {
 			&& _map_min_bounding[2]) {
 		determineNearestNodeToRobot();
 		expandTree();
+		if (_local_sampling_radius > 0)
+			expandTree(true);
 		_node_comparator->maintainList(_rrt);
 		checkCurrentGoal();
 		publishNodeWithBestGain();
@@ -126,9 +129,12 @@ void TreeConstructor::runRrtConstruction() {
 	_rrt_publisher.publish(_rrt);
 }
 
-void TreeConstructor::expandTree() {
+void TreeConstructor::expandTree(bool local) {
 	geometry_msgs::Point rand_sample;
-	samplePoint(rand_sample);
+	if (local)
+		samplePointLocally(rand_sample, _last_robot_pos);
+	else
+		samplePoint(rand_sample);
 	double min_distance;
 	int nearest_node;
 	_tree_searcher->findNearestNeighbour(rand_sample, min_distance,
@@ -147,6 +153,20 @@ void TreeConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
 			_map_max_bounding[1]);
 	rand_sample.x = x_distribution(_generator);
 	rand_sample.y = y_distribution(_generator);
+}
+
+bool TreeConstructor::samplePointLocally(geometry_msgs::Point &rand_sample,
+		geometry_msgs::Point center) {
+	std::uniform_real_distribution<double> r_distribution(0, 1);
+	std::uniform_real_distribution<double> theta_distribution(0, 2 * M_PI);
+	double r = _local_sampling_radius * sqrt(r_distribution(_generator));
+	double theta = theta_distribution(_generator);
+	rand_sample.x = center.x + r * cos(theta);
+	rand_sample.y = center.y + r * sin(theta);
+	return (rand_sample.x >= _map_min_bounding[0]
+			&& rand_sample.x <= _map_max_bounding[0]
+			&& rand_sample.y >= _map_min_bounding[1]
+			&& rand_sample.y <= _map_max_bounding[1]);
 }
 
 void TreeConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample,
@@ -411,7 +431,7 @@ bool TreeConstructor::requestPath(
 	if (_current_goal_node != -1) {
 		std::vector<geometry_msgs::PoseStamped> rrt_path;
 		_tree_path_calculator->getNavigationPath(rrt_path, _rrt,
-				_current_goal_node);
+				_current_goal_node, _last_robot_pos);
 		res.path = rrt_path;
 		return true;
 	}

@@ -59,9 +59,10 @@ public:
 	 * @param Reference to the calculated path
 	 * @param Current tree
 	 * @param Node to go to
+	 * @param Actual position of the robot
 	 */
 	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
-			rrt_nbv_exploration_msgs::Tree &rrt, int goal_node);
+			rrt_nbv_exploration_msgs::Tree &rrt, int goal_node, geometry_msgs::Point robot_pose);
 
 	/**
 	 * @brief Returns if the two given nodes are next to each other
