@@ -65,16 +65,26 @@ void TreePathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrt_nbv_exploration_msgs::Tree &rrt, int goal_node,
 		geometry_msgs::Point robot_pose) {
-	if (rrt.nearest_node == goal_node) { //start and goal are the same node, just rotate on spot
+	if (rrt.nearest_node == goal_node) { //nearest node to robot and goal node are the same
+		//add poses between robot and node
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
 		path_pose.header.stamp = ros::Time::now();
-		path_pose.pose.position = rrt.nodes[rrt.nearest_node].position;
+		robot_pose.z = rrt.nodes[goal_node].position.z;
+		double yaw = atan2(rrt.nodes[goal_node].position.y - robot_pose.y,
+				rrt.nodes[goal_node].position.x - robot_pose.x);
 		tf2::Quaternion quaternion;
-		quaternion.setRPY(0, 0,
-		M_PI * rrt.nodes[rrt.nearest_node].best_yaw / 180.0);
+		quaternion.setRPY(0, 0, yaw);
 		quaternion.normalize();
-		path_pose.pose.orientation = tf2::toMsg(quaternion);
+		addInterNodes(path, robot_pose, rrt.nodes[goal_node].position,
+				tf2::toMsg(quaternion), yaw);
+		//use best yaw for orientation at goal node
+		path_pose.pose.position = rrt.nodes[goal_node].position;
+		tf2::Quaternion quaternion_goal;
+		quaternion_goal.setRPY(0, 0,
+		M_PI * rrt.nodes[goal_node].best_yaw / 180.0);
+		quaternion_goal.normalize();
+		path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
 		path.push_back(path_pose);
 	} else { //build a path from start to root and from goal to root until they meet
 		ros::Time timestamp = ros::Time::now();
@@ -106,7 +116,7 @@ void TreePathCalculator::getNavigationPath(
 			path_pose.pose.position = rrt.nodes[i].position;
 			tf2::Quaternion quaternion;
 			double yaw;
-			if (&i == &pathToRobot.front() && &i != &pathToRobot.back()) { //if node is first element in list, add poses between robot and node
+			if (&i == &pathToRobot.front()) { //if node is first element in list, add poses between robot and node
 				geometry_msgs::Pose robot_pose = getRobotPose();
 				robot_pose.position.z = rrt.nodes[i].position.z;
 				yaw = atan2(rrt.nodes[i].position.y - robot_pose.position.y,
