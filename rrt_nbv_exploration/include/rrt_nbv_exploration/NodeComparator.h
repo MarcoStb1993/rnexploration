@@ -14,6 +14,8 @@
 #include <rrt_nbv_exploration/RneMode.h>
 #include <stack>
 
+#include <fstream>
+
 namespace rrt_nbv_exploration {
 
 /**

@@ -19,8 +19,6 @@ NodeComparator::~NodeComparator() {
 }
 
 void NodeComparator::initialization() {
-	ros::NodeHandle private_nh("~");
-
 	_sort_list = false;
 	_robot_moved = false;
 	_nodes_ordered_by_gcr.clear();
@@ -30,6 +28,7 @@ void NodeComparator::maintainList(rrt_nbv_exploration_msgs::Tree &rrt) {
 	if (_sort_list) {
 		calculateGainCostRatios(rrt);
 		sortByGain(rrt);
+		_robot_moved = false;
 	}
 }
 
@@ -81,7 +80,7 @@ void NodeComparator::sortByGain(rrt_nbv_exploration_msgs::Tree &rrt) {
 void NodeComparator::calculateGainCostRatios(
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	for (auto &node : _nodes_ordered_by_gcr) {
-		if (node.gain_cost_ratio == 0) {
+		if (node.gain_cost_ratio == 0 || _robot_moved) {
 			node.gain_cost_ratio = rrt.nodes[node.node].gain
 					* exp(-1 * rrt.nodes[node.node].distanceToRobot);
 			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
