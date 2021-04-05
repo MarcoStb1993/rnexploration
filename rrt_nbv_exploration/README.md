@@ -6,6 +6,8 @@ This package contains an exploration algorithm that aims at enabling 3D mapping 
 
 The RNE is based on an [RRT](https://en.wikipedia.org/wiki/Rapidly-exploring_random_tree) which builds up by creating new nodes at randomly sampled points. The new nodes have to be connected to the tree's nearest neighbor. Therefore, a method checks if the robot would be able to traverse between the new node and its nearest neighbor in the tree.
 
+Additionally, nodes can be sampled around the robot's current position which aids at exploring large areas.
+
 To efficiently explore the environment, the node providing the most information is chosen as the next exploration goal. This is evaluated by calculating its gain and cost and combining them in a function to compare all nodes. The gain is computed by a form of raycasting in an [OctoMap ](http://wiki.ros.org/octomap) and the cost is based on the distance from the robot to the particular node measured only along the tree's edges.
 
 Each node in the tree stores its position in the map, its parent and children, its gain as well as the yaw direction for which the gain was computed, the path along the tree's edges to the robot and its state. The state can be one of the states shown in the State Diagram below.
@@ -139,6 +141,9 @@ If the position at which the robot currently is when starting RNE should be chec
 
 **~grid_map_resolution** (double, default: 0.05)  
 Resolution of the grid map for collision checking
+
+**~local_sampling_radius** (double, default: 5.0)  
+Samples additional nodes in the given radius around the robot if radius is greater than zero
 
 #### Required tf Transforms
 

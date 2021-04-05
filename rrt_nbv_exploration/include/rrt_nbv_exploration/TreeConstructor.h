@@ -172,7 +172,7 @@ private:
 	 */
 	double _grid_map_resolution;
 	/**
-	 * @brief If >0 samples additional nodes in the given radius near the robot
+	 * @brief If > 0 samples additional nodes in the given radius around the robot
 	 */
 	double _local_sampling_radius;
 

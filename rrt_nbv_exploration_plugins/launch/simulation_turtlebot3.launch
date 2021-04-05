@@ -235,6 +235,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
+		<arg name="local_sampling_radius" value="3" />	
 	</include>
 
 	<!-- RViz für Exploration -->
