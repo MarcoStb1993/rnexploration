@@ -25,12 +25,15 @@
 	<arg name="check_init_position" default="false" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
-	<arg name="local_sampling_radius" default="5" />
+	<arg name="distance_thresh" default="1.0" />
+	<arg name="orientation_thresh" default="2.0944" />
+	<arg name="frontier_tolerance" default="0.9" />
+	<arg name="min_frontier_size" default="1.0" />
 	
 	_grid_map_resolution
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen">
+		output="screen" >
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
@@ -44,14 +47,12 @@
 		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />	
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
-		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
-	</node>
-	
-	<node pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
-		output="screen" >
-		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
+		<param name="distance_thresh" type="double" value="$(arg distance_thresh)" />
+		<param name="orientation_thresh" type="double" value="$(arg orientation_thresh)" />
+		<param name="frontier_tolerance" type="double" value="$(arg frontier_tolerance)" />
+		<param name="min_frontier_size" type="double" value="$(arg min_frontier_size)" />
+		
 		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
-		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
 		<param name="sensor_size" type="double" value="$(arg sensor_size)" />
 		<param name="delta_phi" type="int" value="$(arg delta_phi)" />
 		<param name="delta_theta" type="int" value="$(arg delta_theta)" />
@@ -60,7 +61,6 @@
 		<param name="sensor_vertical_fov_bottom" type="int" value="$(arg sensor_vertical_fov_bottom)" />
 		<param name="sensor_vertical_fov_top" type="int" value="$(arg sensor_vertical_fov_top)" />
 		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
-		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 	</node>

@@ -1,7 +1,6 @@
 #include "ros/ros.h"
-#include "rrt_nbv_exploration_msgs/Tree.h"
-#include "rrt_nbv_exploration_msgs/Node.h"
-#include <rrt_nbv_exploration_msgs/NodeToUpdate.h>
+#include "rrt_nbv_exploration_msgs/Frontiers.h"
+#include "rrt_nbv_exploration_msgs/Frontier.h"
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -39,7 +38,7 @@ typedef multi_array::index multi_array_index;
 namespace rrt_nbv_exploration {
 
 /**
- * The gain calculator computes the gain of each node in the RRT.
+ * The gain calculator computes the gain of each frontier
  */
 class GainCalculator {
 public:
@@ -55,10 +54,10 @@ public:
 	void precalculateGainPolls();
 
 	/**
-	 * Calculates the gain of the passed node the selected gain calculation method
-	 * @param Node which gain needs to be calculated
+	 * Calculates the gain of the passed frontier the selected gain calculation method
+	 * @param Frontier which gain needs to be calculated
 	 */
-	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+	void calculateGain(rrt_nbv_exploration_msgs::Frontier &frontier);
 
 	void dynamicReconfigureCallback(
 			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
@@ -66,8 +65,6 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
-	ros::Publisher _updated_node_publisher;
-	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
 
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
@@ -139,9 +136,9 @@ private:
 	 */
 	double _sensor_min_range_squared;
 	/**
-	 * @brief Node which gain was calculated previously
+	 * @brief Frontier which gain was calculated previously
 	 */
-	rrt_nbv_exploration_msgs::Node _last_updated_node;
+	rrt_nbv_exploration_msgs::Frontier _last_updated_frontier;
 	/**
 	 * @brief Resolution of octomap (edge length of voxels in m)
 	 */
@@ -153,11 +150,6 @@ private:
 	void precalculateGainPollPoints();
 
 	/**
-	 * @brief Start gain calculation for first node in list of nodes to be updated
-	 */
-	void updateNodes();
-
-	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message
 	 */
@@ -165,17 +157,10 @@ private:
 			const octomap_msgs::Octomap::ConstPtr &map_msg);
 
 	/**
-	 * @brief Callback for subscriber to "node_to_update" topic which delivers node to calculate the gain for
-	 * @param Node which gain needs to be calculated
-	 */
-	void nodeToUpdateCallback(
-			const rrt_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update);
-
-	/**
 	 * Calculates the gain of the passed node by sparse ray polling in the octree
-	 * @param Node which gain needs to be calculated
+	 * @param Frontier which gain needs to be calculated
 	 */
-	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
+	void calculatePointGain(rrt_nbv_exploration_msgs::Frontier &frontier);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
@@ -184,6 +169,6 @@ private:
 	 * @param Node which height needs to be measured
 	 * @return If height could be measured
 	 */
-	bool measureNodeHeight(rrt_nbv_exploration_msgs::Node &node);
+	bool measureFrontierHeight(rrt_nbv_exploration_msgs::Frontier &frontier);
 };
 }

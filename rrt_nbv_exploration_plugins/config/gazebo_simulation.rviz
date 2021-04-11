@@ -24,7 +24,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: RealSense
+    SyncSource: ""
   - Class: rsm::RSMControlPanel
     Name: RSMControlPanel
 Preferences:
@@ -322,7 +322,7 @@ Visualization Manager:
       Radius: 0.029999999329447746
       Shaft Diameter: 0.05000000074505806
       Shaft Length: 0.10000000149011612
-      Topic: /move_base/plan
+      Topic: /move_base/GlobalPlanner/plan
       Unreliable: false
       Value: true
     - Alpha: 1
@@ -362,16 +362,16 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /rne/rrt_tree_vis
-      Name: RRT
+      Marker Topic: /rne/frontiers_vis
+      Name: Frontiers
       Namespaces:
         rrt_tree: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
       Enabled: false
-      Marker Topic: /rne/rrt_tree_vis_info
-      Name: RRT Subtexts
+      Marker Topic: /rne/frontiers_vis_info
+      Name: Frontier Subtexts
       Namespaces:
         {}
       Queue Size: 100
@@ -379,7 +379,7 @@ Visualization Manager:
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /rne/raysample_visualization
-      Name: RRT Ray Polling
+      Name: Frontier Ray Polling
       Namespaces:
         {}
       Queue Size: 100
@@ -462,16 +462,6 @@ Visualization Manager:
       Topic: /move_base_reverse/DWAPlannerROS/local_plan
       Unreliable: false
       Value: true
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: true
-      Name: RRT Collision Map
-      Topic: /rne/collision_visualization
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -502,6 +492,29 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Trajectory
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /trajectory
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -530,7 +543,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.263397216796875
+      Distance: 10
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

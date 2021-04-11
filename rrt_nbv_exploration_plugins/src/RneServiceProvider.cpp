@@ -73,11 +73,11 @@ void RneServiceProvider::explorationGoalCallback(
 			&& newGoal(goal_status->goal)) {
 		rrt_nbv_exploration_msgs::UpdateCurrentGoal srv;
 		if (goal_status->goal_status == rsm_msgs::GoalStatus::REACHED) {
-			srv.request.status = rrt_nbv_exploration_msgs::Node::VISITED;
+			srv.request.status = rrt_nbv_exploration_msgs::Frontier::VISITED;
 		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::FAILED) {
-			srv.request.status = rrt_nbv_exploration_msgs::Node::FAILED;
+			srv.request.status = rrt_nbv_exploration_msgs::Frontier::FAILED;
 		} else if (goal_status->goal_status == rsm_msgs::GoalStatus::ABORTED) {
-			srv.request.status = rrt_nbv_exploration_msgs::Node::ABORTED;
+			srv.request.status = rrt_nbv_exploration_msgs::Frontier::ABORTED;
 		}
 		if (!_update_current_goal_service.call(srv)) {
 			ROS_ERROR("Failed to call Update Current Goal service");
@@ -92,7 +92,7 @@ void RneServiceProvider::explorationModeCallback(
 		if (_exploration_mode) {
 			ros::NodeHandle rne_nh("rne");
 			_best_and_current_goal_subscriber = rne_nh.subscribe(
-					"bestAndCurrentGoal", 1,
+					"bestAndCurrentFrontier", 1,
 					&RneServiceProvider::bestGoalCallback, this);
 			ros::NodeHandle nh("rsm");
 			_goal_obsolete_publisher = nh.advertise<std_msgs::Bool>(
@@ -105,11 +105,11 @@ void RneServiceProvider::explorationModeCallback(
 }
 
 void RneServiceProvider::bestGoalCallback(
-		const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal) {
-	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
+		const rrt_nbv_exploration_msgs::BestAndCurrentFrontier::ConstPtr &best_goal) {
+	if (_exploration_mode && best_goal->current_goal != best_goal->best_frontier) {
 		if (!_goal_obsolete)
 			ROS_INFO_STREAM(
-					"goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
+					"goal obsolete, best goal: " << best_goal->best_frontier << " current goal: " << best_goal->current_goal);
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;

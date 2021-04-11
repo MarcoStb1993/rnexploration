@@ -12,8 +12,8 @@
 
 #include <rsm_msgs/GoalStatus.h>
 #include <rrt_nbv_exploration_msgs/UpdateCurrentGoal.h>
-#include <rrt_nbv_exploration_msgs/Node.h>
-#include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
+#include <rrt_nbv_exploration_msgs/Frontier.h>
+#include <rrt_nbv_exploration_msgs/BestAndCurrentFrontier.h>
 #include <std_srvs/Trigger.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
@@ -80,7 +80,7 @@ private:
 			const rsm_msgs::GoalStatus::ConstPtr &goal_status);
 
 	void bestGoalCallback(
-			const rrt_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal);
+			const rrt_nbv_exploration_msgs::BestAndCurrentFrontier::ConstPtr &best_goal);
 
 	void stateInfoCallback(const std_msgs::String::ConstPtr &state_info);
 

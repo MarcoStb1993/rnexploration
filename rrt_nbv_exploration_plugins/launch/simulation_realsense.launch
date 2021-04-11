@@ -21,8 +21,6 @@
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="grid_map_resolution" default="0.05" />
-	<arg name="navigation_global_planner"
-		default="rrt_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.7" />
 	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
@@ -116,23 +114,6 @@
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
-		<param name="base_global_planner"
-			value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/width" value="$(eval 2.5 * arg('robot_radius'))" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/height" value="$(eval 2.5 * arg('robot_radius'))" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -161,23 +142,6 @@
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
-		<param name="base_global_planner"
-			value="$(arg navigation_global_planner)" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/path_distance_bias" value="20" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/goal_distance_bias" value="5" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="DWAPlannerROS/prune_plan" value="true" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/width" value="$(eval 2.5 * arg('robot_radius'))" />
-		<param
-			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
-			name="local_costmap/height" value="$(eval 2.5 * arg('robot_radius'))" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
@@ -236,8 +200,7 @@
 		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
-			default="$(arg grid_map_resolution)" />
-		<arg name="local_sampling_radius" value="5" />			
+			default="$(arg grid_map_resolution)" />		
 			
 	</include>
 

@@ -13,10 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
 
  add_message_files(
    FILES
-   Tree.msg
-   Node.msg
-   BestAndCurrentNode.msg
-   NodeToUpdate.msg
+   Frontiers.msg
+   Frontier.msg
+   BestAndCurrentFrontier.msg
    )
    
 add_service_files(

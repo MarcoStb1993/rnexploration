@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf2_ros
     nav_msgs
     dynamic_reconfigure
+    costmap_2d
     )
 
 find_package(octomap REQUIRED)
@@ -41,13 +42,10 @@ link_libraries(${OCTOMAP_LIBRARIES})
 
 add_executable(rneNode src/RneNode.cpp
 				src/TreeConstructor.cpp
-				src/TreeSearcher.cpp
-				src/CollisionChecker.cpp
-				src/TreePathCalculator.cpp
-				src/NodeComparator.cpp
-				src/GainCalculator.cpp)
-add_executable(gainCalcNode src/GainCalcNode.cpp
-				src/GainCalculator.cpp)
+				src/FrontierComparator.cpp
+				src/GainCalculator.cpp
+				src/costmap_client.cpp
+  				src/frontier_search.cpp)
 add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 				src/RneVisualizer.cpp)
 
@@ -55,13 +53,9 @@ add_executable(rneVisualizationNode src/RneVisualizationNode.cpp
 target_link_libraries(rneNode
     ${catkin_LIBRARIES}
     )
-target_link_libraries(gainCalcNode
-    ${catkin_LIBRARIES}
-    )
 target_link_libraries(rneVisualizationNode
     ${catkin_LIBRARIES}
     )
 
 add_dependencies(rneNode ${catkin_EXPORTED_TARGETS})
-add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS})
