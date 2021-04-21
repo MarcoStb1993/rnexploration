@@ -3,10 +3,12 @@
 namespace rrt_nbv_exploration {
 RneVisualizer::RneVisualizer() {
 	ros::NodeHandle nh("rne");
-	_rrg_tree_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
+	_rrg_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
 			this);
-	_rrg_visualization_pub = nh.advertise<visualization_msgs::Marker>("rrg_vis",
-			1000);
+	_rrg_nodes_visualization_pub = nh.advertise<visualization_msgs::Marker>(
+			"rrg_nodes", 1000);
+	_rrg_edges_visualization_pub = nh.advertise<visualization_msgs::Marker>(
+			"rrg_edges", 1000);
 	_rrg_text_info_visualization_pub = nh.advertise<
 			visualization_msgs::MarkerArray>("rrg_vis_info", 1000);
 }
@@ -30,11 +32,11 @@ void RneVisualizer::initializeVisualization() {
 	_edge_line_list.header.frame_id = "/map";
 	_edge_line_list.header.stamp = ros::Time::now();
 	_edge_line_list.ns = "rrg";
-	_edge_line_list.id = 1;
+	_edge_line_list.id = 0;
 	_edge_line_list.action = visualization_msgs::Marker::ADD;
 	_edge_line_list.pose.orientation.w = 1.0;
 	_edge_line_list.type = visualization_msgs::Marker::LINE_LIST;
-	_edge_line_list.scale.x = 0.1f;
+	_edge_line_list.scale.x = 0.08f;
 	_edge_line_list.color.b = 1.0f;
 	_edge_line_list.color.a = 1.0f;
 }
@@ -45,49 +47,24 @@ void RneVisualizer::visualizeRrgGraph(
 	_node_points.points.clear();
 	_node_points.colors.clear();
 	_edge_line_list.points.clear();
+	_edge_line_list.colors.clear();
 	for (int i = 0; i < rrg->node_counter; i++) {
 		_node_points.points.push_back(rrg->nodes[i].position);
-		std_msgs::ColorRGBA color;
-		color.a = 1.0f;
-		if (rrg->nodes[i].gain == -1) {
-			color.r = 0.9f;
-			color.g = 0.9f;
-			color.b = 0.9f;
-		} else {
-			switch (rrg->nodes[i].status) {
-			case rrt_nbv_exploration_msgs::Node::EXPLORED:
-				color.g = 0.6f;
-				break;
-			case rrt_nbv_exploration_msgs::Node::VISITED:
-				color.g = 1.0f;
-				break;
-			case rrt_nbv_exploration_msgs::Node::FAILED:
-				color.r = 1.0f;
-				break;
-			case rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED:
-				color.r = 1.0f;
-				color.g = 0.6f;
-				break;
-			case rrt_nbv_exploration_msgs::Node::ACTIVE:
-				color.r = 1.0f;
-				color.g = 1.0f;
-				break;
-			default:
-				color.b = 1.0f;
-				break;
-			}
-		}
-		_node_points.colors.push_back(color);
+		_node_points.colors.push_back(getColor(rrg->nodes[i]));
 		addInfoTextVisualization(rrg->nodes[i].position, i, rrg->nodes[i].gain);
 	}
 	for (int j = 0; j < rrg->edges.size(); j++) {
 		_edge_line_list.points.push_back(
 				rrg->nodes[rrg->edges[j].first_node].position);
+		_edge_line_list.colors.push_back(
+				getColor(rrg->nodes[rrg->edges[j].first_node]));
 		_edge_line_list.points.push_back(
 				rrg->nodes[rrg->edges[j].second_node].position);
+		_edge_line_list.colors.push_back(
+				getColor(rrg->nodes[rrg->edges[j].second_node]));
 	}
-	_rrg_visualization_pub.publish(_node_points);
-	_rrg_visualization_pub.publish(_edge_line_list);
+	_rrg_nodes_visualization_pub.publish(_node_points);
+	_rrg_edges_visualization_pub.publish(_edge_line_list);
 	_rrg_text_info_visualization_pub.publish(_node_info_texts);
 }
 
@@ -112,5 +89,40 @@ void RneVisualizer::addInfoTextVisualization(
 	oss << "(" << node << ")" << std::setprecision(4) << gain;
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
+}
+
+std_msgs::ColorRGBA RneVisualizer::getColor(
+		const rrt_nbv_exploration_msgs::Node &node) {
+	std_msgs::ColorRGBA color;
+	color.a = 1.0f;
+	if (node.gain == -1) {
+		color.r = 0.9f;
+		color.g = 0.9f;
+		color.b = 0.9f;
+	} else {
+		switch (node.status) {
+		case rrt_nbv_exploration_msgs::Node::EXPLORED:
+			color.g = 0.6f;
+			break;
+		case rrt_nbv_exploration_msgs::Node::VISITED:
+			color.g = 1.0f;
+			break;
+		case rrt_nbv_exploration_msgs::Node::FAILED:
+			color.r = 1.0f;
+			break;
+		case rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED:
+			color.r = 1.0f;
+			color.g = 0.6f;
+			break;
+		case rrt_nbv_exploration_msgs::Node::ACTIVE:
+			color.r = 1.0f;
+			color.g = 1.0f;
+			break;
+		default:
+			color.b = 1.0f;
+			break;
+		}
+	}
+	return color;
 }
 }

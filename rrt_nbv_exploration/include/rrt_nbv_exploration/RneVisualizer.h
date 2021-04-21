@@ -25,9 +25,10 @@ public:
 
 private:
 	ros::NodeHandle _nh;
-	ros::Publisher _rrg_visualization_pub;
+	ros::Publisher _rrg_nodes_visualization_pub;
+	ros::Publisher _rrg_edges_visualization_pub;
 	ros::Publisher _rrg_text_info_visualization_pub;
-	ros::Subscriber _rrg_tree_sub;
+	ros::Subscriber _rrg_sub;
 	/**
 	 * @brief Visualization of the nodes in the graph as cubes
 	 */
@@ -54,5 +55,10 @@ private:
 	 */
 	void addInfoTextVisualization(const geometry_msgs::Point node_position,
 			int node, double gain);
+	/**
+	 * @brief Return the color for the given node depending on its status and gain
+	 * @param Node to determine color for
+	 */
+	std_msgs::ColorRGBA getColor(const rrt_nbv_exploration_msgs::Node &node);
 };
 }

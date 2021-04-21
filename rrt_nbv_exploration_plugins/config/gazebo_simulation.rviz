@@ -362,8 +362,16 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /rne/rrg_vis
-      Name: RRT
+      Marker Topic: /rne/rrg_nodes
+      Name: RRG Nodes
+      Namespaces:
+        rrg: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /rne/rrg_edges
+      Name: RRG Edges
       Namespaces:
         {}
       Queue Size: 100
@@ -530,7 +538,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 12.947487831115723
+      Distance: 17.96435546875
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
