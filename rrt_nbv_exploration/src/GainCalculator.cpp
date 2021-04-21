@@ -296,8 +296,6 @@ void GainCalculator::nodeToUpdateCallback(
 		node.index = node_to_update->node.index;
 		node.gain = node_to_update->node.gain;
 		node.best_yaw = node_to_update->node.best_yaw;
-		node.distanceToParent = node_to_update->node.distanceToParent;
-		node.distanceToRobot = node_to_update->node.distanceToRobot;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);

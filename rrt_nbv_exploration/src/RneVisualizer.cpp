@@ -3,12 +3,12 @@
 namespace rrt_nbv_exploration {
 RneVisualizer::RneVisualizer() {
 	ros::NodeHandle nh("rne");
-	_rrt_tree_sub = nh.subscribe("rrt_tree", 1000,
-			&RneVisualizer::visualizeRrtTree, this);
-	_rrt_tree_visualization_pub = nh.advertise < visualization_msgs::Marker
-			> ("rrt_tree_vis", 1000);
-	_rrt_tree_text_info_visualization_pub = nh.advertise
-			< visualization_msgs::MarkerArray > ("rrt_tree_vis_info", 1000);
+	_rrg_tree_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
+			this);
+	_rrg_visualization_pub = nh.advertise<visualization_msgs::Marker>("rrg_vis",
+			1000);
+	_rrg_text_info_visualization_pub = nh.advertise<
+			visualization_msgs::MarkerArray>("rrg_vis_info", 1000);
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -17,7 +17,7 @@ RneVisualizer::~RneVisualizer() {
 
 void RneVisualizer::initializeVisualization() {
 	_node_points.header.frame_id = "/map";
-	_node_points.ns = "rrt_tree";
+	_node_points.ns = "rrg";
 	_node_points.id = 0;
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
@@ -29,7 +29,7 @@ void RneVisualizer::initializeVisualization() {
 	_node_points.color.a = 1.0f;
 	_edge_line_list.header.frame_id = "/map";
 	_edge_line_list.header.stamp = ros::Time::now();
-	_edge_line_list.ns = "rrt_tree";
+	_edge_line_list.ns = "rrg";
 	_edge_line_list.id = 1;
 	_edge_line_list.action = visualization_msgs::Marker::ADD;
 	_edge_line_list.pose.orientation.w = 1.0;
@@ -39,22 +39,22 @@ void RneVisualizer::initializeVisualization() {
 	_edge_line_list.color.a = 1.0f;
 }
 
-void RneVisualizer::visualizeRrtTree(
-		const rrt_nbv_exploration_msgs::Tree::ConstPtr &rrt) {
+void RneVisualizer::visualizeRrgGraph(
+		const rrt_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	_node_points.header.stamp = ros::Time::now();
 	_node_points.points.clear();
 	_node_points.colors.clear();
 	_edge_line_list.points.clear();
-	for (int i = 0; i < rrt->node_counter; i++) {
-		_node_points.points.push_back(rrt->nodes[i].position);
+	for (int i = 0; i < rrg->node_counter; i++) {
+		_node_points.points.push_back(rrg->nodes[i].position);
 		std_msgs::ColorRGBA color;
 		color.a = 1.0f;
-		if (rrt->nodes[i].gain == -1) {
+		if (rrg->nodes[i].gain == -1) {
 			color.r = 0.9f;
 			color.g = 0.9f;
 			color.b = 0.9f;
 		} else {
-			switch (rrt->nodes[i].status) {
+			switch (rrg->nodes[i].status) {
 			case rrt_nbv_exploration_msgs::Node::EXPLORED:
 				color.g = 0.6f;
 				break;
@@ -78,16 +78,17 @@ void RneVisualizer::visualizeRrtTree(
 			}
 		}
 		_node_points.colors.push_back(color);
-		addInfoTextVisualization(rrt->nodes[i].position, i, rrt->nodes[i].gain);
-		for (int j = 0; j < rrt->nodes[i].children_counter; j++) {
-			_edge_line_list.points.push_back(rrt->nodes[i].position);
-			_edge_line_list.points.push_back(
-					rrt->nodes[rrt->nodes[i].children[j]].position);
-		}
+		addInfoTextVisualization(rrg->nodes[i].position, i, rrg->nodes[i].gain);
 	}
-	_rrt_tree_visualization_pub.publish(_node_points);
-	_rrt_tree_visualization_pub.publish(_edge_line_list);
-	_rrt_tree_text_info_visualization_pub.publish(_node_info_texts);
+	for (int j = 0; j < rrg->edges.size(); j++) {
+		_edge_line_list.points.push_back(
+				rrg->nodes[rrg->edges[j].first_node].position);
+		_edge_line_list.points.push_back(
+				rrg->nodes[rrg->edges[j].second_node].position);
+	}
+	_rrg_visualization_pub.publish(_node_points);
+	_rrg_visualization_pub.publish(_edge_line_list);
+	_rrg_text_info_visualization_pub.publish(_node_info_texts);
 }
 
 void RneVisualizer::addInfoTextVisualization(

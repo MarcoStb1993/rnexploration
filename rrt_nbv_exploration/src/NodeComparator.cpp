@@ -24,10 +24,10 @@ void NodeComparator::initialization() {
 	_nodes_ordered_by_gcr.clear();
 }
 
-void NodeComparator::maintainList(rrt_nbv_exploration_msgs::Tree &rrt) {
+void NodeComparator::maintainList(rrt_nbv_exploration_msgs::Graph &rrg) {
 	if (_sort_list) {
-		calculateGainCostRatios(rrt);
-		sortByGain(rrt);
+		calculateGainCostRatios(rrg);
+		sortByGain();
 		_robot_moved = false;
 	}
 }
@@ -69,7 +69,7 @@ void NodeComparator::setSortList() {
 	_sort_list = true;
 }
 
-void NodeComparator::sortByGain(rrt_nbv_exploration_msgs::Tree &rrt) {
+void NodeComparator::sortByGain() {
 	_nodes_ordered_by_gcr.sort(
 			[this](CompareStruct node_one, CompareStruct node_two) {
 				return compareNodeByRatios(node_one, node_two);
@@ -78,12 +78,11 @@ void NodeComparator::sortByGain(rrt_nbv_exploration_msgs::Tree &rrt) {
 }
 
 void NodeComparator::calculateGainCostRatios(
-		rrt_nbv_exploration_msgs::Tree &rrt) {
+		rrt_nbv_exploration_msgs::Graph &rrg) {
 	for (auto &node : _nodes_ordered_by_gcr) {
 		if (node.gain_cost_ratio == 0 || _robot_moved) {
-			node.gain_cost_ratio = rrt.nodes[node.node].gain
-					* exp(-1 * rrt.nodes[node.node].distanceToRobot);
-			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
+			node.gain_cost_ratio = rrg.nodes[node.node].gain * exp(-1 * rrg.nodes[node.node].distanceToRobot);;
+			if (rrg.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
 				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
 		}
 	}

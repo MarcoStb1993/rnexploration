@@ -291,7 +291,8 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		rrt_nbv_exploration_msgs::Node &nearest_node,
-		geometry_msgs::Point rand_sample, double distance) {
+		geometry_msgs::Point rand_sample, double distance,
+		double check_circle) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
 	if (_visualize_collision) {
@@ -328,7 +329,6 @@ bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,
 		new_node.position.x = rand_sample.x;
 		new_node.position.y = rand_sample.y;
 		new_node.position.z = rand_sample.z;
-		new_node.children_counter = 0;
 		new_node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		if (_visualize_collision) {
 			vis_map.data = tmp_vis_map_data;

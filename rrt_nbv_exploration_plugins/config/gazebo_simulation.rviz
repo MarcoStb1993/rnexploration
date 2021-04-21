@@ -24,7 +24,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: RealSense
+    SyncSource: ""
   - Class: rsm::RSMControlPanel
     Name: RSMControlPanel
 Preferences:
@@ -362,15 +362,15 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /rne/rrt_tree_vis
+      Marker Topic: /rne/rrg_vis
       Name: RRT
       Namespaces:
-        rrt_tree: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
       Enabled: false
-      Marker Topic: /rne/rrt_tree_vis_info
+      Marker Topic: /rne/rrg_vis_info
       Name: RRT Subtexts
       Namespaces:
         {}
@@ -530,7 +530,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.263397216796875
+      Distance: 12.947487831115723
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

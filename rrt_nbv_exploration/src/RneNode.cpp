@@ -1,10 +1,11 @@
 #include "ros/ros.h"
-#include "rrt_nbv_exploration/TreeConstructor.h"
 
-boost::shared_ptr<rrt_nbv_exploration::TreeConstructor> tree_constructor;
+#include "../include/rrt_nbv_exploration/GraphConstructor.h"
+
+boost::shared_ptr<rrt_nbv_exploration::GraphConstructor> graph_constructor;
 
 void loopCallback(const ros::TimerEvent&) {
-	tree_constructor->runRrtConstruction();
+	graph_constructor->runRrgConstruction();
 }
 
 int main(int argc, char **argv) {
@@ -14,9 +15,9 @@ int main(int argc, char **argv) {
 	private_nh.param("update_frequency", loop_rate, 20.0);
 	ros::Timer loop_timer = private_nh.createTimer(ros::Duration(1 / loop_rate),
 			loopCallback);
-	tree_constructor.reset(new rrt_nbv_exploration::TreeConstructor());
-	tree_constructor->initialization();
+	graph_constructor.reset(new rrt_nbv_exploration::GraphConstructor());
+	graph_constructor->initialization();
 	ros::spin();
-	tree_constructor.reset();
+	graph_constructor.reset();
 	return 0;
 }

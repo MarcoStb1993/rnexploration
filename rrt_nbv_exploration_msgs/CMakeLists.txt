@@ -13,8 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
 
  add_message_files(
    FILES
-   Tree.msg
+   Graph.msg
    Node.msg
+   Edge.msg
    BestAndCurrentNode.msg
    NodeToUpdate.msg
    )

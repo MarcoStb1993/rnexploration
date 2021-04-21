@@ -16,7 +16,8 @@
 	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
-	<arg name="edge_length" default="0" />
+	<arg name="min_edge_distance" default="1.0" />
+	<arg name="max_edge_distance" default="2.0" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
@@ -229,13 +230,15 @@
 		<arg name="visualize_collision" value="true" />
 		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
-		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
 		<arg name="local_sampling_radius" value="3" />	
+		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
+		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
+		<arg name="nearest_node_tolerance" default="0.05" />	
 	</include>
 
 	<!-- RViz für Exploration -->

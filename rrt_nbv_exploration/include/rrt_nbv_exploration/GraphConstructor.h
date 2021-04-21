@@ -7,9 +7,9 @@
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
-#include <rrt_nbv_exploration_msgs/Tree.h>
+#include <rrt_nbv_exploration_msgs/Graph.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
-#include <rrt_nbv_exploration_msgs/NodeList.h>
+#include <rrt_nbv_exploration_msgs/Edge.h>
 #include <rrt_nbv_exploration_msgs/NodeToUpdate.h>
 #include <rrt_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrt_nbv_exploration_msgs/RequestGoal.h>
@@ -19,47 +19,45 @@
 #include <random>
 #include "math.h"
 #include <rrt_nbv_exploration/CollisionChecker.h>
-#include <rrt_nbv_exploration/TreePathCalculator.h>
-#include <rrt_nbv_exploration/TreeSearcher.h>
 #include <rrt_nbv_exploration/NodeComparator.h>
-#include <rrt_nbv_exploration/GainCalculator.h>
-#include <rrt_nbv_exploration/RneMode.h>
+#include <rrt_nbv_exploration/GraphPathCalculator.h>
+#include <rrt_nbv_exploration/GraphSearcher.h>
 
 namespace rrt_nbv_exploration {
 
 /**
- * @brief The TreeConstructor class constructs an RRT at a given seed position and publishes it in the rrt_tree topic
+ * @brief The GraphConstructor class constructs a RRG at a given seed position and publishes it in the rrg topic
  */
-class TreeConstructor {
+class GraphConstructor {
 public:
 	/**
-	 * @brief Constructor that places the trees seed at (0,0,0)
+	 * @brief Constructor that places the graph's seed at (0,0,0)
 	 */
-	TreeConstructor();
-	~TreeConstructor();
+	GraphConstructor();
+	~GraphConstructor();
 	/**
-	 * @brief Initialization for ROS and tree TreeConstructor, called by the constructors
+	 * @brief Initialization for ROS and graph GraphConstructor, called by the constructors
 	 * @param Seed position for the tree
 	 */
 	void initialization(geometry_msgs::Point seed = geometry_msgs::Point());
 	/**
-	 * @brief Starts the tree TreeConstructor when stopped
+	 * @brief Starts the tree GraphConstructor when stopped
 	 */
-	void startRrtConstruction();
+	void startRrgConstruction();
 	/**
-	 * @brief Stops the tree TreeConstructor when running
+	 * @brief Stops the tree GraphConstructor when running
 	 */
-	void stopRrtConstruction();
+	void stopRrgConstruction();
 	/**
-	 * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
+	 * @brief Tree GraphConstructor main function, publishes it in topic rrg
 	 * @param kd-tree for faster nearest neighbour queries
 	 */
-	void runRrtConstruction();
+	void runRrgConstruction();
 
 private:
 	ros::NodeHandle _nh;
 
-	ros::Publisher _rrt_publisher;
+	ros::Publisher _rrg_publisher;
 	ros::Publisher _best_and_current_goal_publisher;
 	ros::Publisher _node_to_update_publisher;
 	ros::Subscriber _updated_node_subscriber;
@@ -67,9 +65,9 @@ private:
 	ros::ServiceServer _request_goal_service;
 	ros::ServiceServer _request_path_service;
 	ros::ServiceServer _update_current_goal_service;
-	ros::ServiceServer _set_rrt_state_service;
-	ros::ServiceServer _get_rrt_state_service;
-	ros::ServiceServer _reset_rrt_state_service;
+	ros::ServiceServer _set_rrg_state_service;
+	ros::ServiceServer _get_rrg_state_service;
+	ros::ServiceServer _reset_rrg_state_service;
 	ros::Timer _exploration_finished_timer;
 
 	std::default_random_engine _generator;
@@ -80,23 +78,23 @@ private:
 	 */
 	std::shared_ptr<CollisionChecker> _collision_checker;
 	/**
-	 * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
+	 * @brief Helper class for kd-tree GraphConstructor and nearest neighbour search
 	 */
-	std::shared_ptr<TreeSearcher> _tree_searcher;
+	std::shared_ptr<GraphSearcher> _graph_searcher;
 	/**
-	 * @brief Helper class for calculating a path between two nodes in the tree
+	 * @brief Helper class for calculating a path between two nodes in the graph
 	 */
-	std::shared_ptr<TreePathCalculator> _tree_path_calculator;
+	std::shared_ptr<GraphPathCalculator> _graph_path_calculator;
 	/**
 	 * @brief Helper class for calculating the gain cost ratio of a node and sorting them ordered by this ratio
 	 */
 	std::shared_ptr<NodeComparator> _node_comparator;
 	/**
-	 * @brief Current tree being built as a RRT
+	 * @brief Current graph being built as a RRG
 	 */
-	rrt_nbv_exploration_msgs::Tree _rrt;
+	rrt_nbv_exploration_msgs::Graph _rrg;
 	/**
-	 * @brief State of the tree TreeConstructor (running or stopped)
+	 * @brief State of the GraphConstructor (running or stopped)
 	 */
 	bool _running;
 	/**
@@ -108,7 +106,7 @@ private:
 	 */
 	double _map_max_bounding[3] = { 0, 0, 0 };
 	/**
-	 * @brief List of nodes (their position in the rrt node list) that require their gain to be calculated
+	 * @brief List of nodes (their position in the graph's node list) that require their gain to be calculated
 	 */
 	std::list<int> _nodes_to_update;
 	/**
@@ -132,9 +130,17 @@ private:
 	 */
 	double _sensor_height;
 	/**
-	 * @brief Fixed length of the tree's edges, flexible if set to -1 (TODO: wavefront if set to 0)
+	 * @brief Squared min distance between two nodes in the graph
 	 */
-	double _edge_length;
+	double _min_edge_distance_squared;
+	/**
+	 * @brief Max distance between two nodes in the graph
+	 */
+	double _max_edge_distance;
+	/**
+	 * @brief Squared max distance between two nodes in the graph
+	 */
+	double _max_edge_distance_squared;
 	/**
 	 * @brief Previous recorded robot position
 	 */
@@ -175,18 +181,23 @@ private:
 	 * @brief If > 0 samples additional nodes in the given radius around the robot
 	 */
 	double _local_sampling_radius;
+	/**
+	 * @brief Squared distance to a node in m to count it as nearest node
+	 */
+	double _nearest_node_tolerance_squared;
 
 	/**
-	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
-	 * @param Seed position for RRT at which the root node is placed
+	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
+	 * @param Seed position for RRG at which the root node is placed
 	 * @return If initialization was successful
 	 */
-	bool initRrt(const geometry_msgs::Point &seed);
+	bool initRrg(const geometry_msgs::Point &seed);
 	/**
-	 * @brief Samples new nodes and tries to connect them to the tree
+	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
+	 * @param If the paths of possibly connected nodes should be updated
 	 */
-	void expandTree(bool local=false);
+	void expandGraph(bool local, bool updatePaths);
 	/**
 	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -197,30 +208,30 @@ private:
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 * @return If the point is inside map dimensions
 	 */
-	bool samplePointLocally(geometry_msgs::Point &rand_sample, geometry_msgs::Point center);
+	bool samplePointLocally(geometry_msgs::Point &rand_sample,
+			geometry_msgs::Point center);
 	/**
 	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
 	 * @param Reference to a point which position is aligned
-	 * @param Index of nearest node in the tree to randomly sampled point which is aligned
-	 * @param Reference to current distance, will be adjusted accordingly
 	 */
-	void alignPointToGridMap(geometry_msgs::Point &rand_sample,int nearest_node, double &distance);
+	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
 	/**
-	 * @brief Tries to connect a randomly sampled point to the nearest neighbor in the existing tree
+	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the max radius in the existing graph
 	 * @param Randomly sampled point
-	 * @param Minimum squared distance calculated between a node in the tree and the randomly sampled point
-	 * @param Nearest node in the tree from the randomly sampled point
+	 * @param List of nodes to connect point with and their respective squared distances
+	 * @param If the paths of possibly connected nodes should be updated
 	 */
-	void connectNewNode(geometry_msgs::Point rand_sample, double min_distance,
-			int nearest_node);
+	void connectNewNode(geometry_msgs::Point rand_sample,
+			std::vector<std::pair<int, double>> nodes, bool updatePaths);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */
 	void checkCurrentGoal();
 	/**
-	 * @brief Update the RRT message variable holding the index of the node currently nearest to the robot
+	 * @brief Update the PRM message variable holding the index of the node currently nearest to the robot
+	 * @return Returns true if a new node is nearest to the robot
 	 */
-	void determineNearestNodeToRobot();
+	bool determineNearestNodeToRobot();
 	/**
 	 * @brief Publish the node that currently has the best gain-cost-ratio
 	 */

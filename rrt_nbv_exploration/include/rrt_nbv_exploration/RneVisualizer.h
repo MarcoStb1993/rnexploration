@@ -2,14 +2,14 @@
 #include "std_msgs/String.h"
 #include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
-#include "rrt_nbv_exploration_msgs/Tree.h"
+#include "rrt_nbv_exploration_msgs/Graph.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
 #include "stdlib.h"
 #include "sstream"
 
 namespace rrt_nbv_exploration {
 /**
- * @brief The RneVisualizer class takes the RRT topic and creates spheres and lines to depict the tree as markers in RViz
+ * @brief The RneVisualizer class takes the RRG topic and creates spheres and lines to depict the node as markers in RViz
  */
 class RneVisualizer {
 public:
@@ -19,21 +19,21 @@ public:
 	RneVisualizer();
 	~RneVisualizer();
 	/**
-	 * @brief Initializes the message for topic "rrt_tree_visualization_marker"
+	 * @brief Initializes the message for topic "rrg_tree_visualization_marker"
 	 */
 	void initializeVisualization();
 
 private:
 	ros::NodeHandle _nh;
-	ros::Publisher _rrt_tree_visualization_pub;
-	ros::Publisher _rrt_tree_text_info_visualization_pub;
-	ros::Subscriber _rrt_tree_sub;
+	ros::Publisher _rrg_visualization_pub;
+	ros::Publisher _rrg_text_info_visualization_pub;
+	ros::Subscriber _rrg_tree_sub;
 	/**
-	 * @brief Visualization of the nodes in the tree as cubes
+	 * @brief Visualization of the nodes in the graph as cubes
 	 */
 	visualization_msgs::Marker _node_points;
 	/**
-	 * @brief Visualization of the edges in the trees as lines
+	 * @brief Visualization of the edges in the graph as lines
 	 */
 	visualization_msgs::Marker _edge_line_list;
 	/**
@@ -42,10 +42,10 @@ private:
 	visualization_msgs::MarkerArray _node_info_texts;
 
 	/**
-	 * @brief Visualization function that publishes the RRT-visualization in the topic "rrt_tree_visualization_marker" and is called when receiving new input from topic "rrt_tree"
-	 * @param Received message from topic "rrt_tree"
+	 * @brief Visualization function that publishes the RRG-visualization in the topic "rrg_visualization_marker" and is called when receiving new input from topic "prm"
+	 * @param Received message from topic "rrg"
 	 */
-	void visualizeRrtTree(const rrt_nbv_exploration_msgs::Tree::ConstPtr& rrt);
+	void visualizeRrgGraph(const rrt_nbv_exploration_msgs::Graph::ConstPtr& rrg);
 	/**
 	 * @brief Adds info text for each node to the visualization consisting of it's number and gain
 	 * @param Position of the particular node

@@ -9,7 +9,6 @@
 	<arg name="robot_frame" default="base_footprint" />
 	<arg name="robot_width" default="1.0" />
 	<arg name="robot_radius" default="1.0" />
-	<arg name="edge_length" default="1.0" />	
 	<arg name="delta_radius" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
@@ -26,6 +25,9 @@
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
+	<arg name="min_edge_distance" default="1.0" />
+	<arg name="max_edge_distance" default="2.0" />	
+	<arg name="nearest_node_tolerance" default="0.1" />		
 	
 	_grid_map_resolution
 
@@ -34,7 +36,6 @@
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
-		<param name="edge_length" type="double" value="$(arg edge_length)" />
 		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
 		<param name="robot_width" type="double" value="$(arg robot_width)" />
 		<param name="exploration_finished_timer_duration" type="double" value="$(arg exploration_finished_timer_duration)" />
@@ -45,6 +46,9 @@
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
+		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />
+		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
+		<param name="nearest_node_tolerance" type="double" value="$(arg nearest_node_tolerance)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

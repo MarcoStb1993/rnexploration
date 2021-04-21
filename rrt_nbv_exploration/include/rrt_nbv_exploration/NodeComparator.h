@@ -9,7 +9,7 @@
 #define RRT_NBV_EXPLORATION_SRC_NODECOMPARATOR_H_
 
 #include "ros/ros.h"
-#include <rrt_nbv_exploration_msgs/Tree.h>
+#include <rrt_nbv_exploration_msgs/Graph.h>
 #include <rrt_nbv_exploration_msgs/Node.h>
 #include <rrt_nbv_exploration/RneMode.h>
 #include <stack>
@@ -19,14 +19,14 @@
 namespace rrt_nbv_exploration {
 
 /**
- * @brief Structure to store the node and the particular gain-cost-ratio and if applicable the nodes in the horizon
+ * @brief Structure to store the node and the particular gain-cost-ratio
  */
 struct CompareStruct {
 	int node;
 	double gain_cost_ratio;
 
 	/**
-	 * @brief Constructor to initialize struct with node index in tree list
+	 * @brief Constructor to initialize struct with node index in graph list
 	 */
 	CompareStruct(int n) {
 		node = n;
@@ -34,7 +34,7 @@ struct CompareStruct {
 	}
 
 	/**
-	 * @brief Constructor to initialize struct with node index in tree list and gain-cost-ratio
+	 * @brief Constructor to initialize struct with node index in graph list and gain-cost-ratio
 	 */
 	CompareStruct(int n, double gcr) {
 		node = n;
@@ -57,9 +57,9 @@ public:
 
 	/**
 	 * @brief Sort list and recalculate gain-cost-ratios if necessary
-	 * @param Current tree
+	 * @param Current graph
 	 */
-	void maintainList(rrt_nbv_exploration_msgs::Tree &rrt);
+	void maintainList(rrt_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Clear the maintained list of ordered nodes
@@ -68,13 +68,13 @@ public:
 
 	/**
 	 * @brief Add a new node to the maintained list of ordered nodes
-	 * @param Index of the node in the tree
+	 * @param Index of the node in the graph
 	 */
 	void addNode(int node);
 
 	/**
 	 * @brief Remove the given node from the maintained list of ordered nodes
-	 * @param Index of the node in the tree
+	 * @param Index of the node in the graph
 	 */
 	void removeNode(int node);
 
@@ -108,7 +108,7 @@ public:
 
 private:
 	/**
-	 * @brief All nodes (their position in the rrt node list) and their respective gain-cost-ratio ordered ascendingly
+	 * @brief All nodes (their position in the rrg node list) and their respective gain-cost-ratio ordered ascendingly
 	 */
 	std::list<CompareStruct> _nodes_ordered_by_gcr;
 	/**
@@ -121,17 +121,15 @@ private:
 	bool _robot_moved;
 
 	/**
-	 * @brief Sorts list of nodes with a gain function which depends on the RNE mode, the node with the best
-	 * gain-cost-ratio comes first
-	 * @param Current tree
+	 * @brief Sorts list of nodes with a gain function, the node with the best gain-cost-ratio comes first
 	 */
-	void sortByGain(rrt_nbv_exploration_msgs::Tree &rrt);
+	void sortByGain();
 
 	/**
 	 * @brief Calculates the gain-cost-ratio of each node in the list of nodes
-	 * @param Current tree
+	 * @param Current graph
 	 */
-	void calculateGainCostRatios(rrt_nbv_exploration_msgs::Tree &rrt);
+	void calculateGainCostRatios(rrt_nbv_exploration_msgs::Graph &rrh);
 
 	/**
 	 * @brief Returns the gain-cost-ratio of the given node index
