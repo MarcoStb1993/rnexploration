@@ -16,8 +16,6 @@
 	<arg name="sensor_vertical_fov_bottom" default="0" />
 	<arg name="sensor_vertical_fov_top" default="180" />
 	<arg name="min_view_score" default="0.1" />
-	<arg name="visualize_collision" default="false" />
-	<arg name="visualize_gain_calculation" default="false" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
 	<arg name="exploration_finished_timer_duration" default="1.0" />
@@ -28,8 +26,7 @@
 	<arg name="min_edge_distance" default="1.0" />
 	<arg name="max_edge_distance" default="2.0" />	
 	<arg name="nearest_node_tolerance" default="0.1" />		
-	
-	_grid_map_resolution
+	<arg name="max_node_height_difference" default="1.0" />	
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -42,7 +39,6 @@
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
 		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
-		<param name="visualize_collision" type="bool" value="$(arg visualize_collision)" />	
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
@@ -65,8 +61,8 @@
 		<param name="sensor_vertical_fov_top" type="int" value="$(arg sensor_vertical_fov_top)" />
 		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
-		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
+		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

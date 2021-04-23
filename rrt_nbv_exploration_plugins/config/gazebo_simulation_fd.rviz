@@ -313,7 +313,7 @@ Visualization Manager:
       Class: rviz/Path
       Color: 25; 255; 0
       Enabled: true
-      Head Diameter: 0.30000001192092896
+      Head Diameter: 0.10000000149011612
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
       Line Style: Lines
@@ -326,7 +326,7 @@ Visualization Manager:
       Pose Color: 255; 85; 255
       Pose Style: Arrows
       Radius: 0.029999999329447746
-      Shaft Diameter: 0.10000000149011612
+      Shaft Diameter: 0.05000000074505806
       Shaft Length: 0.10000000149011612
       Topic: /move_base/plan
       Unreliable: false
@@ -368,16 +368,16 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /rne/rrt_tree_vis
-      Name: RRT
+      Marker Topic: /rne/rrg_vis
+      Name: RRG
       Namespaces:
-        rrt_tree: true
+        rrg: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrt_tree_vis_info
-      Name: RRT Subtexts
+      Name: RRG Subtexts
       Namespaces:
         {}
       Queue Size: 100
@@ -385,26 +385,28 @@ Visualization Manager:
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /rne/raysample_visualization
-      Name: RRT Ray Polling
+      Name: RRG SRP
       Namespaces:
         {}
       Queue Size: 100
       Value: false
-    - Class: rviz/Marker
+    - Class: rviz/MarkerArray
       Enabled: false
-      Marker Topic: /rne/raycast_visualization
-      Name: RRT Raycasting
+      Marker Topic: /rne/rrg_collision_vis
+      Name: RRG Collision Vis
       Namespaces:
         {}
       Queue Size: 100
       Value: false
-    - Class: rviz/Marker
+    - Alpha: 0.699999988079071
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
       Enabled: true
-      Marker Topic: /rne/steering_visualization
-      Name: RRT Steering
-      Namespaces:
-        {}
-      Queue Size: 100
+      Name: RRG Collision Map
+      Topic: /rne/rrg_collision_map
+      Unreliable: false
+      Use Timestamp: false
       Value: true
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
@@ -476,16 +478,6 @@ Visualization Manager:
       Topic: /move_base_reverse/DWAPlannerROS/local_plan
       Unreliable: false
       Value: true
-    - Alpha: 0.699999988079071
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: true
-      Name: RRT Collision Map
-      Topic: /rne/collision_visualization
-      Unreliable: false
-      Use Timestamp: false
-      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -501,7 +493,7 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 4096
+      Max Intensity: 0
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: FD Scanner
@@ -574,25 +566,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.930875778198242
+      Distance: 12.969482421875
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.7321596145629883
-        Y: 2.344388246536255
-        Z: -0.9870598316192627
+        X: 0.439523845911026
+        Y: 0.3724091351032257
+        Z: -0.5741238594055176
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6697970628738403
+      Pitch: 0.7853981852531433
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.358584880828857
+      Yaw: 0.7853981852531433
     Saved: ~
 Window Geometry:
   Displays:

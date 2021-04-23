@@ -118,11 +118,6 @@ private:
 	 */
 	double _min_view_score;
 	/**
-	 * Show gain calculation sparse ray sampling
-	 */
-	bool _visualize_gain_calculation;
-
-	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
 	 */
 	multi_array _gain_poll_points;
@@ -146,6 +141,10 @@ private:
 	 * @brief Resolution of octomap (edge length of voxels in m)
 	 */
 	double _octomap_resolution;
+	/**
+	 * @brief Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
+	 */
+	double _max_node_height_difference;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps

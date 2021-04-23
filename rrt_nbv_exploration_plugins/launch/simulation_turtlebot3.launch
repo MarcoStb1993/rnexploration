@@ -215,8 +215,6 @@
 			from 180 to 0 as the highest angle) -->
 		<arg name="sensor_vertical_fov_top" value="71" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
-		<arg name="visualize_collision" value="true" />
-		<arg name="visualize_gain_calculation" value="true" />
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="check_init_position" default="false" />
@@ -227,6 +225,7 @@
 		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
 		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
 		<arg name="nearest_node_tolerance" default="0.05" />	
+		<arg name="max_node_height_difference" default="0.3" />	
 	</include>
 
 	<!-- RViz für Exploration -->

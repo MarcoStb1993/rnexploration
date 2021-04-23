@@ -14,12 +14,12 @@ GainCalculator::GainCalculator() :
 	private_nh.param("sensor_vertical_fov_bottom", _sensor_vertical_fov_bottom,
 			0);
 	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 180);
-	private_nh.param("visualize_gain_calculation", _visualize_gain_calculation,
-			false);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("sensor_size", _sensor_size, 0.1);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
+	private_nh.param("max_node_height_difference", _max_node_height_difference,
+			1.0);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -98,19 +98,22 @@ void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
 }
 
 void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
+	bool publish_visualization = raysample_visualization.getNumSubscribers()
+			> 0;
 	visualization_msgs::Marker _node_points;
-	_node_points.header.frame_id = "/map";
-	_node_points.ns = "raysample_visualization";
-	_node_points.id = 0;
-	_node_points.action = visualization_msgs::Marker::ADD;
-	_node_points.pose.orientation.w = 1.0;
-	_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-	_node_points.scale.x = 0.1;
-	_node_points.scale.y = 0.1;
-	_node_points.scale.z = 0.1;
-	_node_points.color.a = 1.0f;
-	_node_points.header.stamp = ros::Time::now();
-
+	if (publish_visualization) {
+		_node_points.header.frame_id = "/map";
+		_node_points.ns = "raysample_visualization";
+		_node_points.id = 0;
+		_node_points.action = visualization_msgs::Marker::ADD;
+		_node_points.pose.orientation.w = 1.0;
+		_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
+		_node_points.scale.x = 0.1;
+		_node_points.scale.y = 0.1;
+		_node_points.scale.z = 0.1;
+		_node_points.color.a = 1.0f;
+		_node_points.header.stamp = ros::Time::now();
+	}
 	node.gain = 0.0;
 
 	std::map<int, int> gain_per_yaw;
@@ -130,35 +133,45 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 				vis_point.x = point.x + x;
 				vis_point.y = point.y + y;
 				vis_point.z = point.z + z;
-				octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
-						vis_point.y, vis_point.z);
-				std_msgs::ColorRGBA color;
-				color.r = 0.0f;
-				color.g = 0.0f;
-				color.b = 1.0f;
-				color.a = 1.0f;
-				_node_points.points.push_back(vis_point);
-				if (ocnode != NULL) {
-					if (_octree->isNodeOccupied(ocnode)) {
-						color.r = 1.0f;
-						color.b = 0.0f;
-						_node_points.colors.push_back(color);
-						break; //end ray sampling for this ray because of an obstacle in the way
+				if (publish_visualization) {
+					octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
+							vis_point.y, vis_point.z);
+					std_msgs::ColorRGBA color;
+					color.r = 0.0f;
+					color.g = 0.0f;
+					color.b = 1.0f;
+					color.a = 1.0f;
+					_node_points.points.push_back(vis_point);
+					if (ocnode != NULL) {
+						if (_octree->isNodeOccupied(ocnode)) {
+							color.r = 1.0f;
+							color.b = 0.0f;
+							_node_points.colors.push_back(color);
+							break; //end ray sampling for this ray because of an obstacle in the way
+						} else {
+							color.g = 1.0f;
+							color.b = 0.0f;
+						}
 					} else {
-						color.g = 1.0f;
-						color.b = 0.0f;
-					}
-				} else {
-					if (point.in_range)
-						gain_per_yaw[point.theta]++;
-					else {
-						color.r = 0.7f;
-						color.g = 0.7f;
-						color.b = 0.7f;
-					}
+						if (point.in_range)
+							gain_per_yaw[point.theta]++;
+						else {
+							color.r = 0.7f;
+							color.g = 0.7f;
+							color.b = 0.7f;
+						}
 
+					}
+					_node_points.colors.push_back(color);
+				} else {
+					octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
+							vis_point.y, vis_point.z);
+					if (ocnode != NULL) {
+						if (_octree->isNodeOccupied(ocnode))
+							break; //end ray sampling for this ray because of an obstacle in the way
+					} else if (point.in_range)
+						gain_per_yaw[point.theta]++;
 				}
-				_node_points.colors.push_back(color);
 			}
 		}
 	}
@@ -201,25 +214,26 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 		node.best_yaw = best_yaw;
 	}
 
-	//Visualize best yaw direction
-	geometry_msgs::Point vis_point;
-	vis_point.x = x
-			+ (_sensor_max_range + _delta_radius)
-					* cos(M_PI * best_yaw / 180.0);
-	vis_point.y = y
-			+ (_sensor_max_range + _delta_radius)
-					* sin(M_PI * best_yaw / 180.0);
-	vis_point.z = z;
-	std_msgs::ColorRGBA color;
-	color.r = 1.0f;
-	color.g = 1.0f;
-	color.b = 0.0f;
-	color.a = 1.0f;
-	_node_points.points.push_back(vis_point);
-	_node_points.colors.push_back(color);
-	if (_visualize_gain_calculation) {
+	if (publish_visualization) {
+		//Visualize best yaw direction
+		geometry_msgs::Point vis_point;
+		vis_point.x = x
+				+ (_sensor_max_range + _delta_radius)
+						* cos(M_PI * best_yaw / 180.0);
+		vis_point.y = y
+				+ (_sensor_max_range + _delta_radius)
+						* sin(M_PI * best_yaw / 180.0);
+		vis_point.z = z;
+		std_msgs::ColorRGBA color;
+		color.r = 1.0f;
+		color.g = 1.0f;
+		color.b = 0.0f;
+		color.a = 1.0f;
+		_node_points.points.push_back(vis_point);
+		_node_points.colors.push_back(color);
 		raysample_visualization.publish(_node_points);
 	}
+
 }
 
 bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
@@ -237,8 +251,12 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 			octomap::OcTreeNode *ocnode = _octree->search(iterator);
 			if (ocnode != NULL) {
 				if (_octree->isNodeOccupied(ocnode)) {
-					node.position.z = coords.z() + _sensor_height;
-					return true;
+					double new_height = coords.z() + _sensor_height;
+					if (abs(node.position.z - new_height)
+							<= _max_node_height_difference) {
+						node.position.z = new_height;
+						return true;
+					}
 				}
 			}
 		}
@@ -263,8 +281,12 @@ bool GainCalculator::measureNodeHeight(rrt_nbv_exploration_msgs::Node &node) {
 					}
 				} else {//find first empty voxel above ground, if there are none, it was probably the ceiling
 					if (!_octree->isNodeOccupied(ocnode)) {
-						node.position.z = coords.z() + _sensor_height;
-						return true;
+						double new_height = coords.z() + _sensor_height;
+						if (abs(node.position.z - new_height)
+								<= _max_node_height_difference) {
+							node.position.z = new_height;
+							return true;
+						}
 					}
 				}
 			}
