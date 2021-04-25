@@ -26,11 +26,12 @@
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
+	<arg name="max_node_height_difference" default="1.0" />	
 	
 	_grid_map_resolution
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen">
+		output="screen" launch-prefix="xterm -e gdb --args">
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
@@ -63,6 +64,7 @@
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
+		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

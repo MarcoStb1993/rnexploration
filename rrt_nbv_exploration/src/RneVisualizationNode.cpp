@@ -6,7 +6,6 @@ boost::shared_ptr<rrt_nbv_exploration::RneVisualizer> rne_visualizer;
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "rneVisualizationNode");
 	rne_visualizer.reset(new rrt_nbv_exploration::RneVisualizer());
-	rne_visualizer->initializeVisualization();
 	ros::spin();
 	rne_visualizer.reset();
 	return 0;
