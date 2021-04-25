@@ -36,7 +36,6 @@
 		<!-- Load robot description -->
 		<param name="robot_description"
 			command="$(find xacro)/xacro '$(find rrt_nbv_exploration_plugins)/urdf/husky.urdf.xacro'
-		    --inorder
 		    robot_namespace:=$(arg robot_namespace)
 		    realsense_enabled:=$(arg realsense_enabled)
 		    fd_scanner_enabled:=$(arg fd_scanner_enabled)
