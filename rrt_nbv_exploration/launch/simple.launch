@@ -65,6 +65,7 @@
 		<param name="visualize_gain_calculation" type="bool" value="$(arg visualize_gain_calculation)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
+		<param name="edge_length" type="double" value="$(arg edge_length)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"
