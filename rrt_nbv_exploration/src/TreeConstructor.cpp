@@ -31,8 +31,6 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 			1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&TreeConstructor::requestGoal, this);
-	_request_path_service = nh.advertiseService("requestPath",
-			&TreeConstructor::requestPath, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&TreeConstructor::updateCurrentGoal, this);
 
@@ -206,9 +204,7 @@ void TreeConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		node.parent = nearest_node;
 		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
 		node.index = _rrt.node_counter;
-		_tree_path_calculator->initializePathToRobot(node,
-				_rrt.nodes[nearest_node].pathToRobot,
-				_rrt.nodes[nearest_node].distanceToRobot);
+		_tree_path_calculator->calculateDistanceToRobot(node, _last_robot_pos);
 		_nodes_to_update.push_back(_rrt.node_counter);
 		_sort_nodes_to_update = true;
 		_rrt.nodes.push_back(node);
@@ -240,14 +236,7 @@ void TreeConstructor::determineNearestNodeToRobot() {
 		_tree_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrt.nearest_node) { //if nearest node changed
 			_moved_to_current_goal = true;
-			if (_tree_path_calculator->neighbourNodes(_rrt, _rrt.nearest_node,
-					nearest_node)) { //if moved to a neighboring node
-				_tree_path_calculator->updatePathsToRobot(_rrt.nearest_node,
-						nearest_node, _rrt);
-			} else { //if deviated from global path
-				_tree_path_calculator->recalculatePathsToRobot(
-						_rrt.nearest_node, nearest_node, _rrt);
-			}
+			_tree_path_calculator->calculateDistancesToRobot(_rrt, _last_robot_pos);
 			_node_comparator->robotMoved();
 			_rrt.nearest_node = nearest_node;
 		}
@@ -423,19 +412,6 @@ bool TreeConstructor::requestGoal(
 		_goal_updated = false;
 	}
 	return true;
-}
-
-bool TreeConstructor::requestPath(
-		rrt_nbv_exploration_msgs::RequestPath::Request &req,
-		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
-	if (_current_goal_node != -1) {
-		std::vector<geometry_msgs::PoseStamped> rrt_path;
-		_tree_path_calculator->getNavigationPath(rrt_path, _rrt,
-				_current_goal_node, _last_robot_pos);
-		res.path = rrt_path;
-		return true;
-	}
-	return false;
 }
 
 bool TreeConstructor::updateCurrentGoal(

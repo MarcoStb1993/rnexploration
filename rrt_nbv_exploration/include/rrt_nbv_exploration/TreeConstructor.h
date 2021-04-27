@@ -65,7 +65,6 @@ private:
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
-	ros::ServiceServer _request_path_service;
 	ros::ServiceServer _update_current_goal_service;
 	ros::ServiceServer _set_rrt_state_service;
 	ros::ServiceServer _get_rrt_state_service;
