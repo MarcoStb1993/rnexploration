@@ -23,6 +23,7 @@ GainCalculator::GainCalculator() :
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
+	private_nh.param("edge_length", _edge_length, 1.0);
 	ros::NodeHandle nh("rne");
 	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raysample_visualization", 1000);
@@ -89,7 +90,7 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
-	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
+	if (!measureNodeHeight(node) && node.distanceToRobot >= _edge_length) {
 		//node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		return;
