@@ -145,6 +145,10 @@ private:
 	 * @brief Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
 	 */
 	double _max_node_height_difference;
+	/**
+	 * @brief Min distance between two nodes in the graph
+	 */
+	double _min_edge_distance;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps

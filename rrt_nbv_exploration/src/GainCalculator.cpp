@@ -20,6 +20,7 @@ GainCalculator::GainCalculator() :
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param("max_node_height_difference", _max_node_height_difference,
 			1.0);
+	private_nh.param("min_edge_distance", _min_edge_distance, 1.0);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -89,7 +90,7 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
-	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
+	if (!measureNodeHeight(node) && node.distanceToRobot > _min_edge_distance) {
 		//node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		return;

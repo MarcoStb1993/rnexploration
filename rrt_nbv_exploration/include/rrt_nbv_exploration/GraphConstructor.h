@@ -63,7 +63,6 @@ private:
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
-	ros::ServiceServer _request_path_service;
 	ros::ServiceServer _update_current_goal_service;
 	ros::ServiceServer _set_rrg_state_service;
 	ros::ServiceServer _get_rrg_state_service;
@@ -195,9 +194,8 @@ private:
 	/**
 	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
-	 * @param If the paths of possibly connected nodes should be updated
 	 */
-	void expandGraph(bool local, bool updatePaths);
+	void expandGraph(bool local);
 	/**
 	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -219,10 +217,9 @@ private:
 	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the max radius in the existing graph
 	 * @param Randomly sampled point
 	 * @param List of nodes to connect point with and their respective squared distances
-	 * @param If the paths of possibly connected nodes should be updated
 	 */
 	void connectNewNode(geometry_msgs::Point rand_sample,
-			std::vector<std::pair<int, double>> nodes, bool updatePaths);
+			std::vector<std::pair<int, double>> nodes);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */

@@ -37,8 +37,6 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 			1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&GraphConstructor::requestGoal, this);
-	_request_path_service = nh.advertiseService("requestPath",
-			&GraphConstructor::requestPath, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&GraphConstructor::updateCurrentGoal, this);
 
@@ -117,12 +115,10 @@ void GraphConstructor::runRrgConstruction() {
 	_rrg.header.stamp = ros::Time::now();
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
-		bool updatePathsWithReset = determineNearestNodeToRobot();
-		expandGraph(false, !updatePathsWithReset);
+		determineNearestNodeToRobot();
+		expandGraph(false);
 		if (_local_sampling_radius > 0)
-			expandGraph(true, !updatePathsWithReset);
-		if (updatePathsWithReset)
-			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg);
+			expandGraph(true);
 		_node_comparator->maintainList(_rrg);
 		checkCurrentGoal();
 		publishNodeWithBestGain();
@@ -134,7 +130,7 @@ void GraphConstructor::runRrgConstruction() {
 	_rrg_publisher.publish(_rrg);
 }
 
-void GraphConstructor::expandGraph(bool local, bool updatePaths) {
+void GraphConstructor::expandGraph(bool local) {
 	geometry_msgs::Point rand_sample;
 	if (local)
 		samplePointLocally(rand_sample, _last_robot_pos);
@@ -160,7 +156,7 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths) {
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(rand_sample,
 						_max_edge_distance_squared);
-		connectNewNode(rand_sample, nodes, updatePaths);
+		connectNewNode(rand_sample, nodes);
 	}
 }
 
@@ -195,7 +191,7 @@ void GraphConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
 }
 
 void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
-		std::vector<std::pair<int, double>> nodes, bool updatePaths) {
+		std::vector<std::pair<int, double>> nodes) {
 	alignPointToGridMap(rand_sample);
 	bool connected = false;
 	rrt_nbv_exploration_msgs::Node node;
@@ -237,8 +233,7 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		node.pathToRobot.push_back(node.index);
 		_rrg.node_counter++;
 		_rrg.nodes.push_back(node);
-		if (updatePaths)
-			_graph_path_calculator->updatePathsToRobot(node.index, _rrg, false); //check if new connection could improve other distances
+		_graph_path_calculator->calculateDistanceToRobot(node, _last_robot_pos);
 		_nodes_to_update.push_back(node.index);
 		_sort_nodes_to_update = true;
 		_graph_searcher->rebuildIndex(_rrg);
@@ -264,22 +259,10 @@ bool GraphConstructor::determineNearestNodeToRobot() {
 		double min_distance;
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
-		if (nearest_node != _rrg.nearest_node) {//if nearest node changed
-			if (!_graph_path_calculator->neighbourNodes(_rrg, nearest_node,
-					_rrg.nearest_node)) {
-				//check if robot came off path and is close to a non-neighbor node
-				double distance_squared = pow(
-						_rrg.nodes[_rrg.nearest_node].position.x
-								- _rrg.nodes[nearest_node].position.x, 2)
-						+ pow(
-								_rrg.nodes[_rrg.nearest_node].position.y
-										- _rrg.nodes[nearest_node].position.y,
-								2);
-				if (distance_squared > _nearest_node_tolerance_squared) {
-					return false;
-				}
-			}
+		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
 			_moved_to_current_goal = true;
+			_graph_path_calculator->calculateDistancesToRobot(_rrg,
+					_last_robot_pos);
 			_node_comparator->robotMoved();
 			_rrg.nearest_node = nearest_node;
 			return true;
@@ -457,19 +440,6 @@ bool GraphConstructor::requestGoal(
 		_goal_updated = false;
 	}
 	return true;
-}
-
-bool GraphConstructor::requestPath(
-		rrt_nbv_exploration_msgs::RequestPath::Request &req,
-		rrt_nbv_exploration_msgs::RequestPath::Response &res) {
-	if (_current_goal_node != -1) {
-		std::vector<geometry_msgs::PoseStamped> rrt_path;
-		_graph_path_calculator->getNavigationPath(rrt_path, _rrg,
-				_current_goal_node, _last_robot_pos);
-		res.path = rrt_path;
-		return true;
-	}
-	return false;
 }
 
 bool GraphConstructor::updateCurrentGoal(

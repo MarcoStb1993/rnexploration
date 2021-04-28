@@ -63,6 +63,7 @@
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
+		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />
 	</node>
 	
 	<node pkg="rrt_nbv_exploration" type="rneVisualizationNode"

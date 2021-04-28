@@ -27,43 +27,20 @@ public:
 	geometry_msgs::Pose getRobotPose();
 
 	/**
-	 * @brief Initializes given nodes path from the robot's current position to it and its distance by taking the node's
-	 * parent's path and adding the new node to it
-	 * @param Reference to the node to be initialized
-	 * @param Parent node's path to robot
-	 * @param Parent node's distance to robot
+	 * @brief Calculate the Euclidean distance to the robot for the given node
+	 * @param Node
+	 * @param Current robot position
 	 */
-	void initializePathToRobot(rrt_nbv_exploration_msgs::Node &node,
-			std::vector<int> parentPathtoRobot, double parentDistanceToRobot);
+	void calculateDistanceToRobot(rrt_nbv_exploration_msgs::Node &node,
+			geometry_msgs::Point robot_pose);
 
 	/**
-	 * @brief Updates paths and distances from the robot's current position to the respective nodes using Dijkstra's algorithm
-	 * @param Index of the new node closest to the robot
-	 * @param Current graph
-	 * @param If all current paths and distances should be reset or only a "local update" is necessary
-	 */
-	void updatePathsToRobot(int startNode,
-			rrt_nbv_exploration_msgs::Graph &rrg, bool reset = true);
-
-	/**
-	 * @brief Returns a path from the node closest to the robot to the goal node moving only along the tree's edges
-	 * @param Reference to the calculated path
+	 * @brief Calculate the Euclidean distance to the robot for each node
 	 * @param Current tree
-	 * @param Node to go to
-	 * @param Actual position of the robot
+	 * @param Current robot position
 	 */
-	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
-			rrt_nbv_exploration_msgs::Graph &rrg, int goal_node, geometry_msgs::Point robot_pose);
-
-	/**
-	 * @brief Returns if the two given nodes are next to each other by searching the the graphs edges
-	 * @param Current graph
-	 * @param Node started from
-	 * @param Node went to
-	 * @return If nodes are neighbors
-	 */
-	bool neighbourNodes(rrt_nbv_exploration_msgs::Graph &rrg, int startNode,
-			int endNode);
+	void calculateDistancesToRobot(rrt_nbv_exploration_msgs::Graph &rrt,
+			geometry_msgs::Point robot_pose);
 
 private:
 	ros::NodeHandle _nh;
@@ -76,16 +53,5 @@ private:
 	 */
 	std::string _robot_frame;
 
-	/**
-	 * @brief Add a path node every 10cm in between the start and end point along the given path
-	 * @param Reference to the calculated path
-	 * @param Starting position
-	 * @param End position
-	 * @param Orientation between the nodes
-	 * @param Yaw between the nodes
-	 */
-	void addInterNodes(std::vector<geometry_msgs::PoseStamped> &path,
-			geometry_msgs::Point start, geometry_msgs::Point end,
-			geometry_msgs::Quaternion orientation, double yaw);
 };
 }
