@@ -310,16 +310,8 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /rne/rrg_nodes
-      Name: RRG Nodes
-      Namespaces:
-        rrg: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /rne/rrg_edges
-      Name: RRG Edges
+      Marker Topic: /rne/rrg_vis
+      Name: RRG
       Namespaces:
         rrg: true
       Queue Size: 100
@@ -327,7 +319,7 @@ Visualization Manager:
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrg_vis_info
-      Name: RRT Subtexts
+      Name: RRG Subtexts
       Namespaces:
         {}
       Queue Size: 100
@@ -415,8 +407,8 @@ Visualization Manager:
       Color Scheme: map
       Draw Behind: false
       Enabled: true
-      Name: RRT Collision Map
-      Topic: /rne/collision_visualization
+      Name: RRG Collision Map
+      Topic: /rne/rrg_collision_map
       Unreliable: false
       Use Timestamp: false
       Value: true
