@@ -24,7 +24,7 @@
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="navigation_global_planner"
 		default="rrt_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
-	<arg name="robot_radius" default="0.12" />
+	<arg name="robot_radius" default="0.18" />
 	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="-2.0" />
