@@ -85,10 +85,6 @@ private:
 	 */
 	double _path_box_distance_thres;
 	/**
-	 * @brief Show collision checking
-	 */
-	bool _visualize_collision;
-	/**
 	 * If the occupancy map for visualization was initialized already
 	 */
 	bool _init_vis_map;

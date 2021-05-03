@@ -65,7 +65,6 @@ private:
 	ros::ServiceServer _set_rrt_state_service;
 	ros::ServiceServer _get_rrt_state_service;
 	ros::ServiceServer _reset_rrt_state_service;
-	ros::Timer _exploration_finished_timer;
 
 	std::default_random_engine _generator;
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
@@ -162,6 +161,10 @@ private:
 	 * @brief Tree with nodes of the best branch from the previous run
 	 */
 	rrt_nbv_exploration_msgs::Tree _best_branch;
+	/**
+	 * @brief Time at which tree building started or last node was added to tree
+	 */
+	ros::Time _rrt_start_time;
 
 	/**
 	 * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree
@@ -214,11 +217,6 @@ private:
 	 * @brief Updates the map's dimension (x,y,z) after a new octomap was received
 	 */
 	void updateMapDimensions();
-	/**
-	 * Timer callback for setting exploration to finished
-	 * @param event
-	 */
-	void explorationFinishedTimerCallback(const ros::TimerEvent &event);
 
 	bool requestGoal(rrt_nbv_exploration_msgs::RequestGoal::Request &req,
 			rrt_nbv_exploration_msgs::RequestGoal::Response &res);

@@ -38,7 +38,7 @@ Visualization Manager:
       Cell Size: 0.05000000074505806
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -51,7 +51,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 1000
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Alpha: 0.699999988079071
       Class: rviz/Map
       Color Scheme: map
@@ -333,14 +333,6 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/Marker
-      Enabled: false
-      Marker Topic: /rne/raycast_visualization
-      Name: RRT Raycasting
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: false
-    - Class: rviz/Marker
       Enabled: true
       Marker Topic: /rne/steering_visualization
       Name: RRT Steering
@@ -458,14 +450,6 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /rne/height_raycast_visualization
-      Name: Height Raycast
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrt_collision_vis
@@ -474,13 +458,6 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
-    - Class: rviz/Axes
-      Enabled: true
-      Length: 1
-      Name: Axes
-      Radius: 0.009999999776482582
-      Reference Frame: <Fixed Frame>
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48

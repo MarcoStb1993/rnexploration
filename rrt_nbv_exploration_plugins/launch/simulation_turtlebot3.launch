@@ -16,25 +16,21 @@
 	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
-	<arg name="edge_length" default="0" />
-	<arg name="rne_mode" default="0" /><!-- 0=classic,1=horizon,2=receding 
-		horizon -->
-	<arg name="horizon_length" default="3" />
-	<arg name="gain_mode" default="1" /> <!-- 0=comparison, 1=sparse ray polling, 2=raycasting, 3=sparse ray casting -->
+	<arg name="edge_length" default="1" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
-	<arg name="log_gain_calculations" default="false" />
-	<arg name="coupled_gain_calculation" default="false" />
-	<arg name="max_tree_nodes" default="0" />
+	<arg name="n_max" default="15" />
+	<arg name="n_tol" default="75" />
 	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="min_view_score" default="0.1" />
 	<arg name="navigation_global_planner"
 		default="global_planner/GlobalPlanner" /> <!-- rrt_nbv_exploration::RneGlobalPlanner -->
 		<!-- Robot starting position in world -->
-	<arg name="x" default="0.0" />
+	<arg name="x" default="-2.0" />
 	<arg name="y" default="0.0" />
 	<arg name="z" default="0.0" />
-	<arg name="yaw" default="-1.5707963" />
+	<arg name="yaw" default="0.0" />
 
 	<include
 		file="$(find rsm_additions)/launch/gazebo_turtlebot3.launch">
@@ -206,7 +202,7 @@
 		file="$(find rrt_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="20" />
 		<arg name="robot_width" value="0.2" />
-		<arg name="robot_radius" value="0.12" />
+		<arg name="robot_radius" value="0.18" />
 		<arg name="sensor_height" value="0.14" />
 		<arg name="sensor_size" value="0.1" />
 		<arg name="sensor_max_range" value="8" />
@@ -217,25 +213,18 @@
 		<arg name="sensor_horizontal_fov" value="75" /> <!-- Swivelling RealSense with 75 degree hFoV -->
 		<arg name="sensor_vertical_fov_bottom" value="129" /> <!-- RealSense with 58 degree vFoV angled 10 degrees towards the bottom (range 
 			from 180 to 0 as the highest angle) -->
-		<arg name="sensor_vertical_fov_top" value="71" />
-		<arg name="min_view_score" value="0.15" />
-		<arg name="visualize_collision" value="true" />
-		<arg name="visualize_gain_calculation" value="true" />
+		<arg name="sensor_vertical_fov_top" value="71" />		
+		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />
-		<arg name="rne_mode" default="$(arg rne_mode)" /> <!-- classic=0, receding=1, horizon=2, receding_horizon=3 -->
-		<arg name="horizon_length" default="$(arg horizon_length)" />
 		<arg name="check_init_position" default="false" />
-		<arg name="gain_mode" default="$(arg gain_mode)" />
-		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations"
-			default="$(arg log_gain_calculations)" />
-		<arg name="coupled_gain_calculation"
-			default="$(arg coupled_gain_calculation)" />
-		<arg name="max_tree_nodes" default="$(arg max_tree_nodes)" />
+		<arg name="oc_resolution" default="$(arg oc_resolution)" />		
+		<arg name="n_max" default="$(arg n_max)" />
+		<arg name="n_tol" default="$(arg n_tol)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
+		<arg name="max_node_height_difference" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->

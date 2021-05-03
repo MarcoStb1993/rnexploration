@@ -35,18 +35,6 @@ struct PollPoint {
 typedef boost::multi_array<PollPoint, 3> multi_array;
 typedef multi_array::index multi_array_index;
 
-/**
- * Start and stop points in Cartesian coordinates, also includes theta (azimuth) and phi (polar) angles in degrees
- */
-struct PollRay {
-	double x_start, y_start, z_start;
-	double x_end, y_end, z_end;
-	int theta, phi;
-};
-
-typedef boost::multi_array<PollRay, 2> multi_array_ray;
-typedef multi_array_ray::index multi_array_ray_index;
-
 namespace rrt_nbv_exploration {
 
 /**
@@ -77,7 +65,6 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
-	ros::Publisher raycast_visualization;
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -133,31 +120,11 @@ private:
 	 * Show gain calculation sparse ray sampling
 	 */
 	bool _visualize_gain_calculation;
-	/**
-	 * Gain calculation mode (0=comparison, 1=sparse ray polling, 2=sparse raycasting)
-	 */
-	int _gain_mode;
-	/**
-	 * @brief File path where to save results
-	 */
-	std::string _file_path;
-	/**
-	 * @brief If the gain calculations should be written to the given file path
-	 */
-	bool _log_calculations;
-	/**
-	 * @brief If the gain calculation is coupled to the remaining computation or not
-	 */
-	bool _coupled_gain_calculation;
 
 	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
 	 */
 	multi_array _gain_poll_points;
-	/**
-	 * A pre-calculated 2-dimensional array (theta, phi) of all rays to poll for gain calculation
-	 */
-	multi_array_ray _gain_poll_rays;
 	/**
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
@@ -179,18 +146,14 @@ private:
 	 */
 	double _octomap_resolution;
 	/**
-	 * @brief Start time to calculate time passed
+	 * @brief Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
 	 */
-	ros::Time _start_time;
+	double _max_node_height_difference;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
 	 */
 	void precalculateGainPollPoints();
-	/**
-	 * Pre-calculates lists of all poll ray's start and end points in cartesian coordinates based on theta and phi steps
-	 */
-	void precalculateGainPollRays();
 
 	/**
 	 * @brief Start gain calculation for first node in list of nodes to be updated
@@ -218,12 +181,6 @@ private:
 	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
-	 * Calculates the gain of the passed node by raycasting in the octree
-	 * @param Node which gain needs to be calculated
-	 */
-	void calculateRayGain(rrt_nbv_exploration_msgs::Node &node);
-
-	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
 	 * node's initial position until it finds the ground, then sets the z coordinate at sensor height above ground -
 	 * if no collision occurs, raytraces upward and does the same)
@@ -231,14 +188,5 @@ private:
 	 * @return If height could be measured
 	 */
 	bool measureNodeHeight(rrt_nbv_exploration_msgs::Node &node);
-
-	/**
-	 * @brief Saves current time as start time
-	 */
-	void setStartTime();
-	/**
-	 * @brief Calculates duration since start time and saves it to file with the given text
-	 */
-	void setStopTime(std::string text);
 };
 }

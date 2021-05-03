@@ -17,15 +17,14 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="1" />
-	<arg name="gain_mode" default="2" /> <!-- 0=comparison, 1=sparse ray polling, 2=raycasting, 3=sparse ray casting -->
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
-	<arg name="log_gain_calculations" default="false" />
 	<arg name="n_max" default="15" />
 	<arg name="n_tol" default="50" />
 	<arg name="scanner_angled" default="false" />
 	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -224,21 +223,17 @@
 			value="30" />
 		<arg unless="$(arg scanner_angled)" name="sensor_vertical_fov_top"
 			value="0" />
-		<arg name="min_view_score" value="0.05" />
-		<arg name="visualize_collision" value="true" />
-		<arg name="visualize_gain_calculation" value="true" />
+		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic" value="map" />
 		<arg name="edge_length" value="$(arg edge_length)" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="check_init_position" default="false" />
-		<arg name="gain_mode" default="$(arg gain_mode)" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
-		<arg name="log_calculations"
-			default="$(arg log_gain_calculations)" />
 		<arg name="n_max" default="$(arg n_max)" />
 		<arg name="n_tol" default="$(arg n_tol)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
+		<arg name="max_node_height_difference" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->

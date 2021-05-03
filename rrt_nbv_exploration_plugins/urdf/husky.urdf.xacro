@@ -170,9 +170,9 @@
 
 	<xacro:if value="$(arg laser_enabled)">
 
-		<sick_lms1xx_mount prefix="base" />
+		<xacro:sick_lms1xx_mount prefix="base" />
 
-		<sick_lms1xx frame="base_laser" topic="scan"
+		<xacro:sick_lms1xx frame="base_laser" topic="scan"
 			robot_namespace="$(arg robot_namespace)" />
 
 		<joint name="laser_mount_joint" type="fixed">
@@ -231,7 +231,7 @@
 
 	<xacro:if value="$(arg fd_scanner_enabled)">
 
-		<fd_scanner prefix="fd_scanner"
+		<xacro:fd_scanner prefix="fd_scanner"
 			robot_namespace="$(arg robot_namespace)"
 			angled="$(arg fd_scanner_angled)"
 			simulated_velodyne="true" />
