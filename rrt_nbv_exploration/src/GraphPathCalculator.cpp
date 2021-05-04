@@ -76,19 +76,37 @@ void GraphPathCalculator::getNavigationPath(
 		rrt_nbv_exploration_msgs::Graph &rrg, int goal_node,
 		geometry_msgs::Point robot_pose) {
 //	ROS_INFO_STREAM("get nav path from " << rrg.nearest_node << " to " << goal_node);
+	ros::Time timestamp = ros::Time::now();
+	//add robot position with orientation towards nearest node as first path node
+	geometry_msgs::PoseStamped path_pose;
+	path_pose.header.frame_id = "map";
+	path_pose.header.stamp = timestamp;
+	path_pose.pose.position = robot_pose;
+	path_pose.pose.position.z =
+			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.z;
+	double yaw = atan2(
+			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.y
+					- robot_pose.y,
+			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.x
+					- robot_pose.x);
+	tf2::Quaternion quaternion_robot;
+	quaternion_robot.setRPY(0, 0, yaw);
+	quaternion_robot.normalize();
+	path_pose.pose.orientation = tf2::toMsg(quaternion_robot);
+	path.push_back(path_pose);
 	if (rrg.nearest_node == goal_node) { //nearest node to robot and goal node are the same
 		//add poses between robot and node
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
-		path_pose.header.stamp = ros::Time::now();
-		robot_pose.z = rrg.nodes[goal_node].position.z;
-		double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
-				rrg.nodes[goal_node].position.x - robot_pose.x);
-		tf2::Quaternion quaternion;
-		quaternion.setRPY(0, 0, yaw);
-		quaternion.normalize();
-		addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
-				tf2::toMsg(quaternion), yaw);
+		path_pose.header.stamp = timestamp;
+//		robot_pose.z = rrg.nodes[goal_node].position.z;
+//		double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
+//				rrg.nodes[goal_node].position.x - robot_pose.x);
+//		tf2::Quaternion quaternion;
+//		quaternion.setRPY(0, 0, yaw);
+//		quaternion.normalize();
+//		addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
+//				tf2::toMsg(quaternion), yaw);
 		//use best yaw for orientation at goal node
 		path_pose.pose.position = rrg.nodes[goal_node].position;
 		tf2::Quaternion quaternion_goal;
@@ -98,7 +116,7 @@ void GraphPathCalculator::getNavigationPath(
 		path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
 		path.push_back(path_pose);
 	} else { //build a path from start to root and from goal to root until they meet
-		ros::Time timestamp = ros::Time::now();
+
 		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
 		std::vector<int> pathToRobot = rrg.nodes[goal_node].pathToRobot;
 		if (pathToRobot.size() >= 2) {
@@ -127,16 +145,16 @@ void GraphPathCalculator::getNavigationPath(
 			path_pose.pose.position = rrg.nodes[i].position;
 			tf2::Quaternion quaternion;
 			double yaw;
-			if (&i == &pathToRobot.front()) { //if node is first element in list, add poses between robot and node
-				geometry_msgs::Pose robot_pose = getRobotPose();
-				robot_pose.position.z = rrg.nodes[i].position.z;
-				yaw = atan2(rrg.nodes[i].position.y - robot_pose.position.y,
-						rrg.nodes[i].position.x - robot_pose.position.x);
-				quaternion.setRPY(0, 0, yaw);
-				quaternion.normalize();
-				addInterNodes(path, robot_pose.position, rrg.nodes[i].position,
-						tf2::toMsg(quaternion), yaw);
-			}
+//			if (&i == &pathToRobot.front()) { //if node is first element in list, add poses between robot and node
+//				geometry_msgs::Pose robot_pose = getRobotPose();
+//				robot_pose.position.z = rrg.nodes[i].position.z;
+//				yaw = atan2(rrg.nodes[i].position.y - robot_pose.position.y,
+//						rrg.nodes[i].position.x - robot_pose.position.x);
+//				quaternion.setRPY(0, 0, yaw);
+//				quaternion.normalize();
+//				addInterNodes(path, robot_pose.position, rrg.nodes[i].position,
+//						tf2::toMsg(quaternion), yaw);
+//			}
 
 			if (&i != &pathToRobot.back()) //if node is not last element in list, get orientation between this node and the next
 				yaw = atan2(

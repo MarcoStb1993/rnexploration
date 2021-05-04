@@ -15,15 +15,14 @@ RneGlobalPlanner::RneGlobalPlanner() :
 }
 
 RneGlobalPlanner::RneGlobalPlanner(std::string name,
-		costmap_2d::Costmap2DROS* costmap_ros) {
+		costmap_2d::Costmap2DROS *costmap_ros) {
 	initialize(name, costmap_ros);
 }
 
 void RneGlobalPlanner::initialize(std::string name,
-		costmap_2d::Costmap2DROS* costmap_ros) {
+		costmap_2d::Costmap2DROS *costmap_ros) {
 	ros::NodeHandle private_nh("~");
-	_plan_publisher = private_nh.advertise<nav_msgs::Path>(
-			"plan", 1);
+	_plan_publisher = private_nh.advertise<nav_msgs::Path>("plan", 1);
 	ros::NodeHandle rsm_nh("rsm");
 	_state_info_subscriber = rsm_nh.subscribe("stateInfo", 10,
 			&RneGlobalPlanner::stateInfoCallback, this);
@@ -34,14 +33,29 @@ void RneGlobalPlanner::initialize(std::string name,
 	global_planner.initialize(name, costmap_ros);
 }
 
-bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start,
-		const geometry_msgs::PoseStamped& goal,
-		std::vector<geometry_msgs::PoseStamped>& plan) {
+bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped &start,
+		const geometry_msgs::PoseStamped &goal,
+		std::vector<geometry_msgs::PoseStamped> &plan) {
 	//ROS_ERROR_STREAM("Global planner make plan");
 	if (_exploration_running) {
 		rrt_nbv_exploration_msgs::RequestPath srv;
 		if (_request_path_service.call(srv)) {
 			plan = srv.response.path;
+			std::vector<geometry_msgs::PoseStamped> plan_to_nearest_node;
+			if (plan.size() > 1
+					&& global_planner.makePlan(plan[0], plan[1],
+							plan_to_nearest_node)) {
+				double height_difference_i = (plan[1].pose.position.z
+						- plan[0].pose.position.z)
+						/ (double) plan_to_nearest_node.size();
+				for (int i = 0; i < plan_to_nearest_node.size(); i++) {
+					plan_to_nearest_node[i].pose.position.z =
+							plan[0].pose.position.z
+									+ (double) i * height_difference_i;
+				}
+				plan.insert(plan.begin(), plan_to_nearest_node.begin(),
+						plan_to_nearest_node.end());
+			}
 		} else {
 			ROS_ERROR("Failed to call Request Path service");
 		}
@@ -57,7 +71,7 @@ bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start,
 }
 
 void RneGlobalPlanner::stateInfoCallback(
-		const std_msgs::String::ConstPtr& state_info) {
+		const std_msgs::String::ConstPtr &state_info) {
 	_exploration_running = (state_info->data.rfind("E:") == 0) ? true : false;
 }
 

@@ -26,6 +26,7 @@
 		default="rrt_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.7" />
 	<arg name="min_view_score" default="0.1" />
+	<arg name="local_sampling_radius" default="5" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -223,7 +224,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
-		<arg name="local_sampling_radius" value="5" />				
+		<arg name="local_sampling_radius" value="$(arg local_sampling_radius)" />		
 		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
 		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
 		<arg name="nearest_node_tolerance" default="0.1" />	
