@@ -31,6 +31,7 @@
 	<arg name="z" default="0.0" />
 	<arg name="yaw" default="0.0" />
 	<arg name="fd_scanner_angled" default="false" />
+	<arg name="local_sampling_radius" default="5" />
 
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
@@ -255,7 +256,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
-		<arg name="local_sampling_radius" value="5" />
+		<arg name="local_sampling_radius" value="$(arg local_sampling_radius)" />
 		<arg name="max_node_height_difference" default="1.0" />
 
 	</include>
