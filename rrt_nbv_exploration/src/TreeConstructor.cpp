@@ -19,6 +19,8 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 			_exploration_finished_timer_duration, 10.0);
 	private_nh.param("n_max", _n_max, 15);
 	private_nh.param("n_tol", _n_tol, 50);
+	private_nh.param("max_consecutive_failed_goals",
+			_max_consecutive_failed_goals, 1);
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",
@@ -50,6 +52,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_gain_calculator.reset(new GainCalculator());
 	_running = false;
 	_construction_running = false;
+	_consecutive_failed_goals = 0;
 	_gain_calculator->precalculateGainPolls();
 	initRrt(seed);
 }
@@ -161,6 +164,7 @@ void TreeConstructor::startRrtConstruction() {
 void TreeConstructor::stopRrtConstruction() {
 	_running = false;
 	_construction_running = false;
+	_consecutive_failed_goals = 0;
 }
 
 void TreeConstructor::publishRrt() {
@@ -332,6 +336,14 @@ bool TreeConstructor::updateCurrentGoal(
 		if (req.status == rrt_nbv_exploration_msgs::Node::VISITED
 				|| req.status == rrt_nbv_exploration_msgs::Node::EXPLORED) {
 			storeBestBranch(_node_comparator->getBestBranch());
+			_consecutive_failed_goals = 0;
+		} else if (req.status == rrt_nbv_exploration_msgs::Node::FAILED) {
+			if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
+				ROS_INFO_STREAM("Exploration aborted, robot stuck");
+				_rrt.node_counter = -1;
+				stopRrtConstruction();
+				return true;
+			}
 		}
 		_updating = true;
 		startRrtConstruction();

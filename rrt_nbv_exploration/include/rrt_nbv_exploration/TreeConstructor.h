@@ -165,6 +165,14 @@ private:
 	 * @brief Time at which tree building started or last node was added to tree
 	 */
 	ros::Time _rrt_start_time;
+	/**
+	 * @brief Maximum number of consecutive failed goals before exploration is cancelled
+	 */
+	int _max_consecutive_failed_goals;
+	/**
+	 * @brief Actual number of consecutive failed goals
+	 */
+	int _consecutive_failed_goals;
 
 	/**
 	 * @brief Tree TreeConstructor main function, publishes it in topic rrt_tree

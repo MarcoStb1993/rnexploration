@@ -16,12 +16,12 @@
 	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
-	<arg name="edge_length" default="0" />
+	<arg name="edge_length" default="1" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="n_max" default="15" />
-	<arg name="n_tol" default="50" />
+	<arg name="n_tol" default="30" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="min_view_score" default="0.1" />
 	<!-- Robot starting position in world -->
