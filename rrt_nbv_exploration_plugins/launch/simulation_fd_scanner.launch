@@ -25,6 +25,8 @@
 	<arg name="scanner_angled" default="false" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="min_view_score" default="0.1" />
+	<arg name="navigation_global_planner"
+		default="rrt_nbv_exploration::RneGlobalPlanner" /> 
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -114,6 +116,17 @@
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg 
 		robot_frame)" />
+		<param name="base_global_planner"
+			value="$(arg navigation_global_planner)" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/path_distance_bias" value="20" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/goal_distance_bias" value="5" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -142,6 +155,17 @@
 			value="$(arg robot_frame)_reverse" />
 		<param name="local_costmap/robot_base_frame"
 			value="$(arg robot_frame)_reverse" />
+		<param name="base_global_planner"
+			value="$(arg navigation_global_planner)" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/path_distance_bias" value="20" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/goal_distance_bias" value="5" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/prune_plan" value="true" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />

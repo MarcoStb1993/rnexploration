@@ -124,8 +124,9 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 			node.distanceToRobot = sqrt(
 					pow(root.position.x - node.position.x, 2)
 							+ pow(root.position.y - node.position.y, 2));
-			node.pathToRobot = _rrt.nodes[nodes[i - 1]].pathToRobot;
-			node.pathToRobot.push_back(nodes[i]);
+			for(int p = 0; p <= i; p++){
+				node.pathToRobot.push_back(p);
+			}
 			if (i + 1 < nodes.size()) {
 				node.children.push_back(i + 1);
 				node.children_counter = 1;
