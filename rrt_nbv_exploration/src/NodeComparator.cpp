@@ -20,6 +20,8 @@ NodeComparator::~NodeComparator() {
 
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
+	private_nh.param("cost_factor", _cost_factor, 0.5);
+
 	_nodes_ordered_by_gcr.clear();
 	_nodes_ordered_by_hgcr.clear();
 }
@@ -73,7 +75,7 @@ void NodeComparator::calculateGainCostRatios(
 	for (auto &node : _nodes_ordered_by_gcr) {
 		if (node.gain_cost_ratio == 0) {
 			node.gain_cost_ratio = rrt.nodes[node.node].gain
-					* exp(-1 * rrt.nodes[node.node].distanceToRobot);
+					* exp(-1.0 * _cost_factor * rrt.nodes[node.node].distanceToRobot);
 			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
 				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
 		}

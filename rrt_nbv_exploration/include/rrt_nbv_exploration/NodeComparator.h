@@ -147,6 +147,10 @@ private:
 	 * @brief All nodes (their position in the rrt node list) and their respective horizon gain-cost-ratio ordered ascendingly
 	 */
 	std::list<CompareStruct> _nodes_ordered_by_hgcr;
+	/**
+	 * @brief Factor penalizing high path costs
+	 */
+	double _cost_factor;
 
 	/**
 	 * @brief Sorts list of nodes with a gain function which depends on the RNE mode, the node with the best
