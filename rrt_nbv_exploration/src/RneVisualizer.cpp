@@ -7,6 +7,8 @@ RneVisualizer::RneVisualizer() {
 			&RneVisualizer::visualizeRrtTree, this);
 	_rrt_tree_visualization_pub = nh.advertise<visualization_msgs::Marker>(
 			"rrt_tree_vis", 1000);
+	_rrt_frontier_visualization_pub = nh.advertise<visualization_msgs::Marker>(
+			"rrt_frontier_vis", 1000);
 	_rrt_tree_text_info_visualization_pub = nh.advertise<
 			visualization_msgs::MarkerArray>("rrt_tree_vis_info", 1000);
 }
@@ -17,6 +19,7 @@ RneVisualizer::~RneVisualizer() {
 
 void RneVisualizer::initializeVisualization(
 		visualization_msgs::Marker &_node_points,
+		visualization_msgs::Marker &_frontier_points,
 		visualization_msgs::Marker &_edge_line_list) {
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "rrt_tree";
@@ -30,7 +33,6 @@ void RneVisualizer::initializeVisualization(
 	_node_points.color.g = 1.0f;
 	_node_points.color.a = 1.0f;
 	_edge_line_list.header.frame_id = "/map";
-	_edge_line_list.header.stamp = ros::Time::now();
 	_edge_line_list.ns = "rrt_tree";
 	_edge_line_list.id = 1;
 	_edge_line_list.action = visualization_msgs::Marker::ADD;
@@ -39,16 +41,28 @@ void RneVisualizer::initializeVisualization(
 	_edge_line_list.scale.x = 0.1f;
 	_edge_line_list.color.b = 1.0f;
 	_edge_line_list.color.a = 1.0f;
+	_frontier_points.header.frame_id = "/map";
+	_frontier_points.ns = "rrt_frontier";
+	_frontier_points.id = 3;
+	_frontier_points.action = visualization_msgs::Marker::ADD;
+	_frontier_points.pose.orientation.w = 1.0;
+	_frontier_points.type = visualization_msgs::Marker::SPHERE_LIST;
+	_frontier_points.scale.x = 0.1f;
+	_frontier_points.scale.y = 0.1f;
+	_frontier_points.scale.z = 0.1f;
+	_frontier_points.color.g = 1.0f;
+	_frontier_points.color.a = 1.0f;
 }
 
 void RneVisualizer::visualizeRrtTree(
 		const rrt_nbv_exploration_msgs::Tree::ConstPtr &rrt) {
+	visualization_msgs::Marker _node_points;
+	visualization_msgs::Marker _frontier_points;
+	visualization_msgs::Marker _edge_line_list;
+	initializeVisualization(_node_points, _frontier_points, _edge_line_list);
 	if (_rrt_tree_visualization_pub.getNumSubscribers() > 0) {
 		bool publishInfo =
 				_rrt_tree_text_info_visualization_pub.getNumSubscribers() > 0;
-		visualization_msgs::Marker _node_points;
-		visualization_msgs::Marker _edge_line_list;
-		initializeVisualization(_node_points, _edge_line_list);
 		visualization_msgs::MarkerArray _node_info_texts;
 		_node_points.header.stamp = ros::Time::now();
 		_node_points.points.clear();
@@ -72,6 +86,16 @@ void RneVisualizer::visualizeRrtTree(
 		_rrt_tree_visualization_pub.publish(_edge_line_list);
 		if (publishInfo)
 			_rrt_tree_text_info_visualization_pub.publish(_node_info_texts);
+	}
+	if (_rrt_frontier_visualization_pub.getNumSubscribers() > 0) {
+		_frontier_points.header.stamp = ros::Time::now();
+		_frontier_points.points.clear();
+		_frontier_points.colors.clear();
+		for (int i = 0; i < rrt->frontier_counter; i++) {
+			_frontier_points.points.push_back(rrt->frontiers[i].position);
+			_frontier_points.colors.push_back(getColor(rrt->frontiers[i]));
+		}
+		_rrt_frontier_visualization_pub.publish(_frontier_points);
 	}
 }
 

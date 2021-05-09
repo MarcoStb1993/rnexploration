@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "rrt_nbv_exploration_msgs/Tree.h"
 #include "rrt_nbv_exploration_msgs/Node.h"
+#include <rrt_nbv_exploration_msgs/RequestGp.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -54,10 +55,23 @@ public:
 	void precalculateGainPolls();
 
 	/**
+	 * @brief Check if gain can be retrieved from GP and otherwise calculate it
+	 */
+	void determineGain(
+			std::vector<rrt_nbv_exploration_msgs::Node> rrt_frontiers,
+			rrt_nbv_exploration_msgs::Node &node);
+
+	/**
 	 * Calculates the gain of the passed node the selected gain calculation method
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculateGain(rrt_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Calculates the gain of the passed node by sparse ray polling in the octree
+	 * @param Node which gain needs to be calculated
+	 */
+	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
 
 	void dynamicReconfigureCallback(
 			rrt_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
@@ -68,6 +82,7 @@ private:
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
+	ros::ServiceClient _request_gp_client;
 
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
 	std::shared_ptr<octomap::OcTree> _octree;
@@ -173,12 +188,6 @@ private:
 	 */
 	void nodeToUpdateCallback(
 			const rrt_nbv_exploration_msgs::Node::ConstPtr &node_to_update);
-
-	/**
-	 * Calculates the gain of the passed node by sparse ray polling in the octree
-	 * @param Node which gain needs to be calculated
-	 */
-	void calculatePointGain(rrt_nbv_exploration_msgs::Node &node);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the

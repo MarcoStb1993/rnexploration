@@ -34,6 +34,8 @@ GainCalculator::GainCalculator() :
 			&GainCalculator::nodeToUpdateCallback, this);
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
+	_request_gp_client = nh.serviceClient<rrt_nbv_exploration_msgs::RequestGp>(
+			"requestGp");
 
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
@@ -88,6 +90,32 @@ void GainCalculator::precalculateGainPollPoints() {
 	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
 //	ROS_WARN_STREAM(
 //			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
+}
+
+void GainCalculator::determineGain(
+		std::vector<rrt_nbv_exploration_msgs::Node> frontiers,
+		rrt_nbv_exploration_msgs::Node &node) {
+	rrt_nbv_exploration_msgs::RequestGp srv;
+	if (frontiers.size() > 0) {
+		srv.request.frontiers = frontiers;
+		srv.request.position = node.position;
+		if (_request_gp_client.call(srv)) {
+			if (srv.response.sigma < 0.2) { //sigma thresh from paper
+				node.gain = srv.response.mu;
+				node.best_yaw = frontiers[0].best_yaw;
+				double view_score = srv.response.mu
+						/ (double) _best_gain_per_view;
+				if (view_score < _min_view_score) {
+					node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
+					node.gain = 0;
+				}
+				return;
+			}
+		} else {
+			ROS_ERROR("Failed to call Request GP service");
+		}
+	}
+	calculatePointGain(node);
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {

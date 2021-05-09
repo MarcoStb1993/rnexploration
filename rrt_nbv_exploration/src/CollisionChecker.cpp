@@ -256,28 +256,20 @@ void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
 	vis_map.info.height = map.info.height;
 	vis_map.info.origin = map.info.origin;
 	vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
-	_init_vis_map = true;
 }
 
-bool CollisionChecker::initialize(geometry_msgs::Point position) {
-	nav_msgs::OccupancyGrid map = _occupancy_grid;
-	vis_map.header.stamp = ros::Time::now();
-	vis_map.info.map_load_time = ros::Time::now();
-	initVisMap(map);
-	precalculateCircleLinesOffset(vis_map.data);
-	_node_edges.markers.clear();
-	_node_points.markers.clear();
-	if (_check_init_position) {
-		std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-		if (!isCircleInCollision(position.x, position.y, map,
-				tmp_vis_map_data)) {
-			vis_map.data = tmp_vis_map_data;
-			_visualization_pub.publish(vis_map);
-			return true;
-		}
-		return false;
-	} else
-		return true;
+bool CollisionChecker::initialize() {
+	if (!_init_vis_map) {
+		nav_msgs::OccupancyGrid map = _occupancy_grid;
+		vis_map.header.stamp = ros::Time::now();
+		vis_map.info.map_load_time = ros::Time::now();
+		initVisMap(map);
+		precalculateCircleLinesOffset(vis_map.data);
+		_node_edges.markers.clear();
+		_node_points.markers.clear();
+		_init_vis_map = true;
+	}
+	return true;
 }
 
 bool CollisionChecker::steer(rrt_nbv_exploration_msgs::Node &new_node,

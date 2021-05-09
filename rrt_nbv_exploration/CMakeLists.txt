@@ -42,6 +42,7 @@ link_libraries(${OCTOMAP_LIBRARIES})
 add_executable(rneNode src/RneNode.cpp
 				src/TreeConstructor.cpp
 				src/TreeSearcher.cpp
+				src/FrontierSearcher.cpp
 				src/CollisionChecker.cpp
 				src/TreePathCalculator.cpp
 				src/NodeComparator.cpp

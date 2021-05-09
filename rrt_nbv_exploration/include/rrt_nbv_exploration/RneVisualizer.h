@@ -22,6 +22,7 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _rrt_tree_visualization_pub;
+	ros::Publisher _rrt_frontier_visualization_pub;
 	ros::Publisher _rrt_tree_text_info_visualization_pub;
 	ros::Subscriber _rrt_tree_sub;
 
@@ -37,6 +38,7 @@ private:
 	 * @param Message for edges
 	 */
 	void initializeVisualization(visualization_msgs::Marker &_node_points,
+			visualization_msgs::Marker &_frontier_points,
 			visualization_msgs::Marker &_edge_line_list);
 
 	/**

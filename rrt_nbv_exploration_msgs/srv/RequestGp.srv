@@ -1,0 +1,5 @@
+Node[] frontiers							# Current list of frontiers in a specified radius around position
+geometry_msgs/Point position				# Position to query GP for
+---
+float64 mu 									# GP mean value
+float64 sigma								# GP variance value

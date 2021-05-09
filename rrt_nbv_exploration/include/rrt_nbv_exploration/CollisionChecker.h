@@ -59,10 +59,9 @@ public:
 
 	/**
 	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
-	 * @param Robot's position where RRT root is placed
 	 * @return If initialization succeeded
 	 */
-	bool initialize(geometry_msgs::Point position);
+	bool initialize();
 
 private:
 	ros::NodeHandle _nh;

@@ -20,6 +20,7 @@
 #include <rrt_nbv_exploration/CollisionChecker.h>
 #include <rrt_nbv_exploration/TreePathCalculator.h>
 #include <rrt_nbv_exploration/TreeSearcher.h>
+#include <rrt_nbv_exploration/FrontierSearcher.h>
 #include <rrt_nbv_exploration/NodeComparator.h>
 #include <rrt_nbv_exploration/GainCalculator.h>
 #include <rrt_nbv_exploration/RneMode.h>
@@ -77,6 +78,10 @@ private:
 	 * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
 	 */
 	std::shared_ptr<TreeSearcher> _tree_searcher;
+	/**
+	 * @brief Helper class for kd-tree TreeConstructor and nearest neighbour search
+	 */
+	std::shared_ptr<FrontierSearcher> _frontier_searcher;
 	/**
 	 * @brief Helper class for calculating a path between two nodes in the tree
 	 */
@@ -182,18 +187,21 @@ private:
 	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
 	 * @param Seed position for RRT at which the root node is placed
-	 * @return If initialization was successful
 	 */
-	bool initRrt(const geometry_msgs::Point &seed);
+	void initRrt(const geometry_msgs::Point &seed);
 	/**
 	 * @brief Store the best branch from the previous iteration
 	 * @param List of nodes that are in the best branch
 	 */
 	void storeBestBranch(std::vector<int> nodes);
 	/**
+	 * @brief Store all possible frontiers
+	 */
+	void saveFrontiers();
+	/**
 	 * @brief Reset nodes in best branch
 	 */
-	 void resetBestBranch();
+	void resetBestBranch();
 	/**
 	 * @brief Randomly samples a point from within the map dimension
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -215,6 +223,10 @@ private:
 	 */
 	void placeNewNode(geometry_msgs::Point rand_sample, double min_distance,
 			int nearest_node);
+	/**
+	 * Reevaluating frontiers
+	 */
+	void reevaluateFrontiers();
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message

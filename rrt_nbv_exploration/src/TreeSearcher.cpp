@@ -45,9 +45,9 @@ std::vector<int> TreeSearcher::searchInRadius(geometry_msgs::Point node_position
     //nodes_in_radius.erase(nodes_in_radius.begin()); //delete first node from list because it is the starting position for the radius search
     //ROS_INFO("Matches found: %lu", nMatches);
     //ROS_INFO("Nodes in radius %3.3f: ", sqrt(search_radius));
-    for(auto it : nodes_in_radius)
-    {
+//    for(auto it : nodes_in_radius)
+//    {
         //ROS_INFO("Node %i", it);
-    }
+//    }
     return nodes_in_radius;
 }
