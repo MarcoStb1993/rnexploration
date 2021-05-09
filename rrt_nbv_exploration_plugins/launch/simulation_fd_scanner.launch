@@ -36,6 +36,7 @@
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
+		<arg name="robot_frame" default="$(arg robot_frame)" />
 		<arg name="fd_scanner_enabled" value="true" />
 		<arg name="fd_scanner_angled" value="$(arg scanner_angled)" />
 		<arg name="x" default="$(arg x)" />

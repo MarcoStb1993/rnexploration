@@ -20,7 +20,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("n_max", _n_max, 15);
 	private_nh.param("n_tol", _n_tol, 50);
 	private_nh.param("max_consecutive_failed_goals",
-			_max_consecutive_failed_goals, 1);
+			_max_consecutive_failed_goals, 5);
 
 	ros::NodeHandle nh("rne");
 	_rrt_publisher = nh.advertise<rrt_nbv_exploration_msgs::Tree>("rrt_tree",

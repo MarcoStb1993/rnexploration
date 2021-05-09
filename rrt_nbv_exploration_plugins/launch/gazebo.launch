@@ -6,6 +6,7 @@
 	<arg name="realsense_enabled" default="false" />
 	<arg name="fd_scanner_enabled" default="false" />
 	<arg name="fd_scanner_angled" default="false" />
+	<arg name="robot_frame" default="base_footprint" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -67,12 +68,20 @@
 		<node name="base_controller_spawner" pkg="controller_manager"
 			type="spawner" args="husky_joint_publisher husky_velocity_controller" />
 
-		<!-- Start EKF for localization -->
+		<!-- Start EKF for localization >
 		<node pkg="robot_localization" type="ekf_localization_node"
 			name="ekf_localization">
 			<rosparam command="load"
 				file="$(find rrt_nbv_exploration_plugins)/config/localization.yaml" />
-		</node>
+		</node-->
+		
+		<!-- Fake odom from gazebo -->
+		<node pkg="rsm_additions" type="gazeboTfNode" name="gazeboTfNode"
+			output="screen">
+			<param name="robot_frame" value="$(arg robot_frame)" />
+			<param name="map_frame" value="odom" />
+			<param name="odom_topic" value="/ground_truth/state" />
+		</node>	
 
 		<node pkg="interactive_marker_twist_server" type="marker_server"
 			name="twist_marker_server" output="screen" />

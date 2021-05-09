@@ -13,7 +13,7 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
+	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="edge_length" default="1" />
@@ -35,6 +35,7 @@
 	<include
 		file="$(find rrt_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
+		<arg name="robot_frame" default="$(arg robot_frame)" />
 		<arg name="realsense_enabled" value="true" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
