@@ -26,6 +26,8 @@
 	<arg name="n_tol" default="50" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="max_node_height_difference" default="1.0" />
+	<arg name="cost_factor" default="0.5" />
+	<arg name="gcr_threshold" default="1.0" />
 
 	<node pkg="rrt_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -49,6 +51,10 @@
 		<param name="n_tol" type="int" value="$(arg n_tol)" />
 		<param name="grid_map_resolution" type="double"
 			value="$(arg grid_map_resolution)" />
+		<param name="cost_factor" type="double"
+			value="$(arg cost_factor)" />
+		<param name="gcr_threshold" type="double"
+			value="$(arg gcr_threshold)" />
 
 		<param name="sensor_max_range" type="double"
 			value="$(arg sensor_max_range)" />

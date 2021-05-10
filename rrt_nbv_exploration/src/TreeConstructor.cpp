@@ -327,6 +327,7 @@ void TreeConstructor::reevaluateFrontiers() {
 }
 
 bool TreeConstructor::selectGoalFromFrontiers() {
+	_frontier_comparator->clear();
 	for (auto &frontier : _rrt.frontiers) {
 		if (frontier.gain > 0) {
 			frontier.distanceToRobot = sqrt(
@@ -344,7 +345,8 @@ bool TreeConstructor::selectGoalFromFrontiers() {
 		_construction_running = false;
 		_updating = false;
 		_goal_updated = true;
-		ROS_INFO_STREAM("Current goal from frontier to " << _current_goal_node);
+		ROS_INFO_STREAM(
+				"Current goal from frontier " << _current_frontier_node);
 		return true;
 	}
 	return false;
@@ -434,12 +436,14 @@ bool TreeConstructor::requestPath(
 		_tree_path_calculator->getNavigationPath(rrt_path, _rrt,
 				_current_goal_node);
 		res.path = rrt_path;
+		res.frontier = false;
 		return true;
 	} else if (_current_frontier_node != -1) {
 		std::vector<geometry_msgs::PoseStamped> rrt_path;
 		_tree_path_calculator->getFrontierPath(rrt_path, _rrt,
 				_current_frontier_node);
 		res.path = rrt_path;
+		res.frontier = true;
 		return true;
 	}
 	return false;
@@ -461,20 +465,27 @@ bool TreeConstructor::updateCurrentGoal(
 				return true;
 			}
 		}
-		_updating = true;
-		startRrtConstruction();
 	} else if (_current_frontier_node != -1 && !_updating) {
-		if (req.status == rrt_nbv_exploration_msgs::Node::FAILED)
+		if (req.status == rrt_nbv_exploration_msgs::Node::FAILED) {
 			_rrt.frontiers[_current_frontier_node].status =
 					rrt_nbv_exploration_msgs::Node::FAILED;
-		else
+			if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
+				ROS_INFO_STREAM("Exploration aborted, robot stuck");
+				_rrt.node_counter = -1;
+				stopRrtConstruction();
+				return true;
+			}
+		} else {
 			_rrt.frontiers[_current_frontier_node].status =
 					rrt_nbv_exploration_msgs::Node::EXPLORED;
+			_consecutive_failed_goals = 0;
+		}
 		_rrt.frontiers[_current_frontier_node].gain = 0;
 		_current_frontier_node = -1;
-		_updating = true;
-		startRrtConstruction();
+		resetBestBranch();
 	}
+	_updating = true;
+	startRrtConstruction();
 	res.success = true;
 	res.message = "Changed current goal's status";
 	return true;

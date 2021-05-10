@@ -129,6 +129,9 @@
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
 			name="DWAPlannerROS/prune_plan" value="true" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/latch_xy_goal_tolerance" value="true" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -168,6 +171,9 @@
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
 			name="DWAPlannerROS/prune_plan" value="true" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/latch_xy_goal_tolerance" value="true" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
@@ -228,6 +234,8 @@
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
 		<arg name="max_node_height_difference" default="1.0" />
+		<arg name="cost_factor" default="0.75" />
+		<arg name="gcr_threshold" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->
