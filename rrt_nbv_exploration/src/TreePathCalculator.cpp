@@ -24,15 +24,15 @@ geometry_msgs::Pose TreePathCalculator::getRobotPose() {
 	return robot_pose;
 }
 
-void TreePathCalculator::initializePathToRobot(rrt_nbv_exploration_msgs::Node &node, int index,
-		std::vector<int> parentPathtoRobot, double parentDistanceToRobot) {
+void TreePathCalculator::initializePathToRobot(
+		rrt_nbv_exploration_msgs::Node &node, int index,
+		std::vector<int> parentPathtoRobot, geometry_msgs::Point root) {
 	std::vector<int> path(parentPathtoRobot);
 	path.push_back(index);
 	node.pathToRobot = path;
-	//double distance = parentDistanceToRobot;
-	//distance += _edge_length > 0 ? _edge_length : node.distanceToParent;
-	geometry_msgs::Pose robot = getRobotPose();
-	node.distanceToRobot = sqrt(pow(robot.position.x-node.position.x,2)+pow(robot.position.y-node.position.y,2));
+	node.distanceToRobot = sqrt(
+			pow(root.x - node.position.x, 2)
+					+ pow(root.y - node.position.y, 2));
 }
 
 void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
@@ -60,9 +60,9 @@ void TreePathCalculator::updatePathsToRobot(int prevNode, int newNode,
 void TreePathCalculator::recalculatePathsToRobot(int prevNode, int newNode,
 		rrt_nbv_exploration_msgs::Tree &rrt) {
 	for (auto &it : rrt.nodes) {
-			it.pathToRobot = findConnectingPath(newNode, it.index, rrt);
-			it.distanceToRobot = it.distanceToRobot = calculatePathDistance(rrt,
-					it.pathToRobot);
+		it.pathToRobot = findConnectingPath(newNode, it.index, rrt);
+		it.distanceToRobot = it.distanceToRobot = calculatePathDistance(rrt,
+				it.pathToRobot);
 
 	}
 }
@@ -154,6 +154,28 @@ void TreePathCalculator::getNavigationPath(
 			}
 		}
 	}
+}
+
+void TreePathCalculator::getFrontierPath(
+		std::vector<geometry_msgs::PoseStamped> &path,
+		rrt_nbv_exploration_msgs::Tree &rrt, int goal_frontier) {
+	geometry_msgs::PoseStamped robot_pose;
+	robot_pose.header.frame_id = "map";
+	robot_pose.header.stamp = ros::Time::now();
+	robot_pose.pose.position.z = rrt.nodes[rrt.nearest_node].position.z;
+	robot_pose.pose = getRobotPose();
+	path.push_back(robot_pose);
+	geometry_msgs::PoseStamped path_pose;
+	path_pose.header.frame_id = "map";
+	path_pose.header.stamp = ros::Time::now();
+	//use best yaw for orientation at goal node
+	path_pose.pose.position = rrt.frontiers[goal_frontier].position;
+	tf2::Quaternion quaternion_goal;
+	quaternion_goal.setRPY(0, 0,
+	M_PI * rrt.frontiers[goal_frontier].best_yaw / 180.0);
+	quaternion_goal.normalize();
+	path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
+	path.push_back(path_pose);
 }
 
 void TreePathCalculator::addInterNodes(

@@ -22,6 +22,7 @@
 #include <rrt_nbv_exploration/TreeSearcher.h>
 #include <rrt_nbv_exploration/FrontierSearcher.h>
 #include <rrt_nbv_exploration/NodeComparator.h>
+#include <rrt_nbv_exploration/FrontierComparator.h>
 #include <rrt_nbv_exploration/GainCalculator.h>
 #include <rrt_nbv_exploration/RneMode.h>
 
@@ -91,6 +92,10 @@ private:
 	 */
 	std::shared_ptr<NodeComparator> _node_comparator;
 	/**
+	 * @brief Helper class for calculating the gain cost ratio of a node and sorting them ordered by this ratio
+	 */
+	std::shared_ptr<FrontierComparator> _frontier_comparator;
+	/**
 	 * @brief Helper class for calculating the gain of each node by checking occupancy in the OctoMap
 	 */
 	std::shared_ptr<GainCalculator> _gain_calculator;
@@ -118,6 +123,10 @@ private:
 	 * @brief The node that is currently being pursued as a navigation goal
 	 */
 	int _current_goal_node;
+	/**
+	 * @brief The frontier that is currently being pursued as a navigation goal
+	 */
+	int _current_frontier_node;
 	/**
 	 * @brief Maximal sensor range that is considered for gain calculation
 	 */
@@ -185,6 +194,11 @@ private:
 	 */
 	void runRrtConstruction();
 	/**
+	 * @brief Check if a goal can be selected and if so, do it
+	 * @param If method was called by timer
+	 */
+	void checkForGoal(bool timer);
+	/**
 	 * @brief Initialize the RRT with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
 	 * @param Seed position for RRT at which the root node is placed
 	 */
@@ -224,9 +238,19 @@ private:
 	void placeNewNode(geometry_msgs::Point rand_sample, double min_distance,
 			int nearest_node);
 	/**
-	 * Reevaluating frontiers
+	 * @brief Reevaluating frontiers
 	 */
 	void reevaluateFrontiers();
+	/**
+	 * @brief Try to select the best frontier as goal
+	 * @return True if a goal could be selected, false otherwise
+	 */
+	bool selectGoalFromFrontiers();
+	/**
+	 * @brief Request gain for a node by GP query or gain calculation
+	 * @param Node which gain should be determined
+	 */
+	void requestGain(rrt_nbv_exploration_msgs::Node &node);
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message

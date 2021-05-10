@@ -2,8 +2,10 @@
 int32 index						# Index of the node in the RRT node list
 geometry_msgs/Point position	# Position of the node in the map
 float64 gain    				# Calculated information gain metrics at this position for exploration (-1 if not calculated)
+bool gain_calculated			# Gain was calculated from SRP, not from GP
 int32 best_yaw					# Yaw in degrees with best gain
 uint8 status    				# Nodes current status regarding the exploration
+float64 gcr						# Gain-Cost-Ratio of node
 
 uint8 INITIAL = 0       		# Node is waiting to be explored
 uint8 ACTIVE = 1        		# Node is currently targeted as navigation goal
@@ -12,6 +14,7 @@ uint8 ACTIVE_VISITED = 3 		# Node is currently active and was visited but not co
 uint8 EXPLORED = 4      		# Node was already explored
 uint8 FAILED = 5        		# Node's exploration failed
 uint8 ABORTED = 6        		# Node's exploration aborted
+uint8 BELOW_THRES = 6        	# Node's GCR is below threshold, node will not be regarded as a goal
 
 int32 parent					# Position of the node's parent in the nodes array of the RRT msg (-1 for root)
 int32[] children     			# Position of the node's children in the nodes array of the RRT msg

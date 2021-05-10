@@ -21,6 +21,7 @@ NodeComparator::~NodeComparator() {
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
 	private_nh.param("cost_factor", _cost_factor, 0.5);
+	private_nh.param("gcr_threshold", _gcr_threshold, 1.0);
 
 	_nodes_ordered_by_gcr.clear();
 	_nodes_ordered_by_hgcr.clear();
@@ -75,9 +76,9 @@ void NodeComparator::calculateGainCostRatios(
 	for (auto &node : _nodes_ordered_by_gcr) {
 		if (node.gain_cost_ratio == 0) {
 			node.gain_cost_ratio = rrt.nodes[node.node].gain
-					* exp(-1.0 * _cost_factor * rrt.nodes[node.node].distanceToRobot);
-			if (rrt.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
-				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
+					* exp(
+							-1.0 * _cost_factor
+									* rrt.nodes[node.node].distanceToRobot);
 		}
 	}
 }
@@ -88,7 +89,17 @@ void NodeComparator::calculateHorizonGainCostRatios(
 	std::vector<int> start_nodes(rrt.nodes[rrt.root].children);
 	double root_node_gcr = getNodeGainCostRatio(rrt.root);
 	if (root_node_gcr > 0) {	//add nearest node to list if it still has gain
-		std::vector<int> horizon(1,rrt.root);
+		std::vector<int> horizon(1, rrt.root);
+		rrt.nodes[rrt.root].gcr = root_node_gcr;
+		if (root_node_gcr < _gcr_threshold)
+			rrt.nodes[rrt.root].status =
+					rrt_nbv_exploration_msgs::Node::BELOW_THRES;
+		else {
+			rrt.nodes[rrt.root].status =
+					rrt.nodes[rrt.root].gain > 0 ?
+							rrt_nbv_exploration_msgs::Node::VISITED :
+							rrt_nbv_exploration_msgs::Node::EXPLORED;
+		}
 		_nodes_ordered_by_hgcr.emplace_back(rrt.root, root_node_gcr, horizon);
 	}
 	for (auto &node : start_nodes) {
@@ -134,6 +145,15 @@ CompareStruct NodeComparator::calculateHorizonGainCostRatio(
 			}
 		}
 	} while (!horizon_list.empty());
+	rrt.nodes[node].gcr = best_hgcr;
+	if (best_hgcr < _gcr_threshold)
+		rrt.nodes[node].status = rrt_nbv_exploration_msgs::Node::BELOW_THRES;
+	else {
+		rrt.nodes[node].status =
+				rrt.nodes[node].gain > 0 ?
+						rrt_nbv_exploration_msgs::Node::INITIAL :
+						rrt_nbv_exploration_msgs::Node::EXPLORED;
+	}
 	return CompareStruct(node, best_hgcr, best_horizon);;
 }
 
@@ -151,9 +171,9 @@ double NodeComparator::getNodeGainCostRatio(int node) {
 			_nodes_ordered_by_gcr.end(), [node](CompareStruct n) {
 				return n.node == node;
 			});
-	if (it != _nodes_ordered_by_gcr.end())
+	if (it != _nodes_ordered_by_gcr.end()) {
 		return it->gain_cost_ratio;
-	else
+	} else
 		return 0;
 }
 

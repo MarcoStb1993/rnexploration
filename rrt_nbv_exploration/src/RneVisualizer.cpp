@@ -150,6 +150,11 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 			color.r = 1.0f;
 			color.g = 1.0f;
 			break;
+		case rrt_nbv_exploration_msgs::Node::BELOW_THRES:
+			color.r = 0.5f;
+			color.g = 0.0f;
+			color.b = 0.5f;
+			break;
 		default:
 			color.b = 1.0f;
 			break;

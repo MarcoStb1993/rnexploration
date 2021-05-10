@@ -109,6 +109,7 @@ void GainCalculator::determineGain(
 					node.status = rrt_nbv_exploration_msgs::Node::EXPLORED;
 					node.gain = 0;
 				}
+				node.gain_calculated = false;
 				return;
 			}
 		} else {
@@ -119,11 +120,7 @@ void GainCalculator::determineGain(
 }
 
 void GainCalculator::calculateGain(rrt_nbv_exploration_msgs::Node &node) {
-	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
-		//node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
-		node.gain = -1;
-		return;
-	}
+	measureNodeHeight(node);
 	calculatePointGain(node);
 }
 
@@ -243,6 +240,7 @@ void GainCalculator::calculatePointGain(rrt_nbv_exploration_msgs::Node &node) {
 		node.gain = best_yaw_score;
 		node.best_yaw = best_yaw;
 	}
+	node.gain_calculated = true;
 
 	if (publish_visualization) {
 		//Visualize best yaw direction

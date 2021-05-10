@@ -51,13 +51,17 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_tree_path_calculator.reset(new TreePathCalculator());
 	_node_comparator.reset(new NodeComparator());
+	_frontier_comparator.reset(new FrontierComparator());
 	_gain_calculator.reset(new GainCalculator());
 	_running = false;
 	_construction_running = false;
 	_consecutive_failed_goals = 0;
 	_gain_calculator->precalculateGainPolls();
+	_best_branch.node_counter = 0;
 	_rrt.frontier_counter = 0;
 	_rrt.frontiers.clear();
+	_node_comparator->initialization();
+	_frontier_comparator->initialization();
 	initRrt(seed);
 }
 
@@ -86,10 +90,10 @@ void TreeConstructor::initRrt(const geometry_msgs::Point &seed) {
 	_rrt.root = 0;
 	_rrt.nearest_node = 0;
 	_current_goal_node = -1;
+	_current_frontier_node = -1;
 	_updating = false;
 	_goal_updated = false;
 	_tree_searcher->rebuildIndex(_rrt);
-	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 }
 
@@ -122,14 +126,7 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 			node.status = _rrt.nodes[nodes[i]].status;
 			node.gain = _rrt.nodes[nodes[i]].gain;
 			node.best_yaw = _rrt.nodes[nodes[i]].best_yaw;
-			//get all frontiers near the node to query GP
-			std::vector<int> frontier_indexes =
-					_frontier_searcher->searchInRadius(node.position, 2); // 2 from https://github.com/mseln/aeplanner/blob/master/pigain/nodes/pig.py#L119
-			std::vector<rrt_nbv_exploration_msgs::Node> frontiers;
-			for (auto it : frontier_indexes) {
-				frontiers.push_back(_rrt.frontiers[it]);
-			}
-			_gain_calculator->determineGain(frontiers, node);
+			requestGain(node);
 			node.index = i;
 			node.distanceToParent = _rrt.nodes[nodes[i]].distanceToParent;
 			node.distanceToRobot = sqrt(
@@ -152,7 +149,8 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 void TreeConstructor::saveFrontiers() {
 	bool frontier_added = false;
 	for (auto node : _rrt.nodes) {
-		if (node.index != _current_goal_node && node.gain > 0) {
+		if (node.index != _current_goal_node && node.gain > 0
+				&& node.gain_calculated) {
 			node.index = _rrt.frontier_counter++;
 			node.pathToRobot.clear();
 			node.distanceToRobot = 0;
@@ -186,6 +184,7 @@ void TreeConstructor::startRrtConstruction() {
 		if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
 			_node_comparator->addNode(node.index);
 	}
+	_node_comparator->maintainList(_rrt);
 	runRrtConstruction();
 }
 
@@ -218,35 +217,36 @@ void TreeConstructor::runRrtConstruction() {
 				min_distance >= pow(_robot_radius, 2)) {
 			placeNewNode(rand_sample, min_distance, nearest_node);
 		}
-		//only set goal when n_max reached and only add goals with gain>0,
-		if (_rrt.node_counter >= _n_max && !_node_comparator->isEmpty()) {
-			_node_comparator->maintainList(_rrt);
-			_current_goal_node = _node_comparator->getBestNode();
+		//only set goal when n_max reached and only select goal with gcr>thres,
+		if (_rrt.node_counter >= _n_max) {
+			checkForGoal(false);
+		}
+		if (ros::Time::now().toSec() - _rrt_start_time.toSec()
+				> _exploration_finished_timer_duration) {
+			checkForGoal(true);
+		}
+	}
+}
+
+void TreeConstructor::checkForGoal(bool timer) {
+	if (!_node_comparator->isEmpty()) {
+		int best_node = _node_comparator->getBestNode();
+		if (_rrt.nodes[best_node].status
+				!= rrt_nbv_exploration_msgs::Node::BELOW_THRES) {
+			_current_goal_node = best_node;
 			saveFrontiers();
 			_construction_running = false;
 			_updating = false;
 			_goal_updated = true;
-			ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
-		} else if (_rrt.node_counter >= _n_tol) {
+			ROS_INFO_STREAM("Set current goal node to " << _current_goal_node);
+			return;
+		}
+	}
+	if (timer || _rrt.node_counter >= _n_tol) {
+		if (!selectGoalFromFrontiers()) {
 			ROS_INFO_STREAM("Exploration finished");
 			_running = false;
 			_construction_running = false;
-		} else if (ros::Time::now().toSec() - _rrt_start_time.toSec()
-				> _exploration_finished_timer_duration) {
-			if (!_node_comparator->isEmpty()) {
-				_node_comparator->maintainList(_rrt);
-				_current_goal_node = _node_comparator->getBestNode();
-				saveFrontiers();
-				_construction_running = false;
-				_updating = false;
-				_goal_updated = true;
-				ROS_INFO_STREAM(
-						"Timer set current goal node to " << _current_goal_node);
-			} else {
-				ROS_INFO_STREAM("Exploration finished");
-				_running = false;
-				_construction_running = false;
-			}
 		}
 	}
 }
@@ -295,26 +295,21 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 		node.status = rrt_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.parent = nearest_node;
-		node.distanceToParent = _edge_length > 0 ? _edge_length : distance;
+		node.distanceToParent = distance;
 		node.index = _rrt.node_counter;
 		_tree_path_calculator->initializePathToRobot(node, _rrt.node_counter,
 				_rrt.nodes[nearest_node].pathToRobot,
-				_rrt.nodes[nearest_node].distanceToRobot);
-		//get all frontiers near the new node to query GP
-		std::vector<int> frontier_indexes = _frontier_searcher->searchInRadius(
-				node.position, 2); // 2 from https://github.com/mseln/aeplanner/blob/master/pigain/nodes/pig.py#L119
-		std::vector<rrt_nbv_exploration_msgs::Node> frontiers;
-		for (auto it : frontier_indexes) {
-			frontiers.push_back(_rrt.frontiers[it]);
-		}
-		_gain_calculator->determineGain(frontiers, node);
-		if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
-			_node_comparator->addNode(node.index);
+				_rrt.nodes[_rrt.root].position);
+		requestGain(node);
 		_rrt.nodes.push_back(node);
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
+		if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED) {
+			_node_comparator->addNode(node.index);
+			_node_comparator->maintainList(_rrt);
+		}
 		publishRrt();
 		_rrt_start_time = ros::Time::now();
 	}
@@ -329,6 +324,41 @@ void TreeConstructor::reevaluateFrontiers() {
 			_gain_calculator->calculatePointGain(_rrt.frontiers[it]);
 		}
 	}
+}
+
+bool TreeConstructor::selectGoalFromFrontiers() {
+	for (auto &frontier : _rrt.frontiers) {
+		if (frontier.gain > 0) {
+			frontier.distanceToRobot = sqrt(
+					pow(_rrt.nodes[_rrt.root].position.x - frontier.position.x,
+							2)
+							+ pow(
+									_rrt.nodes[_rrt.root].position.y
+											- frontier.position.y, 2));
+			_frontier_comparator->addNode(frontier.index);
+		}
+	}
+	if (!_frontier_comparator->isEmpty()) {
+		_frontier_comparator->maintainList(_rrt);
+		_current_frontier_node = _frontier_comparator->getBestNode();
+		_construction_running = false;
+		_updating = false;
+		_goal_updated = true;
+		ROS_INFO_STREAM("Current goal from frontier to " << _current_goal_node);
+		return true;
+	}
+	return false;
+}
+
+void TreeConstructor::requestGain(rrt_nbv_exploration_msgs::Node &node) {
+	//get all frontiers near the node to query GP
+	std::vector<int> frontier_indexes = _frontier_searcher->searchInRadius(
+			node.position, 2); // 2 from https://github.com/mseln/aeplanner/blob/master/pigain/nodes/pig.py#L119
+	std::vector<rrt_nbv_exploration_msgs::Node> frontiers;
+	for (auto it : frontier_indexes) {
+		frontiers.push_back(_rrt.frontiers[it]);
+	}
+	_gain_calculator->determineGain(frontiers, node);
 }
 
 void TreeConstructor::convertOctomapMsgToOctree(
@@ -348,40 +378,48 @@ void TreeConstructor::updateMapDimensions() {
 bool TreeConstructor::requestGoal(
 		rrt_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrt_nbv_exploration_msgs::RequestGoal::Response &res) {
-	res.goal_available = _goal_updated && _current_goal_node != -1;
+	res.goal_available = _goal_updated
+			&& (_current_goal_node != -1 || _current_frontier_node != -1);
 	res.exploration_finished = !_running;
 	if (res.goal_available) {
-		if (_rrt.nodes[_current_goal_node].status
-				== rrt_nbv_exploration_msgs::Node::VISITED) {
-			_rrt.nodes[_current_goal_node].status =
-					rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED;
-		} else if (_rrt.nodes[_current_goal_node].status
-				== rrt_nbv_exploration_msgs::Node::INITIAL) {
-			_rrt.nodes[_current_goal_node].status =
-					rrt_nbv_exploration_msgs::Node::ACTIVE;
-		}
-		res.goal = _rrt.nodes[_current_goal_node].position;
-		// check if goal has gain or is only explored node on best branch
-		if (_rrt.nodes[_current_goal_node].gain > 0
-				|| _rrt.nodes[_current_goal_node].children_counter == 0) {
-			res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
-		} else {
-			// get orientation towards next node in (hopefully) best branch
-			int best_child = 0;
-			double best_gain = -1;
-			for (auto child : _rrt.nodes[_current_goal_node].children) {
-				if (_rrt.nodes[child].gain > best_gain) {
-					best_child = child;
-					best_gain = _rrt.nodes[child].gain;
-				}
+		if (_current_goal_node != -1) {
+			if (_rrt.nodes[_current_goal_node].status
+					== rrt_nbv_exploration_msgs::Node::VISITED) {
+				_rrt.nodes[_current_goal_node].status =
+						rrt_nbv_exploration_msgs::Node::ACTIVE_VISITED;
+			} else if (_rrt.nodes[_current_goal_node].status
+					== rrt_nbv_exploration_msgs::Node::INITIAL) {
+				_rrt.nodes[_current_goal_node].status =
+						rrt_nbv_exploration_msgs::Node::ACTIVE;
 			}
-			double yaw = atan2(
-					_rrt.nodes[best_child].position.y
-							- _rrt.nodes[_current_goal_node].position.y,
-					_rrt.nodes[best_child].position.x
-							- _rrt.nodes[_current_goal_node].position.x);
-			res.best_yaw = yaw * 180 / M_PI;
-			_rrt.nodes[_current_goal_node].best_yaw = res.best_yaw;
+			res.goal = _rrt.nodes[_current_goal_node].position;
+			// check if goal has gain or is only explored node on best branch
+			if (_rrt.nodes[_current_goal_node].gain > 0
+					|| _rrt.nodes[_current_goal_node].children_counter == 0) {
+				res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
+			} else {
+				// get orientation towards next node in (hopefully) best branch
+				int best_child = 0;
+				double best_gain = -1;
+				for (auto child : _rrt.nodes[_current_goal_node].children) {
+					if (_rrt.nodes[child].gain > best_gain) {
+						best_child = child;
+						best_gain = _rrt.nodes[child].gain;
+					}
+				}
+				double yaw = atan2(
+						_rrt.nodes[best_child].position.y
+								- _rrt.nodes[_current_goal_node].position.y,
+						_rrt.nodes[best_child].position.x
+								- _rrt.nodes[_current_goal_node].position.x);
+				res.best_yaw = yaw * 180 / M_PI;
+				_rrt.nodes[_current_goal_node].best_yaw = res.best_yaw;
+			}
+		} else {
+			_rrt.frontiers[_current_frontier_node].status =
+					rrt_nbv_exploration_msgs::Node::ACTIVE;
+			res.goal = _rrt.frontiers[_current_frontier_node].position;
+			res.best_yaw = _rrt.frontiers[_current_frontier_node].best_yaw;
 		}
 		_goal_updated = false;
 	}
@@ -395,6 +433,12 @@ bool TreeConstructor::requestPath(
 		std::vector<geometry_msgs::PoseStamped> rrt_path;
 		_tree_path_calculator->getNavigationPath(rrt_path, _rrt,
 				_current_goal_node);
+		res.path = rrt_path;
+		return true;
+	} else if (_current_frontier_node != -1) {
+		std::vector<geometry_msgs::PoseStamped> rrt_path;
+		_tree_path_calculator->getFrontierPath(rrt_path, _rrt,
+				_current_frontier_node);
 		res.path = rrt_path;
 		return true;
 	}
@@ -417,6 +461,17 @@ bool TreeConstructor::updateCurrentGoal(
 				return true;
 			}
 		}
+		_updating = true;
+		startRrtConstruction();
+	} else if (_current_frontier_node != -1 && !_updating) {
+		if (req.status == rrt_nbv_exploration_msgs::Node::FAILED)
+			_rrt.frontiers[_current_frontier_node].status =
+					rrt_nbv_exploration_msgs::Node::FAILED;
+		else
+			_rrt.frontiers[_current_frontier_node].status =
+					rrt_nbv_exploration_msgs::Node::EXPLORED;
+		_rrt.frontiers[_current_frontier_node].gain = 0;
+		_current_frontier_node = -1;
 		_updating = true;
 		startRrtConstruction();
 	}

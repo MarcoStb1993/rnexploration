@@ -1,12 +1,12 @@
 /*
- * NodeComparator.h
+ * FrontierComparator.h
  *
  *  Created on: Nov 4, 2020
  *      Author: marco
  */
 
-#ifndef RRT_NBV_EXPLORATION_SRC_NODECOMPARATOR_H_
-#define RRT_NBV_EXPLORATION_SRC_NODECOMPARATOR_H_
+#ifndef RRT_NBV_EXPLORATION_SRC_FrontierComparator_H_
+#define RRT_NBV_EXPLORATION_SRC_FrontierComparator_H_
 
 #include "ros/ros.h"
 #include <rrt_nbv_exploration_msgs/Tree.h>
@@ -18,15 +18,14 @@ namespace rrt_nbv_exploration {
 /**
  * @brief Structure to store the node and the particular gain-cost-ratio and if applicable the nodes in the horizon
  */
-struct CompareStruct {
+struct FrontierCompareStruct {
 	int node;
 	double gain_cost_ratio;
-	std::vector<int> horizon;
 
 	/**
 	 * @brief Constructor to initialize struct with node index in tree list
 	 */
-	CompareStruct(int n) {
+	FrontierCompareStruct(int n) {
 		node = n;
 		gain_cost_ratio = 0.0;
 	}
@@ -34,48 +33,18 @@ struct CompareStruct {
 	/**
 	 * @brief Constructor to initialize struct with node index in tree list and gain-cost-ratio
 	 */
-	CompareStruct(int n, double gcr) {
+	FrontierCompareStruct(int n, double gcr) {
 		node = n;
 		gain_cost_ratio = gcr;
 	}
-
-	/**
-	 * @brief Constructor to initialize struct with node index in tree list and gain-cost-ratio
-	 */
-	CompareStruct(int n, double gcr, std::vector<int> h) {
-		node = n;
-		gain_cost_ratio = gcr;
-		horizon = h;
-	}
 };
-
-/**
- * @brief Structure to store the next nodes of a previous node while calculating the horizon gain-cost-ratio depth-first
- */
-struct HorizonStruct {
-	int previous_node;
-	std::stack<int> nodes;
-	double gain_cost_ratio;
-
-	/**
-	 * @brief Constructor to initialize struct with a list of the next nodes of a previous node and the gain-cost-ratio of that node
-	 */
-	HorizonStruct(int prev, std::vector<int> n, double gcr) {
-		previous_node = prev;
-		for (auto i : n) {
-			nodes.push(i);
-		}
-		gain_cost_ratio = gcr;
-	}
-};
-
 /**
  * @brief Class to maintain the list of nodes ordered by gain-cost-ratio
  */
-class NodeComparator {
+class FrontierComparator {
 public:
-	NodeComparator();
-	~NodeComparator();
+	FrontierComparator();
+	~FrontierComparator();
 
 	/**
 	 * @brief Initialize variables and maintained list
@@ -111,11 +80,6 @@ public:
 	 */
 	int getBestNode();
 	/**
-	 * @brief Get the branch of the node with the ebst horizon-gain-cost-ratio
-	 * @return List of nodes in the branch
-	 */
-	std::vector<int> getBestBranch();
-	/**
 	 * @brief Get the number of nodes currently in the list
 	 * @return The size of the list
 	 */
@@ -141,19 +105,11 @@ private:
 	/**
 	 * @brief All nodes (their position in the rrt node list) and their respective gain-cost-ratio ordered ascendingly
 	 */
-	std::list<CompareStruct> _nodes_ordered_by_gcr;
-	/**
-	 * @brief All nodes (their position in the rrt node list) and their respective horizon gain-cost-ratio ordered ascendingly
-	 */
-	std::list<CompareStruct> _nodes_ordered_by_hgcr;
+	std::list<FrontierCompareStruct> _nodes_ordered_by_gcr;
 	/**
 	 * @brief Factor penalizing high path costs
 	 */
 	double _cost_factor;
-	/**
-	 * @brief Threshold for GCR below which the node will not be considered as a goal
-	 */
-	double _gcr_threshold;
 
 	/**
 	 * @brief Sorts list of nodes with a gain function which depends on the RNE mode, the node with the best
@@ -169,47 +125,16 @@ private:
 	void calculateGainCostRatios(rrt_nbv_exploration_msgs::Tree &rrt);
 
 	/**
-	 * @brief Calculates the horizon gain-cost-ratio of each node in the list of nodes
-	 * @param Current tree
-	 */
-	void calculateHorizonGainCostRatios(rrt_nbv_exploration_msgs::Tree &rrt);
-
-	/**
-	 * @brief Calculates the horizon gain-cost-ratio of the given node
-	 * @param Current tree
-	 * @param Index of the node which gain-cost-ratio should be calculated
-	 * @return The compare struct for the given node with calculated gain-cost-ratio
-	 */
-	CompareStruct calculateHorizonGainCostRatio(
-			rrt_nbv_exploration_msgs::Tree &rrt, int node);
-
-	/**
-	 * @brief Returns the gain-cost-ratio of the given node index added to the previous layer horizon gain-cost-ratio
-	 * @param Reference to horizon list
-	 * @param Node index of which the gain-cost-ratio should be returned
-	 * @return Horizon gain-cost-ratio for given node
-	 */
-	double getCurrentHorizonGainCostRatio(
-			std::stack<HorizonStruct> &horizon_list, int node);
-
-	/**
-	 * @brief Returns the gain-cost-ratio of the given node index
-	 * @param Node index of which the gain-cost-ratio should be returned
-	 * @return Gain-cost-ratio for given node
-	 */
-	double getNodeGainCostRatio(int node);
-
-	/**
 	 * @brief Compares the two given nodes and returns true if the first node's gain-cost-ratio is better than the second
 	 * @param First node
 	 * @param Second node
 	 * @param Returns if the first node's gain-cost-ratio is better than the second node's gain-cost-ratio
 	 */
-	bool compareNodeByRatios(const CompareStruct &node_one,
-			const CompareStruct &node_two);
+	bool compareNodeByRatios(const FrontierCompareStruct &node_one,
+			const FrontierCompareStruct &node_two);
 
 };
 
 } /* namespace rrt_nbv_exploration */
 
-#endif /* RRT_NBV_EXPLORATION_SRC_NODECOMPARATOR_H_ */
+#endif /* RRT_NBV_EXPLORATION_SRC_FrontierComparator_H_ */

@@ -46,6 +46,7 @@ add_executable(rneNode src/RneNode.cpp
 				src/CollisionChecker.cpp
 				src/TreePathCalculator.cpp
 				src/NodeComparator.cpp
+				src/FrontierComparator.cpp
 				src/GainCalculator.cpp)
 add_executable(gainCalcNode src/GainCalcNode.cpp
 				src/GainCalculator.cpp)

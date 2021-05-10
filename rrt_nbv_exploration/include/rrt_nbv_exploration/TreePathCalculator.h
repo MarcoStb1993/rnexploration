@@ -27,15 +27,15 @@ public:
 	geometry_msgs::Pose getRobotPose();
 
 	/**
-	 * @brief Initializes given nodes path from the robot's current position to it and its distance by taking the node's
-	 * parent's path and adding the new node to it
+	 * @brief Initializes given nodes path from the robot's current position to it by taking the node's
+	 * parent's path and adding the new node to it and calculate its Euclidean distance
 	 * @param Reference to the node to be initialized
 	 * @param Index of the new node
 	 * @param Parent node's path to robot
-	 * @param Parent node's distance to robot
+	 * @param Root node's position
 	 */
 	void initializePathToRobot(rrt_nbv_exploration_msgs::Node &node, int index,
-			std::vector<int> parentPathtoRobot, double parentDistanceToRobot);
+			std::vector<int> parentPathtoRobot,  geometry_msgs::Point root);
 
 	/**
 	 * @brief Updates paths and distances from the robot's current position to the respective node if it is still unexplored
@@ -63,6 +63,15 @@ public:
 	 */
 	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
 			rrt_nbv_exploration_msgs::Tree &rrt, int goal_node);
+
+	/**
+	 * @brief Returns a path from the robot to the goal frontier
+	 * @param Reference to the calculated path
+	 * @param Current tree
+	 * @param Frontier to go to
+	 */
+	void getFrontierPath(std::vector<geometry_msgs::PoseStamped> &path,
+			rrt_nbv_exploration_msgs::Tree &rrt, int goal_frontier);
 
 	/**
 	 * @brief Returns if the two given nodes are next to each other
@@ -94,7 +103,8 @@ public:
 	 * @param Current tree
 	 * @return Path length in m
 	 */
-	double updatePathDistance(int prevNode, int newNode, double path_length, bool add, rrt_nbv_exploration_msgs::Tree &rrt);
+	double updatePathDistance(int prevNode, int newNode, double path_length,
+			bool add, rrt_nbv_exploration_msgs::Tree &rrt);
 
 	/**
 	 * @brief Calculate the distance of the given path depending on the edge length (if lesser equals 0, retrieve
