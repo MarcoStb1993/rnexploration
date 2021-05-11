@@ -129,6 +129,9 @@
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
 			name="DWAPlannerROS/prune_plan" value="true" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/latch_xy_goal_tolerance" value="true" />
 		<remap from="/cmd_vel" to="$(arg autonomy_cmd_vel_topic)" />
 	</node>
 
@@ -168,6 +171,9 @@
 		<param
 			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
 			name="DWAPlannerROS/prune_plan" value="true" />
+		<param
+			if="$(eval navigation_global_planner == 'rrt_nbv_exploration::RneGlobalPlanner')"
+			name="DWAPlannerROS/latch_xy_goal_tolerance" value="true" />
 		<remap from="/cmd_vel"
 			to="$(arg autonomy_cmd_vel_topic)_reverse" />
 		<remap from="move_base/goal" to="move_base_reverse/goal" />
