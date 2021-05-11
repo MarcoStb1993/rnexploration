@@ -45,7 +45,7 @@ void TreeConstructor::initialization(geometry_msgs::Point seed) {
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&TreeConstructor::convertOctomapMsgToOctree, this);
 
-	_radius_search_range = pow(_sensor_range, 2);
+	_radius_search_range = pow(2*_sensor_range, 2);
 	_tree_searcher.reset(new TreeSearcher());
 	_frontier_searcher.reset(new FrontierSearcher());
 	_collision_checker.reset(new CollisionChecker());
