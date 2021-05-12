@@ -124,7 +124,7 @@ void TreeConstructor::storeBestBranch(std::vector<int> nodes) {
 			node.distanceToRobot = sqrt(
 					pow(root.position.x - node.position.x, 2)
 							+ pow(root.position.y - node.position.y, 2));
-			for(int p = 0; p <= i; p++){
+			for (int p = 0; p <= i; p++) {
 				node.pathToRobot.push_back(p);
 			}
 			if (i + 1 < nodes.size()) {
@@ -151,7 +151,7 @@ void TreeConstructor::startRrtConstruction() {
 		_construction_running = true;
 		_gain_calculator->calculateGain(_rrt.nodes[0]);
 		for (auto node : _rrt.nodes) {
-			if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
+			if (node.gain > 0)
 				_node_comparator->addNode(node.index);
 		}
 		runRrtConstruction();
@@ -269,13 +269,13 @@ void TreeConstructor::placeNewNode(geometry_msgs::Point rand_sample,
 				_rrt.nodes[nearest_node].pathToRobot,
 				_rrt.nodes[nearest_node].distanceToRobot);
 		_gain_calculator->calculateGain(node);
-		if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
-			_node_comparator->addNode(node.index);
 		_rrt.nodes.push_back(node);
 		_rrt.nodes[nearest_node].children.push_back(_rrt.node_counter);
 		_rrt.nodes[nearest_node].children_counter++;
 		_rrt.node_counter++;
 		_tree_searcher->rebuildIndex(_rrt);
+		if (node.status != rrt_nbv_exploration_msgs::Node::EXPLORED)
+			_node_comparator->addNode(node.index);
 		publishRrt();
 		_rrt_start_time = ros::Time::now();
 	}
@@ -311,7 +311,28 @@ bool TreeConstructor::requestGoal(
 					rrt_nbv_exploration_msgs::Node::ACTIVE;
 		}
 		res.goal = _rrt.nodes[_current_goal_node].position;
-		res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
+		// check if goal has gain>0 or is only explored node on best branch
+		if (_rrt.nodes[_current_goal_node].gain > 0
+				|| _rrt.nodes[_current_goal_node].children_counter == 0) {
+			res.best_yaw = _rrt.nodes[_current_goal_node].best_yaw;
+		} else {
+			// get orientation towards next node in best branch (guess based on child with most gain, default: first child)
+			int best_child = 0;
+			double best_gain = -1;
+			for (auto child : _rrt.nodes[_current_goal_node].children) {
+				if (_rrt.nodes[child].gain > best_gain) {
+					best_child = child;
+					best_gain = _rrt.nodes[child].gain;
+				}
+			}
+			double yaw = atan2(
+					_rrt.nodes[best_child].position.y
+							- _rrt.nodes[_current_goal_node].position.y,
+					_rrt.nodes[best_child].position.x
+							- _rrt.nodes[_current_goal_node].position.x);
+			res.best_yaw = yaw * 180 / M_PI;
+			_rrt.nodes[_current_goal_node].best_yaw = res.best_yaw;
+		}
 		_goal_updated = false;
 	}
 	return true;
@@ -345,6 +366,7 @@ bool TreeConstructor::updateCurrentGoal(
 				stopRrtConstruction();
 				return true;
 			}
+			resetBestBranch();
 		}
 		_updating = true;
 		startRrtConstruction();
