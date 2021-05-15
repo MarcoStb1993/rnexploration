@@ -19,10 +19,10 @@
 #include <random>
 #include "math.h"
 
-#include "../rrg_nbv_exploration/CollisionChecker.h"
-#include "../rrg_nbv_exploration/GraphPathCalculator.h"
-#include "../rrg_nbv_exploration/GraphSearcher.h"
-#include "../rrg_nbv_exploration/NodeComparator.h"
+#include <rrg_nbv_exploration/CollisionChecker.h>
+#include <rrg_nbv_exploration/GraphPathCalculator.h>
+#include <rrg_nbv_exploration/GraphSearcher.h>
+#include <rrg_nbv_exploration/NodeComparator.h>
 
 namespace rrg_nbv_exploration {
 
