@@ -4,6 +4,7 @@ geometry_msgs/Point position	# Position of the node in the map
 float64 gain    				# Calculated information gain metrics at this position for exploration (-1 if not calculated)
 int32 best_yaw					# Yaw in degrees with best gain
 uint8 status    				# Nodes current status regarding the exploration
+float64 radius					# Radius of the cleared area around the node
 
 uint8 INITIAL = 0       		# Node is waiting to be explored
 uint8 ACTIVE = 1        		# Node is currently targeted as navigation goal

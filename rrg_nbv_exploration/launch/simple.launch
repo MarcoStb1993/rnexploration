@@ -23,8 +23,6 @@
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
-	<arg name="min_edge_distance" default="1.0" />
-	<arg name="max_edge_distance" default="2.0" />	
 	<arg name="nearest_node_tolerance" default="0.1" />		
 	<arg name="max_node_height_difference" default="1.0" />	
 
@@ -42,8 +40,6 @@
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
-		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />
-		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
 		<param name="nearest_node_tolerance" type="double" value="$(arg nearest_node_tolerance)" />
 	</node>
 	

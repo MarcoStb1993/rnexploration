@@ -78,13 +78,9 @@ private:
 	 */
 	double _robot_radius;
 	/**
-	 * Width of the robot in m
+	 * @brief Maximal sensor range that is considered for gain calculation
 	 */
-	double _robot_width;
-	/**
-	 * Minimum required distance between two nodes for a box collision object to be inserted
-	 */
-	double _path_box_distance_thres;
+	double _sensor_range;
 	/**
 	 * If the occupancy map for visualization was initialized already
 	 */
@@ -101,12 +97,27 @@ private:
 	 * @brief Grid map cell edge length in m
 	 */
 	double _grid_map_resolution;
-
+	/**
+	 * @brief X and y offsets from the circle's center that form the edge of the circle with the
+	 * robot's radius, only contains positive y-offsets, negative ones are symmetrical
+	 */
 	std::vector<CircleLine> _circle_lines_offset;
+
+	/**
+	 * @brief Pair of largest inflated radius so far and x and y offsets from the circle's center that
+	 * form the edge of the circle with the largest inflated radius so far, only contains positive
+	 * y-offsets, negative ones are symmetrical
+	 */
+	std::pair<double,std::vector<CircleLine>> _inflated_circle_lines_offset;
+	/**
+	 * @brief List of pairs of radius and and respective x and y offsets from the circle's center that
+	 * form a ring around the edge of the circle with the next smaller radius, only contains positive
+	 * y-offsets, negative ones are symmetrical
+	 */
+	std::vector<std::pair<double,std::vector<CircleLine>>> _inflated_ring_lines_offsets;
 
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
-	visualization_msgs::MarkerArray _node_edges;
 
 	/**
 	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking
@@ -126,7 +137,29 @@ private:
 	bool worldToMap(double wx, double wy, unsigned int &mx, unsigned int &my,
 			nav_msgs::OccupancyGrid &map);
 
-	void precalculateCircleLinesOffset(std::vector<int8_t> &vis_map);
+	/**
+	 * @brief Calculate the x and y offsets from a circle's center in the grid
+	 * @param Radius of the circle to calculate
+	 * @return Set of x and y offsets that describe the edge of the circle in the grid
+	 */
+	std::vector<CircleLine> calculateCircleLinesOffset(double radius);
+
+	/**
+	 * @brief Calculate the x and y offsets of the edge of the circle in the grid for the robot radius
+	 */
+	void precalculateCircleLinesOffset();
+
+	/**
+	 * @brief Check if a set of offsets with the given center is in collision
+	 * @param X-coordinate of the set's center
+	 * @param Y-coordinate of the set's center
+	 * @param Reference to the map for checking collision
+	 * @param Reference to the visualization map to display checked areas
+	 * @param Set of offsets to check
+	 * @return True if a collision was registered, false otherwise
+	 */
+	bool isSetInCollision(double center_x, double center_y, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map, std::vector<CircleLine> offsets);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -136,37 +169,20 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @return True if a collision was registered, false otherwise
 	 */
-	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map,
+	bool isCircleInCollision(double center_x, double center_y, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map);
 
-	/**
-	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
-	 * @param X-coordinate of the rectangle's center
-	 * @param Y-coordinate of the rectangle's center
-	 * @param Yaw rotation of the rectangle around its center
-	 * @param Height of the rectangle divided by 2
-	 * @param Width of the rectangle divided by 2
-	 * @param Reference to the map for checking collision
-	 * @param Reference to the visualization map to display checked areas
-	 * @return True if a collision was registered, false otherwise
-	 */
-	bool isRectangleInCollision(double x, double y, double yaw,
-			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map);
+
 
 	/**
-	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
-	 * @param X-coordinate of the rectangle's center
-	 * @param Y-coordinate of the rectangle's center
-	 * @param Yaw rotation of the rectangle around its center
-	 * @param Height of the rectangle divided by 2
-	 * @param Width of the rectangle divided by 2
+	 * @brief Check how far a circle with the given center can be inflated until a collision is detected
+	 * @param X-coordinate of the circle's center
+	 * @param Y-coordinate of the circle's center
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
-	 * @return True if a collision was registered, false otherwise
+	 * @return Maximum radius of the inflated circle
 	 */
-	bool isAlignedRectangleInCollision(double x, double y, double yaw,
-			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
+	double inflateCircle(double x, double y, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map);
 
 	/**

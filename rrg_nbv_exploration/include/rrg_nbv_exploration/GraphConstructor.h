@@ -131,14 +131,6 @@ private:
 	 */
 	double _sensor_height;
 	/**
-	 * @brief Squared min distance between two nodes in the graph
-	 */
-	double _min_edge_distance_squared;
-	/**
-	 * @brief Max distance between two nodes in the graph
-	 */
-	double _max_edge_distance;
-	/**
 	 * @brief Squared max distance between two nodes in the graph
 	 */
 	double _max_edge_distance_squared;

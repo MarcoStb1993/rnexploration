@@ -12,12 +12,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("sensor_max_range", _sensor_range, 5.0);
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
-	double min_edge_distance;
-	private_nh.param("min_edge_distance", min_edge_distance, 1.0);
-	private_nh.param("max_edge_distance", _max_edge_distance, 2.0);
-	_min_edge_distance_squared = pow(min_edge_distance, 2);
-	_max_edge_distance_squared = pow(_max_edge_distance, 2);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	_max_edge_distance_squared = pow(_robot_radius, 2);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
 	private_nh.param("exploration_finished_timer_duration",
@@ -144,16 +140,16 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths) {
 	int nearest_node;
 	_graph_searcher->findNearestNeighbour(rand_sample, min_distance,
 			nearest_node);
-	if (min_distance >= _min_edge_distance_squared) {
+	if (min_distance >= _max_edge_distance_squared) {
 		if (min_distance >= _max_edge_distance_squared) {
 			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
 			double distance = sqrt(min_distance);
 			rand_sample.x = _rrg.nodes[nearest_node].position.x
-					- (_max_edge_distance
+					- (_robot_radius
 							* (_rrg.nodes[nearest_node].position.x
 									- rand_sample.x) / distance);
 			rand_sample.y = _rrg.nodes[nearest_node].position.y
-					- (_max_edge_distance
+					- (_robot_radius
 							* (_rrg.nodes[nearest_node].position.y
 									- rand_sample.y) / distance);
 		}
