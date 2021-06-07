@@ -49,14 +49,11 @@ public:
 	 * @param Reference to a possible new node in the RRT
 	 * @param Reference to the node that would be the nearest neighbour for a node with the given random position
 	 * @param Randomly sampled position serving as a base for a new node's position
-	 * @param Distance between the nearest node in the RRT and the randomly sampled position
-	 * @param If the circle around the sample point should be checked
-	 * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
+	 * @return Returns true if a path between the nodes was found and false otherwise
 	 */
 	bool steer(rrg_nbv_exploration_msgs::Node &new_node,
 			rrg_nbv_exploration_msgs::Node &nearest_node,
-			geometry_msgs::Point rand_sample, double min_distance,
-			double check_circle);
+			geometry_msgs::Point rand_sample);
 
 	/**
 	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated

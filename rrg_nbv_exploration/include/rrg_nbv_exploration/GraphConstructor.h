@@ -209,13 +209,12 @@ private:
 	 */
 	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
 	/**
-	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the max radius in the existing graph
+	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the inflated radius around it in the existing graph
 	 * @param Randomly sampled point
-	 * @param List of nodes to connect point with and their respective squared distances
+	 * @param Node closest to sample point in the graph
 	 * @param If the paths of possibly connected nodes should be updated
 	 */
-	void connectNewNode(geometry_msgs::Point rand_sample,
-			std::vector<std::pair<int, double>> nodes, bool updatePaths);
+	void connectNewNode(geometry_msgs::Point rand_sample, int nearest_node, bool updatePaths);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */

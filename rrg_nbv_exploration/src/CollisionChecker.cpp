@@ -59,11 +59,11 @@ std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
 
 void CollisionChecker::precalculateCircleLinesOffset() {
 	_circle_lines_offset = calculateCircleLinesOffset(_robot_radius);
-	ROS_INFO_STREAM("Circle Offsets");
-	for (auto offset : _circle_lines_offset) {
-		ROS_INFO_STREAM(
-				"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-	}
+//	ROS_INFO_STREAM("Circle Offsets");
+//	for (auto offset : _circle_lines_offset) {
+//		ROS_INFO_STREAM(
+//				"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
+//	}
 }
 
 bool CollisionChecker::isSetInCollision(double center_x, double center_y,
@@ -94,13 +94,13 @@ double CollisionChecker::inflateCircle(double x, double y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
 	double current_radius = ceil(_robot_radius / _grid_map_resolution)
 			* _grid_map_resolution; //round up radius to next full grid map tile
-	ROS_INFO_STREAM("Start radius " << current_radius);
+//	ROS_INFO_STREAM("Start radius " << current_radius);
 	for (auto it : _inflated_ring_lines_offsets) { //iterate over already existing offsets first
-		ROS_INFO_STREAM("Existing Ring Offsets for radius " << current_radius);
-		for (auto offset : it.second) {
-			ROS_INFO_STREAM(
-					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-		}
+//		ROS_INFO_STREAM("Existing Ring Offsets for radius " << current_radius);
+//		for (auto offset : it.second) {
+//			ROS_INFO_STREAM(
+//					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
+//		}
 		if (isSetInCollision(x, y, map, vis_map, it.second))
 			return current_radius;
 		current_radius = it.first;
@@ -111,11 +111,11 @@ double CollisionChecker::inflateCircle(double x, double y,
 		std::vector<CircleLine> newOffsetSet = calculateCircleLinesOffset(
 				current_radius);
 		//TODO: circle to ring offsets
-		ROS_INFO_STREAM("New Ring Offsets for radius " << current_radius);
-		for (auto offset : newOffsetSet) {
-			ROS_INFO_STREAM(
-					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-		}
+//		ROS_INFO_STREAM("New Ring Offsets for radius " << current_radius);
+//		for (auto offset : newOffsetSet) {
+//			ROS_INFO_STREAM(
+//					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
+//		}
 		if (isSetInCollision(x, y, map, vis_map, newOffsetSet))
 			return current_radius;
 		current_radius = radius;
@@ -172,8 +172,7 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 		rrg_nbv_exploration_msgs::Node &nearest_node,
-		geometry_msgs::Point rand_sample, double distance,
-		double check_circle) {
+		geometry_msgs::Point rand_sample) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
 	vis_map.header.stamp = ros::Time::now();
@@ -185,7 +184,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 			tmp_vis_map_data)) {
 		new_node.radius = inflateCircle(rand_sample.x, rand_sample.y, map,
 				tmp_vis_map_data);
-		ROS_INFO_STREAM("Calculated Radius: " << new_node.radius);
+		new_node.squared_radius = pow(new_node.radius,2);
+//		ROS_INFO_STREAM("Calculated Radius: " << new_node.radius);
 		new_node.position.x = rand_sample.x;
 		new_node.position.y = rand_sample.y;
 		new_node.position.z = rand_sample.z;
