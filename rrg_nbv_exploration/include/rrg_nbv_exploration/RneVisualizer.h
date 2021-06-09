@@ -24,6 +24,14 @@ private:
 	ros::Publisher _rrg_visualization_pub;
 	ros::Publisher _rrg_text_info_visualization_pub;
 	ros::Subscriber _rrg_sub;
+	/**
+	 * Last time at which the graph info was published
+	 */
+	ros::Time _last_info_publish;
+	/**
+	 * Interval time at which the graph info should be published (in s)
+	 */
+	double _info_interval;
 
 	/**
 	 * @brief Visualization function that publishes the RRG-visualization in the topic "rrg_vis" and is called when receiving new input from topic "rrg"

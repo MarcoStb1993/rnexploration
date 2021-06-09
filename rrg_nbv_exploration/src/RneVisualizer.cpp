@@ -5,10 +5,11 @@ RneVisualizer::RneVisualizer() {
 	ros::NodeHandle nh("rne");
 	_rrg_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
 			this);
-	_rrg_visualization_pub = nh.advertise<visualization_msgs::Marker>(
-			"rrg_vis", 1000);
+	_rrg_visualization_pub = nh.advertise<visualization_msgs::Marker>("rrg_vis",
+			1000);
 	_rrg_text_info_visualization_pub = nh.advertise<
 			visualization_msgs::MarkerArray>("rrg_vis_info", 1000);
+	_info_interval = 5.0;
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -45,7 +46,9 @@ void RneVisualizer::visualizeRrgGraph(
 		const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	if (_rrg_visualization_pub.getNumSubscribers() > 0) {
 		bool publishInfo = _rrg_text_info_visualization_pub.getNumSubscribers()
-				> 0;
+				> 0
+				&& (ros::Time::now() - _last_info_publish).toSec()
+						>= _info_interval;
 		visualization_msgs::Marker _node_points;
 		visualization_msgs::Marker _edge_line_list;
 		initializeVisualization(_node_points, _edge_line_list);
@@ -74,8 +77,10 @@ void RneVisualizer::visualizeRrgGraph(
 		}
 		_rrg_visualization_pub.publish(_node_points);
 		_rrg_visualization_pub.publish(_edge_line_list);
-		if (publishInfo)
+		if (publishInfo) {
 			_rrg_text_info_visualization_pub.publish(_node_info_texts);
+			_last_info_publish = ros::Time::now();
+		}
 	}
 }
 

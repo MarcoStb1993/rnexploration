@@ -369,13 +369,13 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: false
+      Enabled: true
       Marker Topic: /rne/rrg_vis_info
       Name: RRG Subtexts
       Namespaces:
-        {}
+        rrt_tree: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Marker
       Enabled: false
       Marker Topic: /rne/raysample_visualization
@@ -385,13 +385,13 @@ Visualization Manager:
       Queue Size: 100
       Value: false
     - Class: rviz/MarkerArray
-      Enabled: false
+      Enabled: true
       Marker Topic: /rne/rrg_collision_vis
       Name: RRG Collision Vis
       Namespaces:
-        {}
+        rrt_collision_vis: true
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -530,7 +530,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 12.068296432495117
+      Distance: 12.678949356079102
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
