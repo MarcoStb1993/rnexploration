@@ -294,20 +294,6 @@ bool GraphConstructor::determineNearestNodeToRobot() {
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
-			if (!_graph_path_calculator->neighbourNodes(_rrg, nearest_node,
-					_rrg.nearest_node)) {
-				//check if robot came off path and is close to a non-neighbor node
-				double distance_squared = pow(
-						_rrg.nodes[_rrg.nearest_node].position.x
-								- _rrg.nodes[nearest_node].position.x, 2)
-						+ pow(
-								_rrg.nodes[_rrg.nearest_node].position.y
-										- _rrg.nodes[nearest_node].position.y,
-								2);
-				if (distance_squared > _nearest_node_tolerance_squared) {
-					return false;
-				}
-			}
 			_moved_to_current_goal = true;
 			_node_comparator->robotMoved();
 			_rrg.nearest_node = nearest_node;
