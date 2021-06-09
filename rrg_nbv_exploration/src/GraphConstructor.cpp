@@ -13,6 +13,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("robot_width", _robot_width, 1.0);
 	_max_edge_distance_squared = pow(_robot_radius, 2);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
@@ -138,25 +139,39 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths) {
 		samplePointLocally(rand_sample, _last_robot_pos);
 	else
 		samplePoint(rand_sample);
-	double min_distance;
-	int nearest_node;
-	_graph_searcher->findNearestNeighbour(rand_sample, min_distance,
-			nearest_node);
-	if (min_distance >= _rrg.nodes[nearest_node].radius) {
-		if (min_distance > _rrg.nodes[nearest_node].radius) {
-			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
-			double distance = sqrt(min_distance);
-			rand_sample.x = _rrg.nodes[nearest_node].position.x
-					- (_rrg.nodes[nearest_node].radius
-							* (_rrg.nodes[nearest_node].position.x
-									- rand_sample.x) / distance);
-			rand_sample.y = _rrg.nodes[nearest_node].position.y
-					- (_rrg.nodes[nearest_node].radius
-							* (_rrg.nodes[nearest_node].position.y
-									- rand_sample.y) / distance);
+	std::vector<std::pair<int, double>> engulfing_nodes =
+			_graph_searcher->searchInRadius(rand_sample,
+					pow(_radius_search_range, 2));
+	int nearest_node = -1;
+	double nearest_distance = std::numeric_limits<double>::infinity();
+	for (auto it : engulfing_nodes) {
+		double distance = sqrt(it.second);
+		if (_rrg.nodes[it.first].radius > distance) //check if another node's radius engulfs the newly sampled point, discard it then
+			return;
+		else { //determine the node with the circle's edge closest to the random sample
+			double edge_distance = distance - _rrg.nodes[it.first].radius;
+			if (edge_distance < nearest_distance) {
+				nearest_node = it.first;
+				nearest_distance = edge_distance;
+			}
 		}
-		connectNewNode(rand_sample, nearest_node, updatePaths);
 	}
+	if (nearest_node == -1)
+		return;
+	double node_distance = nearest_distance + _rrg.nodes[nearest_node].radius;
+	if (node_distance > _rrg.nodes[nearest_node].radius) {
+		// if random sample is further away than nearest node's radius, replace it at radius distance to the nearest node on a line with the sample
+		rand_sample.x = _rrg.nodes[nearest_node].position.x
+				- (_rrg.nodes[nearest_node].radius
+						* (_rrg.nodes[nearest_node].position.x - rand_sample.x)
+						/ node_distance);
+		rand_sample.y = _rrg.nodes[nearest_node].position.y
+				- (_rrg.nodes[nearest_node].radius
+						* (_rrg.nodes[nearest_node].position.y - rand_sample.y)
+						/ node_distance);
+	}
+	alignPointToGridMap(rand_sample);
+	connectNewNode(rand_sample, nearest_node, updatePaths);
 }
 
 void GraphConstructor::samplePoint(geometry_msgs::Point &rand_sample) {
@@ -183,69 +198,69 @@ bool GraphConstructor::samplePointLocally(geometry_msgs::Point &rand_sample,
 }
 
 void GraphConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
-	rand_sample.x = (round(rand_sample.x / _grid_map_resolution) + 0.5)
+	rand_sample.x = (floor(rand_sample.x / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
-	rand_sample.y = (round(rand_sample.y / _grid_map_resolution) + 0.5)
+	rand_sample.y = (floor(rand_sample.y / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
 }
 
 void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		int nearest_node, bool updatePaths) {
-	alignPointToGridMap(rand_sample);
 	rrg_nbv_exploration_msgs::Node node;
-//	ROS_INFO_STREAM(
-//			"connect new node at " << rand_sample.x << "," << rand_sample.y << " with nn=" << nearest_node);
-	std::vector<std::pair<int, double>> engulfing_nodes =
-			_graph_searcher->searchInRadius(rand_sample,
-					pow(_radius_search_range, 2));
-	for (auto it : engulfing_nodes) { //check if another node's radius engulfs the newly sampled point, discard it then
-		if (_rrg.nodes[it.first].squared_radius
-				> it.second + _grid_map_resolution)
-			return;
-	}
 	if (_collision_checker->steer(node, _rrg.nodes[nearest_node],
 			rand_sample)) {
-		ROS_INFO_STREAM("steer successful, radius: " << node.radius);
 		node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		node.index = _rrg.node_counter;
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(node.position,
-						pow(node.radius, 2));
+						pow(node.radius + _sensor_range, 2));
 		if (nodes.size() == 0) {
-			ROS_INFO_STREAM("no nodes in radius, add nearest neighbor");
 			nodes.push_back(
 					std::make_pair(nearest_node,
 							pow(_rrg.nodes[nearest_node].radius, 2)));
 		}
-		ROS_INFO_STREAM("number of nodes in radius: " << nodes.size());
 		double height = 0;
 		double shortest_distance = std::numeric_limits<double>::infinity();
 		int node_with_shortest_distance = -1;
+		int neighbor_node_counter = 0;
 		for (auto it : nodes) {
-			ROS_INFO_STREAM("add node " << it.first);
 			double distance = sqrt(it.second);
-			height += _rrg.nodes[it.first].position.z;
-			rrg_nbv_exploration_msgs::Edge edge;
-			edge.index = _rrg.edge_counter++;
-			edge.first_node = it.first;
-			edge.second_node = node.index;
-			edge.length = distance;
-			_rrg.edges.push_back(edge);
-			node.edges.push_back(edge.index);
-			node.edge_counter++;
-			_rrg.nodes[it.first].edges.push_back(edge.index);
-			_rrg.nodes[it.first].edge_counter++;
-			//find shortest distance to new node
-			double distance_to_robot = _rrg.nodes[it.first].distanceToRobot
-					+ distance;
-			if (distance_to_robot < shortest_distance) {
-				shortest_distance = distance_to_robot;
-				node_with_shortest_distance = it.first;
+				if (distance <= node.radius
+					|| _robot_width
+							<= (sqrt(
+									4 * it.second * node.squared_radius
+											- pow(
+													node.squared_radius
+															- _rrg.nodes[it.first].squared_radius
+															+ it.second, 2))
+									/ distance)) { //connect to nodes inside circle radius or nodes which circle intersection's chord is larger equals robot width
+				neighbor_node_counter++;
+				height += _rrg.nodes[it.first].position.z;
+				rrg_nbv_exploration_msgs::Edge edge;
+				edge.index = _rrg.edge_counter++;
+				edge.first_node = it.first;
+				edge.second_node = node.index;
+				edge.length = distance;
+				_rrg.edges.push_back(edge);
+				node.edges.push_back(edge.index);
+				node.edge_counter++;
+				_rrg.nodes[it.first].edges.push_back(edge.index);
+				_rrg.nodes[it.first].edge_counter++;
+				//find shortest distance to new node
+				double distance_to_robot = _rrg.nodes[it.first].distanceToRobot
+						+ distance;
+				if (distance_to_robot < shortest_distance) {
+					shortest_distance = distance_to_robot;
+					node_with_shortest_distance = it.first;
+				}
 			}
 		}
-		ROS_INFO_STREAM("all nodes added ");
-		node.position.z = height / nodes.size();
+		if (neighbor_node_counter == 0){
+			ROS_INFO_STREAM("no neigbors found, discard");
+			return;
+		}
+		node.position.z = height / neighbor_node_counter;
 		node.distanceToRobot = shortest_distance;
 		node.pathToRobot = _rrg.nodes[node_with_shortest_distance].pathToRobot;
 		node.pathToRobot.push_back(node.index);

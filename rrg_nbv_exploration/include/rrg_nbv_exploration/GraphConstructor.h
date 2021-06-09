@@ -159,6 +159,10 @@ private:
 	 */
 	double _robot_radius;
 	/**
+	 * Width of the robot in m
+	 */
+	double _robot_width;
+	/**
 	 * @brief If current goal is currently updating
 	 */
 	bool _updating;
@@ -209,12 +213,14 @@ private:
 	 */
 	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
 	/**
-	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the inflated radius around it in the existing graph
+	 * @brief Tries to connect a randomly sampled point to the nearest neighbors in the existing graph, which are inside the inflated radius around it
+	 * or which circle's intersection has a chord with a width of at least the robot width
 	 * @param Randomly sampled point
-	 * @param Node closest to sample point in the graph
+	 * @param Node index of node closest to randomly sampled point
 	 * @param If the paths of possibly connected nodes should be updated
 	 */
-	void connectNewNode(geometry_msgs::Point rand_sample, int nearest_node, bool updatePaths);
+	void connectNewNode(geometry_msgs::Point rand_sample,int nearest_node,
+			bool updatePaths);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */
