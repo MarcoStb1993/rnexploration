@@ -13,23 +13,25 @@
 
 #define PI_HALF (M_PI / 2)
 
-struct GridPoint {
-	unsigned int x;
-	unsigned int y;
-};
-
-struct MapPoint {
-	double x;
-	double y;
-};
-
+/**
+ * @brief Structure to store offset that define a slice parallel to the x-axis of a circle or ring
+ * in the grid map
+ */
 struct CircleLine {
 	unsigned int x_offset;
+	unsigned int x_start;
 	unsigned int y_offset;
 
 	CircleLine(unsigned int x, unsigned int y) {
 		x_offset = x;
 		y_offset = y;
+		x_start = 0;
+	}
+
+	CircleLine(unsigned int xs, unsigned int x, unsigned int y) {
+		x_offset = x;
+		y_offset = y;
+		x_start = xs;
 	}
 };
 
@@ -85,7 +87,7 @@ private:
 	/**
 	 * Occupancy map for visualizing collision checking on a 2D grid
 	 */
-	nav_msgs::OccupancyGrid vis_map;
+	nav_msgs::OccupancyGrid _vis_map;
 	/**
 	 * If the initial position when starting exploration has to be checked for obstacles
 	 */
@@ -99,13 +101,6 @@ private:
 	 * robot's radius, only contains positive y-offsets, negative ones are symmetrical
 	 */
 	std::vector<CircleLine> _circle_lines_offset;
-
-	/**
-	 * @brief Pair of largest inflated radius so far and x and y offsets from the circle's center that
-	 * form the edge of the circle with the largest inflated radius so far, only contains positive
-	 * y-offsets, negative ones are symmetrical
-	 */
-	std::pair<double,std::vector<CircleLine>> _inflated_circle_lines_offset;
 	/**
 	 * @brief List of pairs of radius and and respective x and y offsets from the circle's center that
 	 * form a ring around the edge of the circle with the next smaller radius, only contains positive

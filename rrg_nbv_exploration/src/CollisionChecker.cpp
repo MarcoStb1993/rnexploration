@@ -24,46 +24,41 @@ std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
 		double radius) {
 	std::vector<CircleLine> circle_lines_offset;
 	double half_resolution = _grid_map_resolution / 2;
-	double mx = (round(radius / _grid_map_resolution) + 1.5)
-			* _grid_map_resolution; //keep circle in positive quadrant
-	double my = mx;
-	double sx, sy;
 	double dist = radius / _grid_map_resolution;
 	double dist_rounded = round(dist);
-	sy = my;
-	sx = mx + dist_rounded * _grid_map_resolution;
-	unsigned int x_offset = (sx - mx) / _grid_map_resolution;
-	unsigned int y_offset = (my - sy) / _grid_map_resolution;
+	double mx = half_resolution; //circle center (mx,my) in positive quadrant
+	double my = half_resolution;
+	double sy = my; //iterator (sx,sy) starting at my and mx + grid aligned radius
+	double sx = mx + dist_rounded * _grid_map_resolution;
+	unsigned int x_offset = (unsigned int) round(
+			(sx - mx) / _grid_map_resolution);
+	unsigned int y_offset = (unsigned int) round(
+			(sy - my) / _grid_map_resolution);
 	circle_lines_offset.push_back(CircleLine(x_offset, y_offset));
 	double radius_squared = pow(radius, 2);
 	while (sx >= mx) {
-		sy -= _grid_map_resolution;
+		sy += _grid_map_resolution;
 		while (sx > mx
 				&& radius_squared
-						< (pow(my - sy - half_resolution, 2)
+						< (pow(sy - my - half_resolution, 2)
 								+ pow(sx - mx - half_resolution, 2))) {
+			//check if iterator is above circle center and lower right grid tile corner is outside circle's radius
 			sx -= _grid_map_resolution;
 		}
-		if (sx <= mx && radius < (my - sy - half_resolution)) {
+		if (sx <= mx && radius < (sy - my - half_resolution)) {
 			return circle_lines_offset; // no cells to add for this last line
 		}
 		unsigned int x_offset = (unsigned int) round(
 				(sx - mx) / _grid_map_resolution);
 		unsigned int y_offset = (unsigned int) round(
-				(my - sy) / _grid_map_resolution); //round necessary because of double->int conversion inaccuracies
+				(sy - my) / _grid_map_resolution); //round necessary because of double->int conversion inaccuracies
 		circle_lines_offset.push_back(CircleLine(x_offset, y_offset));
 	}
-	;
 	return circle_lines_offset;
 }
 
 void CollisionChecker::precalculateCircleLinesOffset() {
 	_circle_lines_offset = calculateCircleLinesOffset(_robot_radius);
-//	ROS_INFO_STREAM("Circle Offsets");
-//	for (auto offset : _circle_lines_offset) {
-//		ROS_INFO_STREAM(
-//				"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-//	}
 }
 
 bool CollisionChecker::isSetInCollision(double center_x, double center_y,
@@ -73,13 +68,30 @@ bool CollisionChecker::isSetInCollision(double center_x, double center_y,
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
 	for (auto it : offsets) {
-		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-				map_y + it.y_offset, map, vis_map))
-			return true;
-		if (it.y_offset != 0)
+		if (it.x_start == 0) {
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y - it.y_offset, map, vis_map))
+					map_y + it.y_offset, map, vis_map))
 				return true;
+			if (it.y_offset != 0)
+				if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
+						map_y - it.y_offset, map, vis_map))
+					return true;
+		} else {
+			if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
+					map_y + it.y_offset, map, vis_map))
+				return true;
+			if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
+					map_y + it.y_offset, map, vis_map))
+				return true;
+			if (it.y_offset != 0) {
+				if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
+						map_y - it.y_offset, map, vis_map))
+					return true;
+				if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
+						map_y - it.y_offset, map, vis_map))
+					return true;
+			}
+		}
 	}
 	return false;
 }
@@ -94,33 +106,36 @@ double CollisionChecker::inflateCircle(double x, double y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
 	double current_radius = ceil(_robot_radius / _grid_map_resolution)
 			* _grid_map_resolution; //round up radius to next full grid map tile
-//	ROS_INFO_STREAM("Start radius " << current_radius);
+	int prevOffsetIndex = -1;
+	std::vector<int8_t> tmp_vis_map = vis_map;
 	for (auto it : _inflated_ring_lines_offsets) { //iterate over already existing offsets first
-//		ROS_INFO_STREAM("Existing Ring Offsets for radius " << current_radius);
-//		for (auto offset : it.second) {
-//			ROS_INFO_STREAM(
-//					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-//		}
-		if (isSetInCollision(x, y, map, vis_map, it.second))
+		if (isSetInCollision(x, y, map, tmp_vis_map, it.second)) {
 			return current_radius;
+		}
+		vis_map = tmp_vis_map;
 		current_radius = it.first;
+		prevOffsetIndex++;
 	}
 	current_radius += _grid_map_resolution;
 	for (double radius = current_radius; radius < _sensor_range; radius +=
 			_grid_map_resolution) { //check in rings with increasing radius and save the offsets
 		std::vector<CircleLine> newOffsetSet = calculateCircleLinesOffset(
-				current_radius);
-		//TODO: circle to ring offsets
-//		ROS_INFO_STREAM("New Ring Offsets for radius " << current_radius);
-//		for (auto offset : newOffsetSet) {
-//			ROS_INFO_STREAM(
-//					"Offset: x: " << offset.x_offset << " y: " << offset.y_offset);
-//		}
-		if (isSetInCollision(x, y, map, vis_map, newOffsetSet))
+				radius);
+		std::vector<CircleLine> prevOffsetSet =
+				prevOffsetIndex >= 0 ?
+						_inflated_ring_lines_offsets[prevOffsetIndex].second :
+						_circle_lines_offset;
+		for (int i = 0; i < prevOffsetSet.size(); i++) { //prev offset set size must be smaller equals new offset set
+			newOffsetSet[i].x_start = prevOffsetSet[i].x_offset + 1;
+		}
+		if (isSetInCollision(x, y, map, tmp_vis_map, newOffsetSet)) {
 			return current_radius;
+		}
+		vis_map = tmp_vis_map;
 		current_radius = radius;
 		_inflated_ring_lines_offsets.push_back(
 				std::make_pair(current_radius, newOffsetSet));
+		prevOffsetIndex++;
 	}
 	return current_radius;
 }
@@ -141,28 +156,28 @@ bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 }
 
 void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
-	vis_map.header.frame_id = "map";
-	vis_map.info.resolution = map.info.resolution;
-	vis_map.info.width = map.info.width;
-	vis_map.info.height = map.info.height;
-	vis_map.info.origin = map.info.origin;
-	vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
+	_vis_map.header.frame_id = "map";
+	_vis_map.info.resolution = map.info.resolution;
+	_vis_map.info.width = map.info.width;
+	_vis_map.info.height = map.info.height;
+	_vis_map.info.origin = map.info.origin;
+	_vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
 	_init_vis_map = true;
 }
 
 bool CollisionChecker::initialize(geometry_msgs::Point position) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
-	vis_map.header.stamp = ros::Time::now();
-	vis_map.info.map_load_time = ros::Time::now();
+	_vis_map.header.stamp = ros::Time::now();
+	_vis_map.info.map_load_time = ros::Time::now();
 	initVisMap(map);
 	precalculateCircleLinesOffset();
 	_node_points.markers.clear();
 	if (_check_init_position) {
-		std::vector<int8_t> tmp_vis_map_data = vis_map.data;
+		std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
 		if (!isCircleInCollision(position.x, position.y, map,
 				tmp_vis_map_data)) {
-			vis_map.data = tmp_vis_map_data;
-			_visualization_pub.publish(vis_map);
+			_vis_map.data = tmp_vis_map_data;
+			_visualization_pub.publish(_vis_map);
 			return true;
 		}
 		return false;
@@ -175,23 +190,22 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 		geometry_msgs::Point rand_sample) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
-	vis_map.header.stamp = ros::Time::now();
-	vis_map.info.map_load_time = ros::Time::now();
-	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
+	_vis_map.header.stamp = ros::Time::now();
+	_vis_map.info.map_load_time = ros::Time::now();
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
 	double yaw = atan2(rand_sample.y - nearest_node.position.y,
 			rand_sample.x - nearest_node.position.x);
 	if (!isCircleInCollision(rand_sample.x, rand_sample.y, map,
 			tmp_vis_map_data)) {
 		new_node.radius = inflateCircle(rand_sample.x, rand_sample.y, map,
 				tmp_vis_map_data);
-		new_node.squared_radius = pow(new_node.radius,2);
-//		ROS_INFO_STREAM("Calculated Radius: " << new_node.radius);
+		new_node.squared_radius = pow(new_node.radius, 2);
 		new_node.position.x = rand_sample.x;
 		new_node.position.y = rand_sample.y;
 		new_node.position.z = rand_sample.z;
 		new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-		vis_map.data = tmp_vis_map_data;
-		_visualization_pub.publish(vis_map);
+		_vis_map.data = tmp_vis_map_data;
+		_visualization_pub.publish(_vis_map);
 		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
 			visualization_msgs::Marker node_point;
 
