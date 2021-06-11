@@ -118,6 +118,15 @@ private:
 	 * @brief Did the robot move or not? Implies that all gain-cost-ratios must be recalculated
 	 */
 	bool _robot_moved;
+	/**
+	 * @brief Radius that includes robot's footprint in m
+	 */
+	double _robot_radius;
+	/**
+	 * @brief If a factor that increases the gain based on the size of the node's radius compared to
+	 * the robot radius is used
+	 */
+	bool _radius_factor_active;
 
 	/**
 	 * @brief Sorts list of nodes with a gain function, the node with the best gain-cost-ratio comes first

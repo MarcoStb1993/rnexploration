@@ -19,6 +19,9 @@ NodeComparator::~NodeComparator() {
 }
 
 void NodeComparator::initialization() {
+	ros::NodeHandle private_nh("~");
+	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("radius_factor_active", _radius_factor_active, true);
 	_sort_list = false;
 	_robot_moved = false;
 	_nodes_ordered_by_gcr.clear();
@@ -80,8 +83,13 @@ void NodeComparator::sortByGain() {
 void NodeComparator::calculateGainCostRatios(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	for (auto &node : _nodes_ordered_by_gcr) {
+		double radius_factor =
+				_radius_factor_active ?
+						(rrg.nodes[node.node].radius / _robot_radius) : 1.0;
 		if (node.gain_cost_ratio == 0 || _robot_moved) {
-			node.gain_cost_ratio = rrg.nodes[node.node].gain * exp(-1 * rrg.nodes[node.node].distanceToRobot);;
+			node.gain_cost_ratio = radius_factor * rrg.nodes[node.node].gain
+					* exp(-1 * rrg.nodes[node.node].distanceToRobot);
+			;
 			if (rrg.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
 				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
 		}
