@@ -27,6 +27,7 @@
 	<arg name="max_edge_distance" default="2.0" />	
 	<arg name="nearest_node_tolerance" default="0.1" />		
 	<arg name="max_node_height_difference" default="1.0" />	
+	<arg name="max_consecutive_failed_goals" default="5.0" />
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -45,6 +46,7 @@
 		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />
 		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
 		<param name="nearest_node_tolerance" type="double" value="$(arg nearest_node_tolerance)" />
+		<param name="max_consecutive_failed_goals" type="double" value="$(arg max_consecutive_failed_goals)" />			
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

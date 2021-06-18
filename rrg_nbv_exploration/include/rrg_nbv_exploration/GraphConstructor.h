@@ -186,6 +186,14 @@ private:
 	 * @brief Squared distance to a node in m to count it as nearest node
 	 */
 	double _nearest_node_tolerance_squared;
+	/**
+	 * @brief Maximum number of consecutive failed goals before exploration is cancelled
+	 */
+	int _max_consecutive_failed_goals;
+	/**
+	 * @brief Actual number of consecutive failed goals
+	 */
+	int _consecutive_failed_goals;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
