@@ -89,7 +89,8 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
-	if (!measureNodeHeight(node) && node.distanceToRobot != 0) {
+	if (!measureNodeHeight(node) && node.distanceToRobot != 0
+			&& node.edges.size() < 2) {
 		//node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		return;
