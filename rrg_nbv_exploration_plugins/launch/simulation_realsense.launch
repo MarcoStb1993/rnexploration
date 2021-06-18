@@ -227,6 +227,7 @@
 		<arg name="nearest_node_tolerance" default="0.1" />	
 		<arg name="max_node_height_difference" default="1.0" />	
 		<arg name="radius_factor_active" default="$(arg radius_factor_active)" />	
+		<arg name="add_start_node" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->

@@ -182,6 +182,10 @@ private:
 	 * @brief Squared distance to a node in m to count it as nearest node
 	 */
 	double _nearest_node_tolerance_squared;
+	/**
+	 * @brief Add a node directly in front of the robot in addition to the root node to avoid stalling
+	 */
+	bool _add_start_node;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

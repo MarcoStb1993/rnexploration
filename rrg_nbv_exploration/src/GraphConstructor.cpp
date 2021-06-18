@@ -22,6 +22,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	double nearest_node_tolerance;
 	private_nh.param("nearest_node_tolerance", nearest_node_tolerance, 0.1);
 	_nearest_node_tolerance_squared = pow(nearest_node_tolerance, 2);
+	private_nh.param("add_start_node", _add_start_node, false);
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
@@ -85,6 +86,21 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_rrg.nodes.push_back(root);
 	_rrg.node_counter++;
 	_rrg.nearest_node = 0;
+	if (_add_start_node) { //additional node to avoid stalling
+		rrg_nbv_exploration_msgs::Node add_node;
+		add_node.position = root.position;
+		add_node.position.x += _robot_radius;
+		add_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+		add_node.gain = -1;
+		add_node.index = _rrg.node_counter;
+		add_node.distanceToRobot = _robot_radius;
+		add_node.pathToRobot.push_back(0);
+		add_node.pathToRobot.push_back(add_node.index);
+		add_node.radius = _robot_radius;
+		add_node.squared_radius = pow(_robot_radius, 2);
+		_rrg.nodes.push_back(add_node);
+		_rrg.node_counter++;
+	}
 	_current_goal_node = -1;
 	_last_goal_node = -1;
 	_last_updated_node = -1;
@@ -226,7 +242,7 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		int neighbor_node_counter = 0;
 		for (auto it : nodes) {
 			double distance = sqrt(it.second);
-				if (distance <= node.radius
+			if (distance <= node.radius
 					|| _robot_width
 							<= (sqrt(
 									4 * it.second * node.squared_radius
@@ -256,7 +272,7 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 				}
 			}
 		}
-		if (neighbor_node_counter == 0){
+		if (neighbor_node_counter == 0) {
 			ROS_INFO_STREAM("no neigbors found, discard");
 			return;
 		}

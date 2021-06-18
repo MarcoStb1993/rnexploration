@@ -26,6 +26,7 @@
 	<arg name="nearest_node_tolerance" default="0.1" />		
 	<arg name="max_node_height_difference" default="1.0" />	
 	<arg name="radius_factor_active" default="true" />
+	<arg name="add_start_node" default="true" />
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -42,7 +43,8 @@
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
 		<param name="nearest_node_tolerance" type="double" value="$(arg nearest_node_tolerance)" />
-		<param name="radius_factor_active" type="bool" value="$(arg radius_factor_active)" />		
+		<param name="radius_factor_active" type="bool" value="$(arg radius_factor_active)" />	
+		<param name="add_start_node" type="bool" value="$(arg add_start_node)" />		
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
