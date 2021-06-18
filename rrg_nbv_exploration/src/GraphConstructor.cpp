@@ -23,6 +23,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("nearest_node_tolerance", nearest_node_tolerance, 0.1);
 	_nearest_node_tolerance_squared = pow(nearest_node_tolerance, 2);
 	private_nh.param("add_start_node", _add_start_node, false);
+	private_nh.param("max_consecutive_failed_goals",
+			_max_consecutive_failed_goals, 5);
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
@@ -108,6 +110,7 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_updating = false;
 	_sort_nodes_to_update = false;
 	_last_robot_pos = seed;
+	_consecutive_failed_goals = 0;
 	_graph_searcher->initialize(_rrg);
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
@@ -381,6 +384,7 @@ void GraphConstructor::updateCurrentGoal() {
 		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::VISITED:
 		ROS_INFO("RNE goal visited");
@@ -389,6 +393,7 @@ void GraphConstructor::updateCurrentGoal() {
 		_rrg.nodes[_current_goal_node].gain = 0;
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::ABORTED:
 		ROS_INFO("RNE goal aborted");
@@ -406,6 +411,11 @@ void GraphConstructor::updateCurrentGoal() {
 		ROS_INFO("RNE goal failed");
 		_node_comparator->removeNode(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
+		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
+			ROS_INFO_STREAM("Exploration aborted, robot stuck");
+			_rrg.node_counter = -1; //for evaluation purposes
+			stopRrgConstruction();
+		}
 		if (_moved_to_current_goal) {
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
