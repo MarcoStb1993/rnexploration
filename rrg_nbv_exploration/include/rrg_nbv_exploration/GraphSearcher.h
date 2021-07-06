@@ -17,14 +17,14 @@ public:
 	GraphSearcher();
 	/**
 	 * @brief Initializes the kd-tree index and update the tree
-	 * @param PRM with nodes that act as nodes for the kd tree
+	 * @param RRG with nodes that act as nodes for the kd tree
 	 */
-	void initialize(rrg_nbv_exploration_msgs::Graph &prm);
+	void initialize(rrg_nbv_exploration_msgs::Graph &rrg);
 	/**
 	 * @brief Rebuilds the kd-tree if necessary
-	 * @param PRM with nodes that act as nodes for the kd tree
+	 * @param RRG with nodes that act as nodes for the kd tree
 	 */
-	void rebuildIndex(rrg_nbv_exploration_msgs::Graph &prm);
+	void rebuildIndex(rrg_nbv_exploration_msgs::Graph &rrg);
 	/**
 	 * @brief Find the nearest neighbour in the current kd-tree to the randomly sampled point given as parameter
 	 * @param Randomly sampled 3D point
@@ -44,18 +44,18 @@ public:
 
 private:
 	/**
-	 * @brief The prm_adaptor struct serves as an adaptor for nanoflann, using the nodes in prm
+	 * @brief The rrg_adaptor struct serves as an adaptor for nanoflann, using the nodes in rrg
 	 */
-	struct prm_adaptor {
-		rrg_nbv_exploration_msgs::Graph prm;
+	struct rrg_adaptor {
+		rrg_nbv_exploration_msgs::Graph rrg;
 		inline size_t kdtree_get_point_count() const {
-			return prm.node_counter;
+			return rrg.node_counter;
 		}
 		inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
 			if (dim == 0)
-				return prm.nodes[idx].position.x;
+				return rrg.nodes[idx].position.x;
 			else if (dim == 1)
-				return prm.nodes[idx].position.y;
+				return rrg.nodes[idx].position.y;
 			else
 				return 0; //rrt.nodes[idx].position.z;
 		}
@@ -65,7 +65,7 @@ private:
 		}
 	};
 	typedef nanoflann::KDTreeSingleIndexAdaptor<
-			nanoflann::L2_Simple_Adaptor<double, prm_adaptor>, prm_adaptor, 3> kd_tree_adaptor;
-	prm_adaptor _rrt_kd_adaptor;
+			nanoflann::L2_Simple_Adaptor<double, rrg_adaptor>, rrg_adaptor, 3> kd_tree_adaptor;
+	rrg_adaptor _rrt_kd_adaptor;
 	kd_tree_adaptor _kd_tree_index;
 };

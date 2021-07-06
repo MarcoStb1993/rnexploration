@@ -5,15 +5,15 @@ GraphSearcher::GraphSearcher()    :
 {
 }
 
-void GraphSearcher::initialize(rrg_nbv_exploration_msgs::Graph &prm)
+void GraphSearcher::initialize(rrg_nbv_exploration_msgs::Graph &rrg)
 {
-    _rrt_kd_adaptor.prm = prm;
+    _rrt_kd_adaptor.rrg = rrg;
     _kd_tree_index.buildIndex();
 }
 
-void GraphSearcher::rebuildIndex(rrg_nbv_exploration_msgs::Graph &prm)
+void GraphSearcher::rebuildIndex(rrg_nbv_exploration_msgs::Graph &rrg)
 {
-    initialize(prm);
+    initialize(rrg);
 }
 
 void GraphSearcher::findNearestNeighbour(geometry_msgs::Point rand_sample, double &min_distance, int &nearest_node)
