@@ -13,7 +13,7 @@
 	<arg name="joystick_topic" default="/joy" />
 	<arg name="calculate_goal_plugin" default="rsm::RnExplorationState" />
 	<arg name="navigation_plugin" default="rsm::NavigationState" />
-	<arg name="mapping_plugin" default="rsm::RealsenseMappingState" />
+	<arg name="mapping_plugin" default="rsm::MappingDummyState" />
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="oc_resolution" default="0.1" />
@@ -213,7 +213,7 @@
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />
 		<arg name="delta_theta" value="$(arg delta_theta)" />
-		<arg name="sensor_horizontal_fov" value="223" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
+		<arg name="sensor_horizontal_fov" value="75" /> <!-- Swivelling RealSense with 75 degree hFoV and joint limits +/-74 degrees -->
 		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
 		<arg name="sensor_vertical_fov_top" value="61" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
