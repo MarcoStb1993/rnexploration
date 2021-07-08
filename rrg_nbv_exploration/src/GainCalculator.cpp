@@ -20,6 +20,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param("max_node_height_difference", _max_node_height_difference,
 			1.0);
+	private_nh.param("dbscan_min_points", _dbscan_min_points, 3);
+	private_nh.param("dbscan_epsilon", _dbscan_epsilon, 1.0);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -117,6 +119,15 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 	node.gain = 0.0;
 
+	/**
+	 * Representation for sparse unknown
+	 */
+	cluster_point_array cluster_points(
+			boost::extents[_gain_poll_points.shape()[0]][_gain_poll_points.shape()[1]][_gain_poll_points.shape()[2]]);
+	std::fill(cluster_points.origin(),
+			cluster_points.origin() + cluster_points.num_elements(),
+			ClusterLabel::NoPoint);
+
 	std::map<int, int> gain_per_yaw;
 
 	double x = node.position.x;
@@ -154,9 +165,11 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 							color.b = 0.0f;
 						}
 					} else {
-						if (point.in_range)
+						if (point.in_range) {
+							cluster_points[theta][phi][radius] =
+									ClusterLabel::Undefined;
 							gain_per_yaw[point.theta]++;
-						else {
+						} else {
 							color.r = 0.7f;
 							color.g = 0.7f;
 							color.b = 0.7f;
@@ -170,8 +183,47 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					if (ocnode != NULL) {
 						if (_octree->isNodeOccupied(ocnode))
 							break; //end ray sampling for this ray because of an obstacle in the way
-					} else if (point.in_range)
+					} else if (point.in_range) {
+						cluster_points[theta][phi][radius] =
+								ClusterLabel::Undefined;
 						gain_per_yaw[point.theta]++;
+					}
+				}
+			}
+		}
+	}
+
+	//DBSCAN
+	int cluster = 0;
+	for (cluster_point_array_index theta = 0; theta < cluster_points.shape()[0];
+			theta++) {
+		for (cluster_point_array_index phi = 0; phi < cluster_points.shape()[1];
+				phi++) {
+			for (cluster_point_array_index radius = 0;
+					radius < cluster_points.shape()[2]; radius++) {
+				ClusterIndex index = { theta, phi, radius };
+				if (cluster_points[theta][phi][radius]
+						!= ClusterLabel::Undefined) {
+					continue;
+				}
+				std::queue<ClusterIndex> neighbor_keys;
+				retrieveClusterPointNeighbors(index, cluster_points,
+						neighbor_keys);
+				if (neighbor_keys.size() < _dbscan_min_points) {
+					cluster_points[theta][phi][radius] = ClusterLabel::Noise;
+					continue;
+				}
+				cluster_points[theta][phi][radius] = ++cluster;
+				while (!neighbor_keys.empty()) {
+					ClusterIndex neighbor = neighbor_keys.front();
+					if (cluster_points[neighbor.theta][neighbor.phi][neighbor.radius]
+							<= ClusterLabel::Undefined) { // not part of any cluster
+						cluster_points[neighbor.theta][neighbor.phi][neighbor.radius] =
+								cluster;
+						retrieveClusterPointNeighbors(neighbor, cluster_points,
+								neighbor_keys);
+					}
+					neighbor_keys.pop();
 				}
 			}
 		}
@@ -235,6 +287,67 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		raysample_visualization.publish(_node_points);
 	}
 
+}
+
+void GainCalculator::retrieveClusterPointNeighbors(ClusterIndex point,
+		cluster_point_array &cluster_points,
+		std::queue<ClusterIndex> &neighbor_keys) {
+	std::vector<ClusterIndex> neighbors;
+	if (point.theta == 0) {
+		checkIfClusterPointExists(
+				{ (cluster_point_array_index) cluster_points.shape()[0] - 1,
+						point.phi, point.radius }, cluster_points, neighbors);
+		checkIfClusterPointExists( { point.theta - 1, point.phi, point.radius },
+				cluster_points, neighbors);
+	} else if (point.theta == cluster_points.shape()[0] - 1) {
+		checkIfClusterPointExists( { point.theta - 1, point.phi, point.radius },
+				cluster_points, neighbors);
+		checkIfClusterPointExists( { 0, point.phi, point.radius },
+				cluster_points, neighbors);
+	} else {
+		checkIfClusterPointExists( { point.theta - 1, point.phi, point.radius },
+				cluster_points, neighbors);
+		checkIfClusterPointExists( { point.theta + 1, point.phi, point.radius },
+				cluster_points, neighbors);
+	}
+	if (point.phi == 0) {
+		checkIfClusterPointExists( { point.theta, point.phi + 1, point.radius },
+				cluster_points, neighbors);
+	} else if (point.phi == cluster_points.shape()[1] - 1) {
+		checkIfClusterPointExists( { point.theta, point.phi - 1, point.radius },
+				cluster_points, neighbors);
+	} else {
+		checkIfClusterPointExists( { point.theta, point.phi - 1, point.radius },
+				cluster_points, neighbors);
+		checkIfClusterPointExists( { point.theta, point.phi + 1, point.radius },
+				cluster_points, neighbors);
+	}
+	if (point.radius == 0) {
+		checkIfClusterPointExists( { point.theta, point.phi, point.radius + 1 },
+				cluster_points, neighbors);
+	} else if (point.radius == cluster_points.shape()[1] - 1) {
+		checkIfClusterPointExists( { point.theta, point.phi, point.radius - 1 },
+				cluster_points, neighbors);
+	} else {
+		checkIfClusterPointExists( { point.theta, point.phi, point.radius - 1 },
+				cluster_points, neighbors);
+		checkIfClusterPointExists( { point.theta, point.phi, point.radius + 1 },
+				cluster_points, neighbors);
+	}
+	if (neighbors.size() >= _dbscan_min_points) {
+		for (auto neighbor : neighbors) {
+			neighbor_keys.push(neighbor);
+		}
+	}
+}
+
+void GainCalculator::checkIfClusterPointExists(ClusterIndex index,
+		cluster_point_array &cluster_points,
+		std::vector<ClusterIndex> &neighbors) {
+	if (cluster_points[index.theta][index.phi][index.radius]
+			!= ClusterLabel::NoPoint) {
+		neighbors.push_back(index);
+	}
 }
 
 bool GainCalculator::measureNodeHeight(rrg_nbv_exploration_msgs::Node &node) {

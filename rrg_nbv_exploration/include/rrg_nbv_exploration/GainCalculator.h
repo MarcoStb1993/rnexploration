@@ -9,6 +9,7 @@
 
 #include <boost/multi_array.hpp>
 #include <fstream>
+#include <queue>
 
 /**
  * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
@@ -34,6 +35,23 @@ struct PollPoint {
 
 typedef boost::multi_array<PollPoint, 3> multi_array;
 typedef multi_array::index multi_array_index;
+
+typedef boost::multi_array<int, 3> cluster_point_array;
+typedef cluster_point_array::index cluster_point_array_index;
+
+/**
+ * Label for cluster points
+ */
+enum ClusterLabel {
+	NoPoint = -2, Noise = -1, Undefined = 0
+};
+
+/**
+ * Index for the multi array of cluster points
+ */
+struct ClusterIndex {
+	cluster_point_array_index theta, phi, radius;
+};
 
 namespace rrg_nbv_exploration {
 
@@ -144,6 +162,14 @@ private:
 	 * @brief Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
 	 */
 	double _max_node_height_difference;
+	/**
+	 * @brief Number of nodes required as neighbors to classify as core point in DBSCAN
+	 */
+	int _dbscan_min_points;
+	/**
+	 * @brief Distance between points to count as neighbors for DBSCAN
+	 */
+	double _dbscan_epsilon;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
@@ -174,6 +200,26 @@ private:
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculatePointGain(rrg_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * Request the 6 direct neighbors of the given point and adds all existing keys for them
+	 * @param Index for point which neighbors must be retrieved
+	 * @param Multi array with all cluster points
+	 * @param Queue of all indices of neighbors to check for cluster
+	 */
+	void retrieveClusterPointNeighbors(ClusterIndex point,
+			cluster_point_array &cluster_points,
+			std::queue<ClusterIndex> &neighbor_keys);
+
+	/**
+	 * @brief Checks if there is a cluster point at the given index
+	 * @param Cluster point index to check
+	 * @param Multi array with all cluster points
+	 * @param List of neighbors to add it to if it exists
+	 */
+	void checkIfClusterPointExists(ClusterIndex index,
+			cluster_point_array &cluster_points,
+			std::vector<ClusterIndex> &neighbors);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
