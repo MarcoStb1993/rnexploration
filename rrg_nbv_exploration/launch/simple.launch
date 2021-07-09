@@ -13,8 +13,8 @@
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="sensor_horizontal_fov" default="360" /> 
-	<arg name="sensor_vertical_fov_bottom" default="0" />
-	<arg name="sensor_vertical_fov_top" default="180" />
+	<arg name="sensor_vertical_fov_bottom" default="180" />
+	<arg name="sensor_vertical_fov_top" default="0" />
 	<arg name="min_view_score" default="0.1" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
@@ -50,7 +50,7 @@
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
-		output="screen" >
+		output="screen" launch-prefix="xterm -e gdb --args">
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />

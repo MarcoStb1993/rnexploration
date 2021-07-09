@@ -12,8 +12,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param("delta_radius", _delta_radius, 0.1);
 	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
 	private_nh.param("sensor_vertical_fov_bottom", _sensor_vertical_fov_bottom,
-			0);
-	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 180);
+			180);
+	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 0);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("sensor_size", _sensor_size, 0.1);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
@@ -28,6 +28,8 @@ GainCalculator::GainCalculator() :
 	ros::NodeHandle nh("rne");
 	raysample_visualization = nh.advertise<visualization_msgs::Marker>(
 			"raysample_visualization", 1000);
+	cluster_visualization = nh.advertise<visualization_msgs::Marker>(
+			"cluster_visualization", 1000);
 	_updated_node_publisher = nh.advertise<rrg_nbv_exploration_msgs::Node>(
 			"updated_node", 1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
@@ -103,25 +105,38 @@ void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
 void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	bool publish_visualization = raysample_visualization.getNumSubscribers()
 			> 0;
-	visualization_msgs::Marker _node_points;
+	bool publish_cluster_visualization =
+			cluster_visualization.getNumSubscribers() > 0;
+	visualization_msgs::Marker node_points_vis;
+	visualization_msgs::Marker cluster_points_vis;
 	if (publish_visualization) {
-		_node_points.header.frame_id = "/map";
-		_node_points.ns = "raysample_visualization";
-		_node_points.id = 0;
-		_node_points.action = visualization_msgs::Marker::ADD;
-		_node_points.pose.orientation.w = 1.0;
-		_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-		_node_points.scale.x = 0.1;
-		_node_points.scale.y = 0.1;
-		_node_points.scale.z = 0.1;
-		_node_points.color.a = 1.0f;
-		_node_points.header.stamp = ros::Time::now();
+		node_points_vis.header.frame_id = "/map";
+		node_points_vis.ns = "raysample_visualization";
+		node_points_vis.id = 0;
+		node_points_vis.action = visualization_msgs::Marker::ADD;
+		node_points_vis.pose.orientation.w = 1.0;
+		node_points_vis.type = visualization_msgs::Marker::SPHERE_LIST;
+		node_points_vis.scale.x = _octomap_resolution * 0.9;
+		node_points_vis.scale.y = _octomap_resolution * 0.9;
+		node_points_vis.scale.z = _octomap_resolution * 0.9;
+		node_points_vis.color.a = 1.0f;
+		node_points_vis.header.stamp = ros::Time::now();
+	}
+	if (publish_cluster_visualization) {
+		cluster_points_vis.header.frame_id = "/map";
+		cluster_points_vis.ns = "cluster_visualization";
+		cluster_points_vis.id = 0;
+		cluster_points_vis.action = visualization_msgs::Marker::ADD;
+		cluster_points_vis.pose.orientation.w = 1.0;
+		cluster_points_vis.type = visualization_msgs::Marker::CUBE_LIST;
+		cluster_points_vis.scale.x = _octomap_resolution * 0.3;
+		cluster_points_vis.scale.y = _octomap_resolution * 0.3;
+		cluster_points_vis.scale.z = _octomap_resolution;
+		cluster_points_vis.color.a = 1.0f;
+		cluster_points_vis.header.stamp = ros::Time::now();
 	}
 	node.gain = 0.0;
 
-	/**
-	 * Representation for sparse unknown
-	 */
 	cluster_point_array cluster_points(
 			boost::extents[_gain_poll_points.shape()[0]][_gain_poll_points.shape()[1]][_gain_poll_points.shape()[2]]);
 	std::fill(cluster_points.origin(),
@@ -153,12 +168,12 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					color.g = 0.0f;
 					color.b = 1.0f;
 					color.a = 1.0f;
-					_node_points.points.push_back(vis_point);
+					node_points_vis.points.push_back(vis_point);
 					if (ocnode != NULL) {
 						if (_octree->isNodeOccupied(ocnode)) {
 							color.r = 1.0f;
 							color.b = 0.0f;
-							_node_points.colors.push_back(color);
+							node_points_vis.colors.push_back(color);
 							break; //end ray sampling for this ray because of an obstacle in the way
 						} else {
 							color.g = 1.0f;
@@ -176,7 +191,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 						}
 
 					}
-					_node_points.colors.push_back(color);
+					node_points_vis.colors.push_back(color);
 				} else {
 					octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
 							vis_point.y, vis_point.z);
@@ -194,18 +209,19 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 
 	//DBSCAN
-	int cluster = 0;
+	std::vector<PointCluster> cluster;
+	int cluster_counter = 0;
 	for (cluster_point_array_index theta = 0; theta < cluster_points.shape()[0];
 			theta++) {
 		for (cluster_point_array_index phi = 0; phi < cluster_points.shape()[1];
 				phi++) {
 			for (cluster_point_array_index radius = 0;
 					radius < cluster_points.shape()[2]; radius++) {
-				ClusterIndex index = { theta, phi, radius };
 				if (cluster_points[theta][phi][radius]
 						!= ClusterLabel::Undefined) {
 					continue;
 				}
+				ClusterIndex index = { theta, phi, radius };
 				std::queue<ClusterIndex> neighbor_keys;
 				retrieveClusterPointNeighbors(index, cluster_points,
 						neighbor_keys);
@@ -213,21 +229,58 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					cluster_points[theta][phi][radius] = ClusterLabel::Noise;
 					continue;
 				}
-				cluster_points[theta][phi][radius] = ++cluster;
+				cluster_points[theta][phi][radius] = ++cluster_counter;
+				PointCluster current_cluster = { 1, cluster_counter,
+						(double) theta * _delta_theta, (double) phi
+								* _delta_phi, (double) radius * _delta_radius };
+				if (publish_cluster_visualization) {
+					addClusterVisualizationPoint(theta, phi, radius, x, y, z,
+							cluster_counter, cluster_points_vis);
+				}
+				// Update cluster meta data
+				current_cluster.size++;
+				current_cluster.center_theta += (double) theta * _delta_theta;
+				current_cluster.center_phi += (double) phi * _delta_phi;
+				current_cluster.center_radius += (double) radius
+						* _delta_radius;
 				while (!neighbor_keys.empty()) {
 					ClusterIndex neighbor = neighbor_keys.front();
 					if (cluster_points[neighbor.theta][neighbor.phi][neighbor.radius]
 							<= ClusterLabel::Undefined) { // not part of any cluster
 						cluster_points[neighbor.theta][neighbor.phi][neighbor.radius] =
-								cluster;
+								cluster_counter;
+						if (publish_cluster_visualization) {
+							addClusterVisualizationPoint(neighbor.theta,
+									neighbor.phi, neighbor.radius, x, y, z,
+									cluster_counter, cluster_points_vis);
+						}
+						// Update cluster meta data
+						current_cluster.size++;
+						current_cluster.center_theta += (double) neighbor.theta
+								* _delta_theta;
+						current_cluster.center_phi += (double) neighbor.phi
+								* _delta_phi;
+						current_cluster.center_radius +=
+								(double) neighbor.radius * _delta_radius;
+						// add neighbors to queue if more than min points
 						retrieveClusterPointNeighbors(neighbor, cluster_points,
 								neighbor_keys);
 					}
 					neighbor_keys.pop();
 				}
+				current_cluster.center_theta /= (double) current_cluster.size;
+				current_cluster.center_phi /= (double) current_cluster.size;
+				current_cluster.center_radius /= (double) current_cluster.size;
+				cluster.push_back(current_cluster);
 			}
 		}
 	}
+
+	for (auto i : cluster) {
+		ROS_INFO_STREAM(
+				"Cluster " << i.number << " size: " << i.size << " Center: " << i.center_theta << ", " << i.center_phi << ", " << i.center_radius);
+	}
+	//TODO: visualize clusters
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
@@ -252,8 +305,8 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
-//	ROS_INFO_STREAM(
-//			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
+	ROS_INFO_STREAM(
+			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
 	if (view_score < _min_view_score
 			|| (node.status == rrg_nbv_exploration_msgs::Node::VISITED
@@ -282,11 +335,104 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		color.g = 1.0f;
 		color.b = 0.0f;
 		color.a = 1.0f;
-		_node_points.points.push_back(vis_point);
-		_node_points.colors.push_back(color);
-		raysample_visualization.publish(_node_points);
+		node_points_vis.points.push_back(vis_point);
+		node_points_vis.colors.push_back(color);
+		raysample_visualization.publish(node_points_vis);
+	}
+	if (publish_cluster_visualization) {
+		//Visualize point clusters
+		visualization_msgs::Marker cluster_center_vis;
+		cluster_center_vis.header.frame_id = "/map";
+		cluster_center_vis.ns = "cluster_visualization";
+		cluster_center_vis.id = 1;
+		cluster_center_vis.action = visualization_msgs::Marker::ADD;
+		cluster_center_vis.pose.orientation.w = 1.0;
+		cluster_center_vis.type = visualization_msgs::Marker::CUBE_LIST;
+		cluster_center_vis.scale.x = _octomap_resolution * 2;
+		cluster_center_vis.scale.y = _octomap_resolution * 2;
+		cluster_center_vis.scale.z = _octomap_resolution * 2;
+		cluster_center_vis.color.a = 1.0f;
+		cluster_center_vis.header.stamp = ros::Time::now();
+		for (auto i : cluster) {
+			geometry_msgs::Point vis_point;
+			vis_point.x = x
+					+ i.center_radius * _delta_radius
+							* cos(M_PI * i.center_theta / 180.0)
+							* sin(
+									M_PI
+											* (_sensor_vertical_fov_top
+													+ i.center_phi) / 180.0);
+			vis_point.y = y
+					+ i.center_radius * sin(M_PI * i.center_theta / 180.0)
+							* sin(
+									M_PI
+											* (_sensor_vertical_fov_top
+													+ i.center_phi) / 180.0);
+			vis_point.z = z + i.center_radius * cos(
+			M_PI * (_sensor_vertical_fov_top + i.center_phi) / 180.0);
+			std_msgs::ColorRGBA color;
+			color.r = 0.0f;
+			color.g = 0.0f;
+			color.b = 0.0f;
+			color.a = 0.5f;
+			if (i.number <= 2) {
+				color.r = i.number * 0.5;
+			} else if (i.number > 2 && i.number <= 4) {
+				color.g = (i.number - 2) * 0.5;
+			} else if (i.number > 4 && i.number <= 6) {
+				color.b = (i.number - 4) * 0.5;
+			} else if (i.number > 6 && i.number <= 8) {
+				color.r = (i.number - 6) * 0.5;
+				color.g = (i.number - 6) * 0.5;
+			} else if (i.number > 8 && i.number <= 10) {
+				color.r = (i.number - 8) * 0.5;
+				color.b = (i.number - 8) * 0.5;
+			} else {
+				color.g = 0.5f;
+				color.b = 0.5f;
+			}
+			cluster_center_vis.points.push_back(vis_point);
+			cluster_center_vis.colors.push_back(color);
+		}
+		cluster_visualization.publish(cluster_center_vis);
+		cluster_visualization.publish(cluster_points_vis);
 	}
 
+}
+
+void GainCalculator::addClusterVisualizationPoint(
+		cluster_point_array_index theta, cluster_point_array_index phi,
+		cluster_point_array_index radius, double x, double y, double z,
+		int cluster_counter, visualization_msgs::Marker &cluster_points_vis) {
+	PollPoint point = _gain_poll_points[theta][phi][radius];
+	geometry_msgs::Point vis_point;
+	vis_point.x = point.x + x;
+	vis_point.y = point.y + y;
+	vis_point.z = point.z + z;
+	std_msgs::ColorRGBA color;
+	color.r = 0.0f;
+	color.g = 0.0f;
+	color.b = 0.0f;
+	color.a = 1.0f;
+	if (cluster_counter <= 2) {
+		color.r = cluster_counter * 0.5;
+	} else if (cluster_counter > 2 && cluster_counter <= 4) {
+		color.g = (cluster_counter - 2) * 0.5;
+	} else if (cluster_counter > 4 && cluster_counter <= 6) {
+		color.b = (cluster_counter - 4) * 0.5;
+	} else if (cluster_counter > 6 && cluster_counter <= 8) {
+		color.r = (cluster_counter - 6) * 0.5;
+		color.g = (cluster_counter - 6) * 0.5;
+	} else if (cluster_counter > 8 && cluster_counter <= 10) {
+		color.r = (cluster_counter - 8) * 0.5;
+		color.b = (cluster_counter - 8) * 0.5;
+	} else {
+		color.g = 0.5f;
+		color.b = 0.5f;
+	}
+
+	cluster_points_vis.points.push_back(vis_point);
+	cluster_points_vis.colors.push_back(color);
 }
 
 void GainCalculator::retrieveClusterPointNeighbors(ClusterIndex point,
@@ -297,7 +443,7 @@ void GainCalculator::retrieveClusterPointNeighbors(ClusterIndex point,
 		checkIfClusterPointExists(
 				{ (cluster_point_array_index) cluster_points.shape()[0] - 1,
 						point.phi, point.radius }, cluster_points, neighbors);
-		checkIfClusterPointExists( { point.theta - 1, point.phi, point.radius },
+		checkIfClusterPointExists( { point.theta + 1, point.phi, point.radius },
 				cluster_points, neighbors);
 	} else if (point.theta == cluster_points.shape()[0] - 1) {
 		checkIfClusterPointExists( { point.theta - 1, point.phi, point.radius },
@@ -325,7 +471,7 @@ void GainCalculator::retrieveClusterPointNeighbors(ClusterIndex point,
 	if (point.radius == 0) {
 		checkIfClusterPointExists( { point.theta, point.phi, point.radius + 1 },
 				cluster_points, neighbors);
-	} else if (point.radius == cluster_points.shape()[1] - 1) {
+	} else if (point.radius == cluster_points.shape()[2] - 1) {
 		checkIfClusterPointExists( { point.theta, point.phi, point.radius - 1 },
 				cluster_points, neighbors);
 	} else {

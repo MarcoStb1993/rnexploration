@@ -47,10 +47,18 @@ enum ClusterLabel {
 };
 
 /**
- * Index for the multi array of cluster points
+ * Indices for a point in the multi array of cluster points
  */
 struct ClusterIndex {
 	cluster_point_array_index theta, phi, radius;
+};
+
+/**
+ * Center, number and size of a cluster
+ */
+struct PointCluster {
+	int size, number;
+	double center_theta, center_phi, center_radius;
 };
 
 namespace rrg_nbv_exploration {
@@ -83,6 +91,7 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
+	ros::Publisher cluster_visualization;
 	ros::Publisher _updated_node_publisher;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -196,13 +205,29 @@ private:
 			const rrg_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update);
 
 	/**
-	 * Calculates the gain of the passed node by sparse ray polling in the octree
+	 * @brief Calculates the gain of the passed node by sparse ray polling in the octree
 	 * @param Node which gain needs to be calculated
 	 */
 	void calculatePointGain(rrg_nbv_exploration_msgs::Node &node);
 
 	/**
-	 * Request the 6 direct neighbors of the given point and adds all existing keys for them
+	 * @brief Add the visualization of a cluster point to the visualization array
+	 * @param Theta index for point to visualize
+	 * @param Phi index for point to visualize
+	 * @param Radius index for point to visualize
+	 * @param X position of node
+	 * @param Y position of node
+	 * @param Z position of node
+	 * @param Number of cluster to which the point belongs
+	 * @param Array of visualization points to append cluster point visualization to
+	 */
+	void addClusterVisualizationPoint(cluster_point_array_index theta,
+			cluster_point_array_index phi, cluster_point_array_index radius,
+			double x, double y, double z, int cluster_counter,
+			visualization_msgs::Marker &cluster_points_vis);
+
+	/**
+	 * @brief Request the 6 direct neighbors of the given point and adds all existing keys for them
 	 * @param Index for point which neighbors must be retrieved
 	 * @param Multi array with all cluster points
 	 * @param Queue of all indices of neighbors to check for cluster
