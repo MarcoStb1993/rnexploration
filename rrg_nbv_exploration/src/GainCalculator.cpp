@@ -230,19 +230,18 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					continue;
 				}
 				cluster_points[theta][phi][radius] = ++cluster_counter;
-				PointCluster current_cluster = { 1, cluster_counter,
-						(double) theta * _delta_theta, (double) phi
-								* _delta_phi, (double) radius * _delta_radius };
 				if (publish_cluster_visualization) {
 					addClusterVisualizationPoint(theta, phi, radius, x, y, z,
 							cluster_counter, cluster_points_vis);
 				}
-				// Update cluster meta data
-				current_cluster.size++;
-				current_cluster.center_theta += (double) theta * _delta_theta;
-				current_cluster.center_phi += (double) phi * _delta_phi;
-				current_cluster.center_radius += (double) radius
-						* _delta_radius;
+				// Save cluster meta data
+				PointCluster current_cluster = { 1, cluster_counter, 0, 0, 0 };
+				double center_theta_sum_sin = sin(
+						(double) theta * (double) _delta_theta * M_PI / 180);
+				double center_theta_sum_cos = cos(
+						(double) theta * (double) _delta_theta * M_PI / 180);
+				unsigned int center_phi_sum = (unsigned int) phi;
+				unsigned int center_radius_sum = (unsigned int) radius;
 				while (!neighbor_keys.empty()) {
 					ClusterIndex neighbor = neighbor_keys.front();
 					if (cluster_points[neighbor.theta][neighbor.phi][neighbor.radius]
@@ -256,21 +255,30 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 						}
 						// Update cluster meta data
 						current_cluster.size++;
-						current_cluster.center_theta += (double) neighbor.theta
-								* _delta_theta;
-						current_cluster.center_phi += (double) neighbor.phi
-								* _delta_phi;
-						current_cluster.center_radius +=
-								(double) neighbor.radius * _delta_radius;
+						center_theta_sum_sin += sin(
+								(double) neighbor.theta * (double) _delta_theta
+										* M_PI / 180);
+						center_theta_sum_cos += cos(
+								(double) neighbor.theta * (double) _delta_theta
+										* M_PI / 180);
+						center_phi_sum += (unsigned int) neighbor.phi;
+						center_radius_sum += (unsigned int) neighbor.radius;
 						// add neighbors to queue if more than min points
 						retrieveClusterPointNeighbors(neighbor, cluster_points,
 								neighbor_keys);
 					}
 					neighbor_keys.pop();
 				}
-				current_cluster.center_theta /= (double) current_cluster.size;
-				current_cluster.center_phi /= (double) current_cluster.size;
-				current_cluster.center_radius /= (double) current_cluster.size;
+				center_theta_sum_sin /= (double) current_cluster.size;
+				center_theta_sum_cos /= (double) current_cluster.size;
+				current_cluster.center_theta = atan2(center_theta_sum_sin,
+						center_theta_sum_cos) * 180 / M_PI;
+				current_cluster.center_phi = (double) center_phi_sum
+						* (double) _delta_phi / (double) current_cluster.size
+						+ (double) _sensor_vertical_fov_top;
+				current_cluster.center_radius = (double) center_radius_sum
+						* _delta_radius / (double) current_cluster.size
+						+ _sensor_size;
 				cluster.push_back(current_cluster);
 			}
 		}
@@ -280,7 +288,6 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		ROS_INFO_STREAM(
 				"Cluster " << i.number << " size: " << i.size << " Center: " << i.center_theta << ", " << i.center_phi << ", " << i.center_radius);
 	}
-	//TODO: visualize clusters
 
 	int best_yaw = 0;
 	int best_yaw_score = 0;
@@ -351,25 +358,19 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		cluster_center_vis.scale.x = _octomap_resolution * 2;
 		cluster_center_vis.scale.y = _octomap_resolution * 2;
 		cluster_center_vis.scale.z = _octomap_resolution * 2;
-		cluster_center_vis.color.a = 1.0f;
 		cluster_center_vis.header.stamp = ros::Time::now();
-		for (auto i : cluster) {
+		for (auto &i : cluster) {
 			geometry_msgs::Point vis_point;
 			vis_point.x = x
-					+ i.center_radius * _delta_radius
-							* cos(M_PI * i.center_theta / 180.0)
+					+ i.center_radius * cos(M_PI * i.center_theta / 180.0)
 							* sin(
-									M_PI
-											* (_sensor_vertical_fov_top
-													+ i.center_phi) / 180.0);
+							M_PI * i.center_phi / 180.0);
 			vis_point.y = y
 					+ i.center_radius * sin(M_PI * i.center_theta / 180.0)
 							* sin(
-									M_PI
-											* (_sensor_vertical_fov_top
-													+ i.center_phi) / 180.0);
+							M_PI * i.center_phi / 180.0);
 			vis_point.z = z + i.center_radius * cos(
-			M_PI * (_sensor_vertical_fov_top + i.center_phi) / 180.0);
+			M_PI * i.center_phi / 180.0);
 			std_msgs::ColorRGBA color;
 			color.r = 0.0f;
 			color.g = 0.0f;

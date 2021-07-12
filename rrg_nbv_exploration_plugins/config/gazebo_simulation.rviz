@@ -384,6 +384,14 @@ Visualization Manager:
         {}
       Queue Size: 100
       Value: false
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /rne/cluster_visualization
+      Name: RRG SRP Cluster
+      Namespaces:
+        cluster_visualization: true
+      Queue Size: 100
+      Value: true
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /rne/rrg_collision_vis

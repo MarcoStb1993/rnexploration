@@ -50,7 +50,7 @@
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
-		output="screen" launch-prefix="xterm -e gdb --args">
+		output="screen">
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
