@@ -103,7 +103,7 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = node_position.y;
 	node_info_text.pose.position.z = node_position.z + 0.5;
 	std::ostringstream oss;
-	oss << "(" << node << ")" << std::setprecision(4) << gain;
+	oss << "(" << node << ")"  << (int) gain;
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
 }

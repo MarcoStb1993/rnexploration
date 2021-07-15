@@ -1,5 +1,6 @@
 #include "ros/ros.h"
-#include "rrg_nbv_exploration_msgs/Node.h"
+#include <rrg_nbv_exploration_msgs/Node.h>
+#include <rrg_nbv_exploration_msgs/Cluster.h>
 #include <rrg_nbv_exploration_msgs/NodeToUpdate.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
@@ -51,14 +52,6 @@ enum ClusterLabel {
  */
 struct ClusterIndex {
 	cluster_point_array_index theta, phi, radius;
-};
-
-/**
- * Center, number and size of a cluster
- */
-struct PointCluster {
-	int size, number;
-	double center_theta, center_phi, center_radius;
 };
 
 namespace rrg_nbv_exploration {
@@ -245,6 +238,16 @@ private:
 	void checkIfClusterPointExists(ClusterIndex index,
 			cluster_point_array &cluster_points,
 			std::vector<ClusterIndex> &neighbors);
+
+	/**
+	 * @brief Checks whether two cluster are close to each other by comparing theta, phi and radius
+	 * position with a margin as big as the step sizes
+	 * @param Cluster one
+	 * @param Cluster two
+	 * @return Returns true if clusters are close to each other
+	 */
+	bool clusterProximityCheck(rrg_nbv_exploration_msgs::Cluster &cluster1,
+			rrg_nbv_exploration_msgs::Cluster &cluster2);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the

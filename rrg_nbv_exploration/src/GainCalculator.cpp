@@ -20,7 +20,7 @@ GainCalculator::GainCalculator() :
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param("max_node_height_difference", _max_node_height_difference,
 			1.0);
-	private_nh.param("dbscan_min_points", _dbscan_min_points, 3);
+	private_nh.param("dbscan_min_points", _dbscan_min_points, 4);
 	private_nh.param("dbscan_epsilon", _dbscan_epsilon, 1.0);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
@@ -209,7 +209,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 
 	//DBSCAN
-	std::vector<PointCluster> cluster;
+	std::vector<rrg_nbv_exploration_msgs::Cluster> cluster;
 	int cluster_counter = 0;
 	for (cluster_point_array_index theta = 0; theta < cluster_points.shape()[0];
 			theta++) {
@@ -235,7 +235,9 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 							cluster_counter, cluster_points_vis);
 				}
 				// Save cluster meta data
-				PointCluster current_cluster = { 1, cluster_counter, 0, 0, 0 };
+				rrg_nbv_exploration_msgs::Cluster current_cluster;
+				current_cluster.size = 1;
+				current_cluster.index = cluster_counter - 1;
 				double center_theta_sum_sin = sin(
 						(double) theta * (double) _delta_theta * M_PI / 180);
 				double center_theta_sum_cos = cos(
@@ -284,47 +286,29 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		}
 	}
 
-	for (auto i : cluster) {
-		ROS_INFO_STREAM(
-				"Cluster " << i.number << " size: " << i.size << " Center: " << i.center_theta << ", " << i.center_phi << ", " << i.center_radius);
-	}
+	std::sort(cluster.begin(), cluster.end(),
+			[](const rrg_nbv_exploration_msgs::Cluster cluster1,
+					const rrg_nbv_exploration_msgs::Cluster cluster2) {
+				return cluster1.size > cluster2.size;
+			});
 
-	int best_yaw = 0;
-	int best_yaw_score = 0;
-	int horizontal_fov =
-			_sensor_horizontal_fov == 360 ? 270 : _sensor_horizontal_fov; //get a best yaw for 360deg sensors (always 0 otherwise)
-
-	for (int yaw = 0; yaw < 360; yaw++) {
-		double yaw_score = 0;
-		for (int fov = -horizontal_fov / 2; fov < horizontal_fov / 2; fov++) {
-			int theta = yaw + fov;
-			if (theta < 0)
-				theta += 360;
-			if (theta >= 360)
-				theta -= 360;
-			yaw_score += gain_per_yaw[theta];
-		}
-		if (best_yaw_score < yaw_score) {
-			best_yaw_score = yaw_score;
-			best_yaw = yaw;
-		}
-	}
-
-	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
-
-	ROS_INFO_STREAM(
-			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
-
-	if (view_score < _min_view_score
-			|| (node.status == rrg_nbv_exploration_msgs::Node::VISITED
-					&& node.best_yaw <= best_yaw + 5
-					&& node.best_yaw >= best_yaw - 5)) {
+	if (cluster.size() == 0
+			|| ((node.status == rrg_nbv_exploration_msgs::Node::VISITED
+					|| node.status
+							== rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED)
+					&& node.gain_cluster.size() > 0
+					&& clusterProximityCheck(node.gain_cluster.at(0),
+							cluster.at(0)))) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
+//		ROS_INFO_STREAM("Node " << node.index << " explored");
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
 	} else {
-		node.gain = best_yaw_score;
-		node.best_yaw = best_yaw;
+		node.gain = cluster.at(0).size;
+		node.best_yaw = (int) cluster.at(0).center_theta;
+		node.gain_cluster = cluster;
+//		ROS_INFO_STREAM(
+//				"Node " << node.index << " best cluster: "<<cluster.at(0).size << ",(" << cluster.at(0).center_theta << ", " << cluster.at(0).center_phi << ", " << cluster.at(0).center_radius << ")");
 	}
 
 	if (publish_visualization) {
@@ -332,10 +316,10 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		geometry_msgs::Point vis_point;
 		vis_point.x = x
 				+ (_sensor_max_range + _delta_radius)
-						* cos(M_PI * best_yaw / 180.0);
+						* cos(M_PI * node.best_yaw / 180.0);
 		vis_point.y = y
 				+ (_sensor_max_range + _delta_radius)
-						* sin(M_PI * best_yaw / 180.0);
+						* sin(M_PI * node.best_yaw / 180.0);
 		vis_point.z = z;
 		std_msgs::ColorRGBA color;
 		color.r = 1.0f;
@@ -376,18 +360,18 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 			color.g = 0.0f;
 			color.b = 0.0f;
 			color.a = 0.5f;
-			if (i.number <= 2) {
-				color.r = i.number * 0.5;
-			} else if (i.number > 2 && i.number <= 4) {
-				color.g = (i.number - 2) * 0.5;
-			} else if (i.number > 4 && i.number <= 6) {
-				color.b = (i.number - 4) * 0.5;
-			} else if (i.number > 6 && i.number <= 8) {
-				color.r = (i.number - 6) * 0.5;
-				color.g = (i.number - 6) * 0.5;
-			} else if (i.number > 8 && i.number <= 10) {
-				color.r = (i.number - 8) * 0.5;
-				color.b = (i.number - 8) * 0.5;
+			if (i.index <= 1) {
+				color.r = (i.index + 1) * 0.5;
+			} else if (i.index > 1 && i.index <= 3) {
+				color.g = (i.index - 1) * 0.5;
+			} else if (i.index > 3 && i.index <= 5) {
+				color.b = (i.index - 3) * 0.5;
+			} else if (i.index > 5 && i.index <= 7) {
+				color.r = (i.index - 5) * 0.5;
+				color.g = (i.index - 5) * 0.5;
+			} else if (i.index > 7 && i.index <= 9) {
+				color.r = (i.index - 7) * 0.5;
+				color.b = (i.index - 7) * 0.5;
 			} else {
 				color.g = 0.5f;
 				color.b = 0.5f;
@@ -431,7 +415,6 @@ void GainCalculator::addClusterVisualizationPoint(
 		color.g = 0.5f;
 		color.b = 0.5f;
 	}
-
 	cluster_points_vis.points.push_back(vis_point);
 	cluster_points_vis.colors.push_back(color);
 }
@@ -495,6 +478,20 @@ void GainCalculator::checkIfClusterPointExists(ClusterIndex index,
 			!= ClusterLabel::NoPoint) {
 		neighbors.push_back(index);
 	}
+}
+
+bool GainCalculator::clusterProximityCheck(
+		rrg_nbv_exploration_msgs::Cluster &cluster1,
+		rrg_nbv_exploration_msgs::Cluster &cluster2) {
+	if (abs(cluster1.center_theta - cluster2.center_theta)
+			<= (double) _delta_theta
+			&& abs(cluster1.center_phi - cluster2.center_phi)
+					<= (double) _delta_phi
+			&& abs(cluster1.center_radius - cluster2.center_radius)
+					<= _delta_radius) {
+		return true;
+	}
+	return false;
 }
 
 bool GainCalculator::measureNodeHeight(rrg_nbv_exploration_msgs::Node &node) {
@@ -579,6 +576,7 @@ void GainCalculator::nodeToUpdateCallback(
 		node.index = node_to_update->node.index;
 		node.gain = node_to_update->node.gain;
 		node.best_yaw = node_to_update->node.best_yaw;
+		node.gain_cluster = node_to_update->node.gain_cluster;
 		calculateGain(node);
 		_last_updated_node = node;
 		_updated_node_publisher.publish(node);

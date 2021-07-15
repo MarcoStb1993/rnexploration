@@ -3,6 +3,7 @@ int32 index						# Index of the node in the RRG node list
 geometry_msgs/Point position	# Position of the node in the map
 float64 gain    				# Calculated information gain metrics at this position for exploration (-1 if not calculated)
 int32 best_yaw					# Yaw in degrees with best gain
+Cluster[] gain_cluster			# Cluster of unexplored points viewable from this node
 uint8 status    				# Nodes current status regarding the exploration
 
 uint8 INITIAL = 0       		# Node is waiting to be explored

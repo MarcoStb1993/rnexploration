@@ -267,7 +267,7 @@ bool GraphConstructor::determineNearestNodeToRobot() {
 		double min_distance;
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
-		if (nearest_node != _rrg.nearest_node) {//if nearest node changed
+		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
 			if (!_graph_path_calculator->neighbourNodes(_rrg, nearest_node,
 					_rrg.nearest_node)) {
 				//check if robot came off path and is close to a non-neighbor node
@@ -409,6 +409,8 @@ void GraphConstructor::updatedNodeCallback(
 		_rrg.nodes[updated_node->index].best_yaw = updated_node->best_yaw;
 		_rrg.nodes[updated_node->index].status = updated_node->status;
 		_rrg.nodes[updated_node->index].position.z = updated_node->position.z;
+		_rrg.nodes[updated_node->index].gain_cluster =
+				updated_node->gain_cluster;
 		_last_updated_node = updated_node->index;
 		_nodes_to_update.remove(updated_node->index);
 		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
