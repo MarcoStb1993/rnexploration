@@ -15,7 +15,6 @@
 	<arg name="sensor_horizontal_fov" default="360" /> 
 	<arg name="sensor_vertical_fov_bottom" default="180" />
 	<arg name="sensor_vertical_fov_top" default="0" />
-	<arg name="min_view_score" default="0.1" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
 	<arg name="exploration_finished_timer_duration" default="1.0" />
@@ -61,7 +60,6 @@
 		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />
 		<param name="sensor_vertical_fov_bottom" type="int" value="$(arg sensor_vertical_fov_bottom)" />
 		<param name="sensor_vertical_fov_top" type="int" value="$(arg sensor_vertical_fov_top)" />
-		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />

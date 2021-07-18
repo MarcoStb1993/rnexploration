@@ -16,7 +16,6 @@ GainCalculator::GainCalculator() :
 	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 0);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("sensor_size", _sensor_size, 0.1);
-	private_nh.param("min_view_score", _min_view_score, 0.1);
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param("max_node_height_difference", _max_node_height_difference,
 			1.0);
@@ -37,8 +36,6 @@ GainCalculator::GainCalculator() :
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
-	_best_gain_per_view = 0;
-	_max_gain_points = 0;
 	_last_updated_node.index = -1;
 	_sensor_min_range_squared = pow(_sensor_min_range, 2);
 }
@@ -85,9 +82,6 @@ void GainCalculator::precalculateGainPollPoints() {
 
 	int range_steps = (int) ((_sensor_max_range - _sensor_min_range)
 			/ _delta_radius);
-	_best_gain_per_view = phi_steps.size() * range_steps
-			* (_sensor_horizontal_fov / _delta_theta + 1);
-	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
 //	ROS_WARN_STREAM(
 //			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
@@ -583,11 +577,6 @@ void GainCalculator::nodeToUpdateCallback(
 	} else {
 		_updated_node_publisher.publish(_last_updated_node);
 	}
-}
-
-void GainCalculator::dynamicReconfigureCallback(
-		rrg_nbv_exploration::GainCalculatorConfig &config, uint32_t level) {
-	_min_view_score = config.min_view_score;
 }
 
 }

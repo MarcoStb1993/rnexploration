@@ -19,14 +19,9 @@ find_package(catkin REQUIRED COMPONENTS
     tf2
     tf2_ros
     nav_msgs
-    dynamic_reconfigure
     )
 
 find_package(octomap REQUIRED)
-
-generate_dynamic_reconfigure_options(
-  cfg/GainCalculator.cfg
-)
 
 catkin_package(
 	INCLUDE_DIRS include

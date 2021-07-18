@@ -6,7 +6,6 @@
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
 #include "visualization_msgs/Marker.h"
-#include <rrg_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
 #include <fstream>
@@ -78,9 +77,6 @@ public:
 	 */
 	void calculateGain(rrg_nbv_exploration_msgs::Node &node);
 
-	void dynamicReconfigureCallback(
-			rrg_nbv_exploration::GainCalculatorConfig &config, uint32_t level);
-
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
@@ -124,18 +120,6 @@ private:
 	 * Sensor's vertical FoV top edge that is considered for gain calculation (in degrees, from 180 to 0 as the highest angle)
 	 */
 	int _sensor_vertical_fov_top;
-	/**
-	 * Maximum number of points that can be added for each yaw step to calculate gain
-	 */
-	int _best_gain_per_view;
-	/**
-	 * Maximum number of points that can be added to calculate gain
-	 */
-	int _max_gain_points;
-	/**
-	 * Required minimum percentage of points that have to be free space of all points in view used for gain calculation at a specific yaw angle
-	 */
-	double _min_view_score;
 	/**
 	 * A pre-calculated 3-dimensional array (theta, phi, radius) of all points to poll for gain calculation
 	 */
