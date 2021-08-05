@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
    Graph.msg
    Node.msg
    Edge.msg
+   SphericalPoint.msg
    Cluster.msg
    BestAndCurrentNode.msg
    NodeToUpdate.msg
