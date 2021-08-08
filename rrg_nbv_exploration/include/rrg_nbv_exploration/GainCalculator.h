@@ -188,14 +188,16 @@ private:
 	void calculatePointGain(rrg_nbv_exploration_msgs::Node &node);
 
 	void initializeCluster(int cluster_counter,
-			rrg_nbv_exploration_msgs::Cluster &current_cluster);
+			rrg_nbv_exploration_msgs::Cluster &current_cluster, double theta);
 
 	void addPointToCluster(rrg_nbv_exploration_msgs::Cluster &current_cluster,
 			double &center_theta_sum_sin, double &center_theta_sum_cos,
-			double theta, double phi, double radius);
+			double theta, double phi, double radius,
+			bool &theta_extent_full_circle, double theta_start);
 
 	void finishCluster(rrg_nbv_exploration_msgs::Cluster &current_cluster,
-			double center_theta_sum_sin, double center_theta_sum_cos);
+			double center_theta_sum_sin, double center_theta_sum_cos, double x,
+			double y, double z);
 
 	/**
 	 * @brief Add the visualization of a cluster point to the visualization array

@@ -44,9 +44,11 @@ private:
 	 * @brief Initializes the message for topic "rrg_vis"
 	 * @param Message for node points
 	 * @param Message for edges
+	 * @param Message for cluster centers
 	 */
 	void initializeVisualization(visualization_msgs::Marker &_node_points,
-			visualization_msgs::Marker &_edge_line_list);
+			visualization_msgs::Marker &_edge_line_list,
+			visualization_msgs::Marker &_cluster_points);
 	/**
 	 * @brief Adds info text for each node to the visualization consisting of it's number and gain
 	 * @param Reference to message to populate with info text

@@ -230,12 +230,15 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 				}
 				// Save cluster meta data
 				rrg_nbv_exploration_msgs::Cluster current_cluster;
-				initializeCluster(cluster_counter, current_cluster);
+				initializeCluster(cluster_counter, current_cluster,
+						(double) theta);
 				double center_theta_sum_sin = 0.0;
 				double center_theta_sum_cos = 0.0;
+				bool theta_extent_full_circle = false;
 				addPointToCluster(current_cluster, center_theta_sum_sin,
 						center_theta_sum_cos, (double) theta, (double) phi,
-						(double) radius);
+						(double) radius, theta_extent_full_circle,
+						(double) theta);
 				while (!neighbor_keys.empty()) {
 					ClusterIndex neighbor = neighbor_keys.front();
 					if (cluster_points[neighbor.theta][neighbor.phi][neighbor.radius]
@@ -250,8 +253,8 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 						// Update cluster meta data
 						addPointToCluster(current_cluster, center_theta_sum_sin,
 								center_theta_sum_cos, (double) neighbor.theta,
-								(double) neighbor.phi,
-								(double) neighbor.radius);
+								(double) neighbor.phi, (double) neighbor.radius,
+								theta_extent_full_circle, (double) theta);
 						// add neighbors to queue if more than min points
 						retrieveClusterPointNeighbors(neighbor, cluster_points,
 								neighbor_keys);
@@ -259,7 +262,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					neighbor_keys.pop();
 				}
 				finishCluster(current_cluster, center_theta_sum_sin,
-						center_theta_sum_cos);
+						center_theta_sum_cos, x, y, z);
 				cluster.push_back(current_cluster);
 			}
 		}
@@ -270,8 +273,8 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 					const rrg_nbv_exploration_msgs::Cluster cluster2) {
 				return cluster1.size > cluster2.size;
 			});
-	ROS_INFO_STREAM(
-			"Node " << node.index << " best cluster: "<<cluster.at(0).size << ",(" << cluster.at(0).center.theta << ", " << cluster.at(0).center.phi << ", " << cluster.at(0).center.radius << "), " "min extent: ("<< cluster.at(0).min_extent.theta << ", " << cluster.at(0).min_extent.phi << ", " << cluster.at(0).min_extent.radius << "), max extent: ("<< cluster.at(0).max_extent.theta << ", " << cluster.at(0).max_extent.phi << ", " << cluster.at(0).max_extent.radius << ")");
+//	ROS_INFO_STREAM(
+//			"Node " << node.index << " best cluster: "<<cluster.at(0).size << ",(" << cluster.at(0).center.theta << ", " << cluster.at(0).center.phi << ", " << cluster.at(0).center.radius << "), " "min extent: ("<< cluster.at(0).min_extent.theta << ", " << cluster.at(0).min_extent.phi << ", " << cluster.at(0).min_extent.radius << "), max extent: ("<< cluster.at(0).max_extent.theta << ", " << cluster.at(0).max_extent.phi << ", " << cluster.at(0).max_extent.radius << ")");
 
 	if (cluster.size() == 0
 			|| ((node.status == rrg_nbv_exploration_msgs::Node::VISITED
@@ -284,6 +287,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 //		ROS_INFO_STREAM("Node " << node.index << " explored");
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
+		node.gain_cluster.clear();
 	} else {
 		node.gain = cluster.at(0).size;
 		node.best_yaw = (int) cluster.at(0).center.theta;
@@ -313,6 +317,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 	if (publish_cluster_visualization) {
 		//Visualize point clusters
+//		ROS_INFO_STREAM("visualize clusters");
 		visualization_msgs::Marker cluster_center_vis;
 		cluster_center_vis.header.frame_id = "/map";
 		cluster_center_vis.ns = "cluster_visualization";
@@ -325,17 +330,10 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		cluster_center_vis.scale.z = _octomap_resolution * 2;
 		cluster_center_vis.header.stamp = ros::Time::now();
 		for (auto &i : cluster) {
-			geometry_msgs::Point vis_point;
-			vis_point.x = x
-					+ i.center.radius * cos(M_PI * i.center.theta / 180.0)
-							* sin(
-							M_PI * i.center.phi / 180.0);
-			vis_point.y = y
-					+ i.center.radius * sin(M_PI * i.center.theta / 180.0)
-							* sin(
-							M_PI * i.center.phi / 180.0);
-			vis_point.z = z + i.center.radius * cos(
-			M_PI * i.center.phi / 180.0);
+//			ROS_INFO_STREAM("vis cluster " << i.index);
+//			ROS_INFO_STREAM(
+//					"center: " << i.center.theta << ", "<< i.center.phi << ", "<< i.center.radius << ", ");
+//			ROS_INFO_STREAM("vis cluster continue" << i.index);
 			std_msgs::ColorRGBA color;
 			color.r = 0.0f;
 			color.g = 0.0f;
@@ -357,55 +355,92 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 				color.g = 0.5f;
 				color.b = 0.5f;
 			}
-			cluster_center_vis.points.push_back(vis_point);
+			cluster_center_vis.points.push_back(i.position);
 			cluster_center_vis.colors.push_back(color);
 		}
+//		ROS_INFO_STREAM("publish clusters");
 		cluster_visualization.publish(cluster_center_vis);
 		cluster_visualization.publish(cluster_points_vis);
+//		ROS_INFO_STREAM("published clusters");
 	}
 }
 
 void GainCalculator::initializeCluster(int cluster_counter,
-		rrg_nbv_exploration_msgs::Cluster &current_cluster) {
+		rrg_nbv_exploration_msgs::Cluster &current_cluster, double theta) {
 	current_cluster.size = 1;
 	current_cluster.index = cluster_counter - 1;
 	current_cluster.center.theta = 0.0;
 	current_cluster.center.phi = 0.0;
 	current_cluster.center.radius = 0.0;
-	current_cluster.max_extent.theta = -1.0;
 	current_cluster.max_extent.phi = -1.0;
 	current_cluster.max_extent.radius = -1.0;
-	current_cluster.min_extent.theta = (double) _gain_poll_points.shape()[0];
 	current_cluster.min_extent.phi = (double) _gain_poll_points.shape()[1];
 	current_cluster.min_extent.radius = (double) _gain_poll_points.shape()[2];
+	//initialize theta extent with first point's theta
+	current_cluster.min_extent.theta = theta;
+	current_cluster.max_extent.theta = theta;
 }
 
 void GainCalculator::addPointToCluster(
 		rrg_nbv_exploration_msgs::Cluster &current_cluster,
 		double &center_theta_sum_sin, double &center_theta_sum_cos,
-		double theta, double phi, double radius) {
+		double theta, double phi, double radius, bool &theta_extent_full_circle,
+		double theta_start) {
 	current_cluster.size++;
 	center_theta_sum_sin += sin(theta * (double) _delta_theta * M_PI / 180);
 	center_theta_sum_cos += cos(theta * (double) _delta_theta * M_PI / 180);
 	current_cluster.center.phi += phi;
 	current_cluster.center.radius += radius;
-	current_cluster.max_extent.theta = std::max(theta,
-			current_cluster.max_extent.theta);
 	current_cluster.max_extent.phi = std::max(phi,
 			current_cluster.max_extent.phi);
 	current_cluster.max_extent.radius = std::max(radius,
 			current_cluster.max_extent.radius);
-	current_cluster.min_extent.theta = std::min(theta,
-			current_cluster.min_extent.theta);
 	current_cluster.min_extent.phi = std::min(phi,
 			current_cluster.min_extent.phi);
 	current_cluster.min_extent.radius = std::min(radius,
 			current_cluster.min_extent.radius);
+	/* Because of circular geometry, min and max does not work in all cases,
+	 * increment extent from initial value and check in which direction it will be extended
+	 * (only in- and decrements of 1 are possible because of neighbor search).
+	 * Check for crossing of 0-360-degree mark (converted to steps here).
+	 */
+//	ROS_INFO_STREAM(
+//			"Add theta:  " << theta << " ("<< theta * _delta_theta << ")");
+//	ROS_INFO_STREAM(
+//			"Compare to: min  " << (current_cluster.min_extent.theta - 1.0 < 0.0 ?
+//					(double) _gain_poll_points.shape()[0] - 1 :
+//					current_cluster.min_extent.theta - 1.0) << " max " << theta * _delta_theta << ")");
+	if (theta_extent_full_circle)
+		return;
+	if (theta
+			== (current_cluster.min_extent.theta - 1.0 < 0.0 ?
+					(double) _gain_poll_points.shape()[0] - 1 :
+					current_cluster.min_extent.theta - 1.0)) {
+		current_cluster.min_extent.theta = theta;
+//		ROS_INFO_STREAM(
+//				"Min extent theta: " << current_cluster.min_extent.theta << " ("<< current_cluster.min_extent.theta * _delta_theta << ")");
+	} else if (theta
+			== (current_cluster.max_extent.theta + 1.0
+					>= (double) _gain_poll_points.shape()[0] ?
+					0.0 : current_cluster.max_extent.theta + 1.0)) {
+		current_cluster.max_extent.theta = theta;
+//		ROS_INFO_STREAM(
+//				"Max extent theta: " << current_cluster.max_extent.theta << " ("<< current_cluster.max_extent.theta * _delta_theta << ")");
+	}
+	if (current_cluster.min_extent.theta != theta_start
+			&& current_cluster.min_extent.theta
+					== current_cluster.max_extent.theta) {
+		theta_extent_full_circle = true;
+		current_cluster.min_extent.theta = 0;
+		current_cluster.max_extent.theta =
+				(double) _gain_poll_points.shape()[0];
+	}
 }
 
 void GainCalculator::finishCluster(
 		rrg_nbv_exploration_msgs::Cluster &current_cluster,
-		double center_theta_sum_sin, double center_theta_sum_cos) {
+		double center_theta_sum_sin, double center_theta_sum_cos, double x,
+		double y, double z) {
 	center_theta_sum_sin /= (double) current_cluster.size;
 	center_theta_sum_cos /= (double) current_cluster.size;
 	current_cluster.center.theta = atan2(center_theta_sum_sin,
@@ -425,6 +460,15 @@ void GainCalculator::finishCluster(
 			* (double) _delta_phi + (double) _sensor_vertical_fov_top;
 	current_cluster.max_extent.radius = current_cluster.max_extent.radius
 			* _delta_radius + _sensor_size;
+	double radius = current_cluster.min_extent.radius;
+	current_cluster.position.x = x
+			+ radius * cos(M_PI * current_cluster.center.theta / 180.0) * sin(
+			M_PI * current_cluster.center.phi / 180.0);
+	current_cluster.position.y = y
+			+ radius * sin(M_PI * current_cluster.center.theta / 180.0) * sin(
+			M_PI * current_cluster.center.phi / 180.0);
+	current_cluster.position.z = z + radius * cos(
+	M_PI * current_cluster.center.phi / 180.0);
 }
 
 void GainCalculator::addClusterVisualizationPoint(

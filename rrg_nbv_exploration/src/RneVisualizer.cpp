@@ -18,7 +18,8 @@ RneVisualizer::~RneVisualizer() {
 
 void RneVisualizer::initializeVisualization(
 		visualization_msgs::Marker &_node_points,
-		visualization_msgs::Marker &_edge_line_list) {
+		visualization_msgs::Marker &_edge_line_list,
+		visualization_msgs::Marker &_cluster_points) {
 	_node_points.header.frame_id = "/map";
 	_node_points.ns = "rrg";
 	_node_points.id = 0;
@@ -40,6 +41,17 @@ void RneVisualizer::initializeVisualization(
 	_edge_line_list.scale.x = 0.08f;
 	_edge_line_list.color.b = 1.0f;
 	_edge_line_list.color.a = 1.0f;
+	_cluster_points.header.frame_id = "/map";
+	_cluster_points.ns = "rrg";
+	_cluster_points.id = 2;
+	_cluster_points.action = visualization_msgs::Marker::ADD;
+	_cluster_points.pose.orientation.w = 1.0;
+	_cluster_points.type = visualization_msgs::Marker::CUBE_LIST;
+	_cluster_points.scale.x = 0.2f;
+	_cluster_points.scale.y = 0.2f;
+	_cluster_points.scale.z = 0.2f;
+	_cluster_points.color.g = 1.0f;
+	_cluster_points.color.a = 1.0f;
 }
 
 void RneVisualizer::visualizeRrgGraph(
@@ -51,16 +63,25 @@ void RneVisualizer::visualizeRrgGraph(
 						>= _info_interval;
 		visualization_msgs::Marker _node_points;
 		visualization_msgs::Marker _edge_line_list;
-		initializeVisualization(_node_points, _edge_line_list);
+		visualization_msgs::Marker _cluster_points;
+		initializeVisualization(_node_points, _edge_line_list, _cluster_points);
 		visualization_msgs::MarkerArray _node_info_texts;
 		_node_points.header.stamp = ros::Time::now();
 		_node_points.points.clear();
 		_node_points.colors.clear();
 		_edge_line_list.points.clear();
 		_edge_line_list.colors.clear();
+		_cluster_points.points.clear();
+		_cluster_points.colors.clear();
 		for (int i = 0; i < rrg->node_counter; i++) {
 			_node_points.points.push_back(rrg->nodes[i].position);
 			_node_points.colors.push_back(getColor(rrg->nodes[i]));
+			if (rrg->nodes[i].gain > 0) {
+				for (auto &cluster : rrg->nodes[i].gain_cluster) {
+					_cluster_points.points.push_back(cluster.position);
+					_cluster_points.colors.push_back(getColor(rrg->nodes[i]));
+				}
+			}
 			if (publishInfo)
 				addInfoTextVisualization(_node_info_texts,
 						rrg->nodes[i].position, i, rrg->nodes[i].gain);
@@ -77,6 +98,7 @@ void RneVisualizer::visualizeRrgGraph(
 		}
 		_rrg_visualization_pub.publish(_node_points);
 		_rrg_visualization_pub.publish(_edge_line_list);
+		_rrg_visualization_pub.publish(_cluster_points);
 		if (publishInfo) {
 			_rrg_text_info_visualization_pub.publish(_node_info_texts);
 			_last_info_publish = ros::Time::now();
@@ -103,7 +125,7 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = node_position.y;
 	node_info_text.pose.position.z = node_position.z + 0.5;
 	std::ostringstream oss;
-	oss << "(" << node << ")"  << (int) gain;
+	oss << "(" << node << ")" << (int) gain;
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
 }
