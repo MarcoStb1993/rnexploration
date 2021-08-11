@@ -12,6 +12,7 @@ uint8 ACTIVE_VISITED = 3 		# Node is currently active and was visited but not co
 uint8 EXPLORED = 4      		# Node was already explored
 uint8 FAILED = 5        		# Node's exploration failed
 uint8 ABORTED = 6        		# Node's exploration aborted
+uint8 ABORTED_VISITED = 7  		# Node's exploration aborted and was visited but not completely explored before
 
 int32[] edges					# Position of the node's edges in the edges array of the graph message
 int32 edge_counter				# Number of edges the node is connected to (also number of neighbors)

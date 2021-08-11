@@ -66,6 +66,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_graph_path_calculator.reset(new GraphPathCalculator());
 	_node_comparator.reset(new NodeComparator());
+//	_frontier_clusterer.reset(new FrontierClusterer());
 	_running = false;
 }
 
@@ -99,6 +100,7 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_graph_searcher->initialize(_rrg);
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
+//	_frontier_clusterer->initialize(_rrg);
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
 }
@@ -126,6 +128,9 @@ void GraphConstructor::runRrgConstruction() {
 			expandGraph(true, !updatePathsWithReset);
 		if (updatePathsWithReset)
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg);
+//		std::list<FrontierCluster> frontiers =
+//				_frontier_clusterer->getSortedFrontiers(_rrg);
+//		ROS_INFO_STREAM(frontiers.size() << " distinctive frontiers");
 		_node_comparator->maintainList(_rrg);
 		checkCurrentGoal();
 		publishNodeWithBestGain();
@@ -255,6 +260,11 @@ void GraphConstructor::checkCurrentGoal() {
 		_moved_to_current_goal = false;
 		_goal_updated = true;
 		_updating = false;
+		if (_rrg.nodes[_last_goal_node].status
+				== rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED) {
+			_rrg.nodes[_last_goal_node].status =
+					rrg_nbv_exploration_msgs::Node::VISITED;
+		}
 		ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 	}
 }
@@ -362,7 +372,7 @@ void GraphConstructor::updateCurrentGoal() {
 		updateNodes(update_center);
 		_consecutive_failed_goals = 0;
 		break;
-	case rrg_nbv_exploration_msgs::Node::VISITED:
+	case rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED:
 		ROS_INFO("RNE goal visited");
 		_node_comparator->removeNode(_current_goal_node);
 		_sort_nodes_to_update = true;
@@ -375,6 +385,18 @@ void GraphConstructor::updateCurrentGoal() {
 		ROS_INFO("RNE goal aborted");
 		_rrg.nodes[_current_goal_node].status =
 				rrg_nbv_exploration_msgs::Node::INITIAL;
+		if (_moved_to_current_goal) {
+			ROS_INFO("update nodes");
+			_node_comparator->removeNode(_current_goal_node);
+			_sort_nodes_to_update = true;
+			update_center = _last_robot_pos;
+			updateNodes(update_center);
+		}
+		break;
+	case rrg_nbv_exploration_msgs::Node::ABORTED_VISITED:
+		ROS_INFO("RNE goal aborted but visited before");
+		_rrg.nodes[_current_goal_node].status =
+				rrg_nbv_exploration_msgs::Node::VISITED;
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
 			_node_comparator->removeNode(_current_goal_node);
@@ -504,7 +526,13 @@ bool GraphConstructor::updateCurrentGoal(
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
 	if (_current_goal_node != -1 && !_updating) {
 		_updating = true;
-		_rrg.nodes[_current_goal_node].status = req.status;
+		if (_rrg.nodes[_current_goal_node].status
+				== rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED
+				&& req.status == rrg_nbv_exploration_msgs::Node::ABORTED)
+			_rrg.nodes[_current_goal_node].status =
+					rrg_nbv_exploration_msgs::Node::ABORTED_VISITED;
+		else
+			_rrg.nodes[_current_goal_node].status = req.status;
 		updateCurrentGoal();
 	}
 	res.success = true;
