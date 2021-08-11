@@ -64,5 +64,12 @@ private:
 	 * @param Node to determine color for
 	 */
 	std_msgs::ColorRGBA getColor(const rrg_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * @brief Return the color for the given gain cluster depending on its frontier
+	 * @param Gain cluster to determine color for
+	 */
+	std_msgs::ColorRGBA getGainClusterColor(
+			const rrg_nbv_exploration_msgs::GainCluster cluster);
 };
 }

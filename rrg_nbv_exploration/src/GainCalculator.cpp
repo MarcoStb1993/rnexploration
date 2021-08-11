@@ -29,14 +29,15 @@ GainCalculator::GainCalculator() :
 			"raysample_visualization", 1000);
 	cluster_visualization = nh.advertise<visualization_msgs::Marker>(
 			"cluster_visualization", 1000);
-	_updated_node_publisher = nh.advertise<rrg_nbv_exploration_msgs::Node>(
-			"updated_node", 1);
+	_updated_node_publisher =
+			nh.advertise<rrg_nbv_exploration_msgs::UpdatedNode>("updated_node",
+					1);
 	_node_to_update_subscriber = nh.subscribe("node_to_update", 1,
 			&GainCalculator::nodeToUpdateCallback, this);
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
-	_last_updated_node.index = -1;
+	_last_updated_node.node.index = -1;
 	_sensor_min_range_squared = pow(_sensor_min_range, 2);
 }
 
@@ -86,17 +87,19 @@ void GainCalculator::precalculateGainPollPoints() {
 //			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
-void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
+void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node,
+		std::vector<rrg_nbv_exploration_msgs::GainCluster> &gain_clusters) {
 	if (!measureNodeHeight(node) && node.distanceToRobot != 0
 			&& node.edges.size() < 2) {
 		//node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
 		return;
 	}
-	calculatePointGain(node);
+	calculatePointGain(node, gain_clusters);
 }
 
-void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
+void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node,
+		std::vector<rrg_nbv_exploration_msgs::GainCluster> &gain_clusters) {
 	bool publish_visualization = raysample_visualization.getNumSubscribers()
 			> 0;
 	bool publish_cluster_visualization =
@@ -203,7 +206,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 
 	//DBSCAN
-	std::vector<rrg_nbv_exploration_msgs::Cluster> cluster;
+	std::vector<rrg_nbv_exploration_msgs::GainCluster> clusters;
 	int cluster_counter = 0;
 	for (cluster_point_array_index theta = 0; theta < cluster_points.shape()[0];
 			theta++) {
@@ -229,8 +232,8 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 							cluster_counter, cluster_points_vis);
 				}
 				// Save cluster meta data
-				rrg_nbv_exploration_msgs::Cluster current_cluster;
-				initializeCluster(cluster_counter, current_cluster,
+				rrg_nbv_exploration_msgs::GainCluster current_cluster;
+				initializeCluster(cluster_counter, node.index, current_cluster,
 						(double) theta);
 				double center_theta_sum_sin = 0.0;
 				double center_theta_sum_cos = 0.0;
@@ -263,37 +266,31 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 				}
 				finishCluster(current_cluster, center_theta_sum_sin,
 						center_theta_sum_cos, x, y, z);
-				cluster.push_back(current_cluster);
+				clusters.push_back(current_cluster);
 			}
 		}
 	}
 
-	std::sort(cluster.begin(), cluster.end(),
-			[](const rrg_nbv_exploration_msgs::Cluster cluster1,
-					const rrg_nbv_exploration_msgs::Cluster cluster2) {
+	std::sort(clusters.begin(), clusters.end(),
+			[](const rrg_nbv_exploration_msgs::GainCluster cluster1,
+					const rrg_nbv_exploration_msgs::GainCluster cluster2) {
 				return cluster1.size > cluster2.size;
 			});
-//	ROS_INFO_STREAM(
-//			"Node " << node.index << " best cluster: "<<cluster.at(0).size << ",(" << cluster.at(0).center.theta << ", " << cluster.at(0).center.phi << ", " << cluster.at(0).center.radius << "), " "min extent: ("<< cluster.at(0).min_extent.theta << ", " << cluster.at(0).min_extent.phi << ", " << cluster.at(0).min_extent.radius << "), max extent: ("<< cluster.at(0).max_extent.theta << ", " << cluster.at(0).max_extent.phi << ", " << cluster.at(0).max_extent.radius << ")");
-
-	if (cluster.size() == 0
+	if (clusters.size() == 0
 			|| ((node.status == rrg_nbv_exploration_msgs::Node::VISITED
 					|| node.status
 							== rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED)
-					&& node.gain_cluster.size() > 0
-					&& clusterProximityCheck(node.gain_cluster.at(0),
-							cluster.at(0)))) {
+					&& gain_clusters.size() > 0
+					&& clusterProximityCheck(gain_clusters.at(0),
+							clusters.at(0)))) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
 //		ROS_INFO_STREAM("Node " << node.index << " explored");
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
-		node.gain_cluster.clear();
 	} else {
-		node.gain = cluster.at(0).size;
-		node.best_yaw = (int) cluster.at(0).center.theta;
-		node.gain_cluster = cluster;
-//		ROS_INFO_STREAM(
-//				"Node " << node.index << " best cluster: "<<cluster.at(0).size << ",(" << cluster.at(0).center_theta << ", " << cluster.at(0).center_phi << ", " << cluster.at(0).center_radius << ")");
+		node.gain = clusters.at(0).size;
+		node.best_yaw = (int) clusters.at(0).center.theta;
+		gain_clusters = clusters;
 	}
 
 	if (publish_visualization) {
@@ -317,7 +314,6 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 	if (publish_cluster_visualization) {
 		//Visualize point clusters
-//		ROS_INFO_STREAM("visualize clusters");
 		visualization_msgs::Marker cluster_center_vis;
 		cluster_center_vis.header.frame_id = "/map";
 		cluster_center_vis.ns = "cluster_visualization";
@@ -329,11 +325,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		cluster_center_vis.scale.y = _octomap_resolution * 2;
 		cluster_center_vis.scale.z = _octomap_resolution * 2;
 		cluster_center_vis.header.stamp = ros::Time::now();
-		for (auto &i : cluster) {
-//			ROS_INFO_STREAM("vis cluster " << i.index);
-//			ROS_INFO_STREAM(
-//					"center: " << i.center.theta << ", "<< i.center.phi << ", "<< i.center.radius << ", ");
-//			ROS_INFO_STREAM("vis cluster continue" << i.index);
+		for (auto &i : clusters) {
 			std_msgs::ColorRGBA color;
 			color.r = 0.0f;
 			color.g = 0.0f;
@@ -358,17 +350,17 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 			cluster_center_vis.points.push_back(i.position);
 			cluster_center_vis.colors.push_back(color);
 		}
-//		ROS_INFO_STREAM("publish clusters");
 		cluster_visualization.publish(cluster_center_vis);
 		cluster_visualization.publish(cluster_points_vis);
-//		ROS_INFO_STREAM("published clusters");
 	}
 }
 
-void GainCalculator::initializeCluster(int cluster_counter,
-		rrg_nbv_exploration_msgs::Cluster &current_cluster, double theta) {
+void GainCalculator::initializeCluster(int cluster_counter, int node_index,
+		rrg_nbv_exploration_msgs::GainCluster &current_cluster, double theta) {
 	current_cluster.size = 1;
 	current_cluster.index = cluster_counter - 1;
+	current_cluster.node_index = node_index;
+	current_cluster.frontier = -1;
 	current_cluster.center.theta = 0.0;
 	current_cluster.center.phi = 0.0;
 	current_cluster.center.radius = 0.0;
@@ -382,7 +374,7 @@ void GainCalculator::initializeCluster(int cluster_counter,
 }
 
 void GainCalculator::addPointToCluster(
-		rrg_nbv_exploration_msgs::Cluster &current_cluster,
+		rrg_nbv_exploration_msgs::GainCluster &current_cluster,
 		double &center_theta_sum_sin, double &center_theta_sum_cos,
 		double theta, double phi, double radius, bool &theta_extent_full_circle,
 		double theta_start) {
@@ -404,12 +396,6 @@ void GainCalculator::addPointToCluster(
 	 * (only in- and decrements of 1 are possible because of neighbor search).
 	 * Check for crossing of 0-360-degree mark (converted to steps here).
 	 */
-//	ROS_INFO_STREAM(
-//			"Add theta:  " << theta << " ("<< theta * _delta_theta << ")");
-//	ROS_INFO_STREAM(
-//			"Compare to: min  " << (current_cluster.min_extent.theta - 1.0 < 0.0 ?
-//					(double) _gain_poll_points.shape()[0] - 1 :
-//					current_cluster.min_extent.theta - 1.0) << " max " << theta * _delta_theta << ")");
 	if (theta_extent_full_circle)
 		return;
 	if (theta
@@ -417,15 +403,11 @@ void GainCalculator::addPointToCluster(
 					(double) _gain_poll_points.shape()[0] - 1 :
 					current_cluster.min_extent.theta - 1.0)) {
 		current_cluster.min_extent.theta = theta;
-//		ROS_INFO_STREAM(
-//				"Min extent theta: " << current_cluster.min_extent.theta << " ("<< current_cluster.min_extent.theta * _delta_theta << ")");
 	} else if (theta
 			== (current_cluster.max_extent.theta + 1.0
 					>= (double) _gain_poll_points.shape()[0] ?
 					0.0 : current_cluster.max_extent.theta + 1.0)) {
 		current_cluster.max_extent.theta = theta;
-//		ROS_INFO_STREAM(
-//				"Max extent theta: " << current_cluster.max_extent.theta << " ("<< current_cluster.max_extent.theta * _delta_theta << ")");
 	}
 	if (current_cluster.min_extent.theta != theta_start
 			&& current_cluster.min_extent.theta
@@ -438,7 +420,7 @@ void GainCalculator::addPointToCluster(
 }
 
 void GainCalculator::finishCluster(
-		rrg_nbv_exploration_msgs::Cluster &current_cluster,
+		rrg_nbv_exploration_msgs::GainCluster &current_cluster,
 		double center_theta_sum_sin, double center_theta_sum_cos, double x,
 		double y, double z) {
 	center_theta_sum_sin /= (double) current_cluster.size;
@@ -567,14 +549,15 @@ void GainCalculator::checkIfClusterPointExists(ClusterIndex index,
 }
 
 bool GainCalculator::clusterProximityCheck(
-		rrg_nbv_exploration_msgs::Cluster &cluster1,
-		rrg_nbv_exploration_msgs::Cluster &cluster2) {
+		rrg_nbv_exploration_msgs::GainCluster &cluster1,
+		rrg_nbv_exploration_msgs::GainCluster &cluster2) {
 	if (abs(cluster1.center.theta - cluster2.center.theta)
 			<= (double) _delta_theta
 			&& abs(cluster1.center.phi - cluster2.center.phi)
 					<= (double) _delta_phi
 			&& abs(cluster1.center.radius - cluster2.center.radius)
 					<= _delta_radius) {
+//		ROS_WARN_STREAM("Node set to explored due to best cluster proximity");
 		return true;
 	}
 	return false;
@@ -650,7 +633,7 @@ void GainCalculator::convertOctomapMsgToOctree(
 
 void GainCalculator::nodeToUpdateCallback(
 		const rrg_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update) {
-	if (_last_updated_node.index != node_to_update->node.index
+	if (_last_updated_node.node.index != node_to_update->node.index
 			|| node_to_update->force_update) {
 		rrg_nbv_exploration_msgs::Node node;
 		geometry_msgs::Point pos;
@@ -662,10 +645,15 @@ void GainCalculator::nodeToUpdateCallback(
 		node.index = node_to_update->node.index;
 		node.gain = node_to_update->node.gain;
 		node.best_yaw = node_to_update->node.best_yaw;
-		node.gain_cluster = node_to_update->node.gain_cluster;
-		calculateGain(node);
-		_last_updated_node = node;
-		_updated_node_publisher.publish(node);
+		std::vector<rrg_nbv_exploration_msgs::GainCluster> gain_cluster =
+				node_to_update->gain_cluster;
+		calculateGain(node, gain_cluster);
+		rrg_nbv_exploration_msgs::UpdatedNode updated_node;
+		updated_node.node = node;
+		if (node.gain > 0)
+			updated_node.gain_cluster = gain_cluster;
+		_last_updated_node = updated_node;
+		_updated_node_publisher.publish(updated_node);
 	} else {
 		_updated_node_publisher.publish(_last_updated_node);
 	}

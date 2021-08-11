@@ -76,12 +76,6 @@ void RneVisualizer::visualizeRrgGraph(
 		for (int i = 0; i < rrg->node_counter; i++) {
 			_node_points.points.push_back(rrg->nodes[i].position);
 			_node_points.colors.push_back(getColor(rrg->nodes[i]));
-			if (rrg->nodes[i].gain > 0) {
-				for (auto &cluster : rrg->nodes[i].gain_cluster) {
-					_cluster_points.points.push_back(cluster.position);
-					_cluster_points.colors.push_back(getColor(rrg->nodes[i]));
-				}
-			}
 			if (publishInfo)
 				addInfoTextVisualization(_node_info_texts,
 						rrg->nodes[i].position, i, rrg->nodes[i].gain);
@@ -95,6 +89,10 @@ void RneVisualizer::visualizeRrgGraph(
 					rrg->nodes[rrg->edges[j].second_node].position);
 			_edge_line_list.colors.push_back(
 					getColor(rrg->nodes[rrg->edges[j].second_node]));
+		}
+		for (auto &cluster : rrg->gain_cluster) {
+			_cluster_points.points.push_back(cluster.position);
+			_cluster_points.colors.push_back(getGainClusterColor(cluster));
 		}
 		_rrg_visualization_pub.publish(_node_points);
 		_rrg_visualization_pub.publish(_edge_line_list);
@@ -161,6 +159,32 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 			color.b = 1.0f;
 			break;
 		}
+	}
+	return color;
+}
+
+std_msgs::ColorRGBA RneVisualizer::getGainClusterColor(
+		const rrg_nbv_exploration_msgs::GainCluster cluster) {
+	std_msgs::ColorRGBA color;
+	color.r = 0.0f;
+	color.g = 0.0f;
+	color.b = 0.0f;
+	color.a = 1.0f;
+	if (cluster.frontier <= 2) {
+		color.r = cluster.frontier * 0.5;
+	} else if (cluster.frontier > 2 && cluster.frontier <= 4) {
+		color.g = (cluster.frontier - 2) * 0.5;
+	} else if (cluster.frontier > 4 && cluster.frontier <= 6) {
+		color.b = (cluster.frontier - 4) * 0.5;
+	} else if (cluster.frontier > 6 && cluster.frontier <= 8) {
+		color.r = (cluster.frontier - 6) * 0.5;
+		color.g = (cluster.frontier - 6) * 0.5;
+	} else if (cluster.frontier > 8 && cluster.frontier <= 10) {
+		color.r = (cluster.frontier - 8) * 0.5;
+		color.b = (cluster.frontier - 8) * 0.5;
+	} else {
+		color.g = 0.5f;
+		color.b = 0.5f;
 	}
 	return color;
 }

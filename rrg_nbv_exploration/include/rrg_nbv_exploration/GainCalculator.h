@@ -1,7 +1,8 @@
 #include "ros/ros.h"
 #include <rrg_nbv_exploration_msgs/Node.h>
-#include <rrg_nbv_exploration_msgs/Cluster.h>
+#include <rrg_nbv_exploration_msgs/GainCluster.h>
 #include <rrg_nbv_exploration_msgs/NodeToUpdate.h>
+#include <rrg_nbv_exploration_msgs/UpdatedNode.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -71,12 +72,6 @@ public:
 	 */
 	void precalculateGainPolls();
 
-	/**
-	 * Calculates the gain of the passed node the selected gain calculation method
-	 * @param Node which gain needs to be calculated
-	 */
-	void calculateGain(rrg_nbv_exploration_msgs::Node &node);
-
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
@@ -137,9 +132,9 @@ private:
 	 */
 	double _sensor_min_range_squared;
 	/**
-	 * @brief Node which gain was calculated previously
+	 * @brief Node which gain was calculated previously with gain cluster
 	 */
-	rrg_nbv_exploration_msgs::Node _last_updated_node;
+	rrg_nbv_exploration_msgs::UpdatedNode _last_updated_node;
 	/**
 	 * @brief Resolution of octomap (edge length of voxels in m)
 	 */
@@ -182,20 +177,59 @@ private:
 			const rrg_nbv_exploration_msgs::NodeToUpdate::ConstPtr &node_to_update);
 
 	/**
+	 * Calculates the gain of the passed node the selected gain calculation method
+	 * @param Node which gain needs to be calculated
+	 * @param Current gain clusters of the node which will be replaced with the newly found gain clusters
+	 */
+	void calculateGain(rrg_nbv_exploration_msgs::Node &node,
+			std::vector<rrg_nbv_exploration_msgs::GainCluster> &gain_clusters);
+
+	/**
 	 * @brief Calculates the gain of the passed node by sparse ray polling in the octree
 	 * @param Node which gain needs to be calculated
+	 * @param Current gain clusters of the node which will be replaced with the newly found gain clusters
 	 */
-	void calculatePointGain(rrg_nbv_exploration_msgs::Node &node);
+	void calculatePointGain(rrg_nbv_exploration_msgs::Node &node,
+			std::vector<rrg_nbv_exploration_msgs::GainCluster> &gain_clusters);
 
-	void initializeCluster(int cluster_counter,
-			rrg_nbv_exploration_msgs::Cluster &current_cluster, double theta);
+	/**
+	 * @brief Initialize a new gain cluster
+	 * @param Number of the cluster in the node
+	 * @param Index of the node
+	 * @param Gain cluster message object
+	 * @param Theta of the gain cluster's first point
+	 */
+	void initializeCluster(int cluster_counter, int node_index,
+			rrg_nbv_exploration_msgs::GainCluster &current_cluster,
+			double theta);
 
-	void addPointToCluster(rrg_nbv_exploration_msgs::Cluster &current_cluster,
+	/**
+	 * @brief Add a point to the current cluster and calculate extent
+	 * @param Current gain cluster message object
+	 * @param Sum over sinus of theta points for calculating theta mean
+	 * @param Sum over cosinus of theta points for calculating theta mean
+	 * @param Theta of the new point
+	 * @param Phi of the new point
+	 * @param Radius of the new point
+	 * @param If the theta extent encloses the full circle
+	 * @param Theta value of the first cluster point
+	 */
+	void addPointToCluster(
+			rrg_nbv_exploration_msgs::GainCluster &current_cluster,
 			double &center_theta_sum_sin, double &center_theta_sum_cos,
 			double theta, double phi, double radius,
 			bool &theta_extent_full_circle, double theta_start);
 
-	void finishCluster(rrg_nbv_exploration_msgs::Cluster &current_cluster,
+	/**
+	 * @brief Calculates the extent and center of the cluster
+	 * @param Current gain cluster message object
+	 * @param Sum over sinus of theta points for calculating theta mean
+	 * @param Sum over cosinus of theta points for calculating theta mean
+	 * @param X position of the node
+	 * @param Y position of the node
+	 * @param Z position of the node
+	 */
+	void finishCluster(rrg_nbv_exploration_msgs::GainCluster &current_cluster,
 			double center_theta_sum_sin, double center_theta_sum_cos, double x,
 			double y, double z);
 
@@ -242,8 +276,8 @@ private:
 	 * @param Cluster two
 	 * @return Returns true if clusters are close to each other
 	 */
-	bool clusterProximityCheck(rrg_nbv_exploration_msgs::Cluster &cluster1,
-			rrg_nbv_exploration_msgs::Cluster &cluster2);
+	bool clusterProximityCheck(rrg_nbv_exploration_msgs::GainCluster &cluster1,
+			rrg_nbv_exploration_msgs::GainCluster &cluster2);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the

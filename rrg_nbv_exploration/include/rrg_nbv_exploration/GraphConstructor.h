@@ -11,6 +11,7 @@
 #include <rrg_nbv_exploration_msgs/Node.h>
 #include <rrg_nbv_exploration_msgs/Edge.h>
 #include <rrg_nbv_exploration_msgs/NodeToUpdate.h>
+#include <rrg_nbv_exploration_msgs/UpdatedNode.h>
 #include <rrg_nbv_exploration_msgs/BestAndCurrentNode.h>
 #include <rrg_nbv_exploration_msgs/RequestGoal.h>
 #include <rrg_nbv_exploration_msgs/RequestPath.h>
@@ -270,7 +271,7 @@ private:
 	 * @param Node which gain was updated
 	 */
 	void updatedNodeCallback(
-			const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node);
+			const rrg_nbv_exploration_msgs::UpdatedNode::ConstPtr &updated_node);
 	/**
 	 * @brief Function called by subscriber to "octomap_binary" message and converts it to the octree data format for further processing
 	 * @param "octomap_binary" message

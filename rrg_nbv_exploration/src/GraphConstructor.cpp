@@ -313,7 +313,7 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 			_node_comparator->removeNode(iterator.first);
 			_nodes_to_update.push_back(iterator.first);
 			_sort_nodes_to_update = true;
-			_rrg.nodes[iterator.first].gain = -1;
+//			_rrg.nodes[iterator.first].gain = -1;
 		}
 	}
 }
@@ -338,6 +338,13 @@ void GraphConstructor::publishNodeToUpdate() {
 			sortNodesToUpdateByDistanceToRobot();
 		rrg_nbv_exploration_msgs::NodeToUpdate msg;
 		msg.node = _rrg.nodes[_nodes_to_update.front()];
+		std::vector<rrg_nbv_exploration_msgs::GainCluster> gain_clusters;
+		for (auto &cluster : _rrg.gain_cluster) {
+			if (cluster.node_index == msg.node.index) {
+				gain_clusters.push_back(cluster);
+			}
+		}
+		msg.gain_cluster = gain_clusters;
 		msg.force_update = _nodes_to_update.front() == _last_goal_node;
 		_node_to_update_publisher.publish(msg);
 	}
@@ -381,7 +388,7 @@ void GraphConstructor::updateCurrentGoal() {
 		_node_comparator->removeNode(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
 		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
-			ROS_INFO_STREAM("Exploration aborted, robot stuck");
+			ROS_WARN_STREAM("Exploration aborted, robot stuck");
 			_rrg.node_counter = -1; //for evaluation purposes
 			stopRrgConstruction();
 		}
@@ -400,23 +407,37 @@ void GraphConstructor::updateCurrentGoal() {
 }
 
 void GraphConstructor::updatedNodeCallback(
-		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
-	if (updated_node->index != _last_updated_node
-			|| _rrg.nodes[_last_updated_node].gain != updated_node->gain
-			|| _rrg.nodes[_last_updated_node].best_yaw != updated_node->best_yaw
-			|| _rrg.nodes[_last_updated_node].status != updated_node->status) {
-		_rrg.nodes[updated_node->index].gain = updated_node->gain;
-		_rrg.nodes[updated_node->index].best_yaw = updated_node->best_yaw;
-		_rrg.nodes[updated_node->index].status = updated_node->status;
-		_rrg.nodes[updated_node->index].position.z = updated_node->position.z;
-		_rrg.nodes[updated_node->index].gain_cluster =
-				updated_node->gain_cluster;
-		_last_updated_node = updated_node->index;
-		_nodes_to_update.remove(updated_node->index);
-		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
-				&& updated_node->status
+		const rrg_nbv_exploration_msgs::UpdatedNode::ConstPtr &updated_node) {
+	if (updated_node->node.index != _last_updated_node
+			|| _rrg.nodes[_last_updated_node].gain != updated_node->node.gain
+			|| _rrg.nodes[_last_updated_node].best_yaw
+					!= updated_node->node.best_yaw
+			|| _rrg.nodes[_last_updated_node].status
+					!= updated_node->node.status) {
+		_rrg.nodes[updated_node->node.index].gain = updated_node->node.gain;
+		_rrg.nodes[updated_node->node.index].best_yaw =
+				updated_node->node.best_yaw;
+		_rrg.nodes[updated_node->node.index].status = updated_node->node.status;
+		_rrg.nodes[updated_node->node.index].position.z =
+				updated_node->node.position.z;
+		_last_updated_node = updated_node->node.index;
+		_nodes_to_update.remove(updated_node->node.index);
+		for (auto it = std::end(_rrg.gain_cluster);
+				it != std::begin(_rrg.gain_cluster); --it) { //remove node's former gain clusters from list
+			if (it->node_index == updated_node->node.index) {
+				_rrg.gain_cluster.erase(it);
+				_rrg.gain_cluster_counter--;
+			}
+		}
+		if (updated_node->node.status
+				!= rrg_nbv_exploration_msgs::Node::EXPLORED
+				&& updated_node->node.status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-			_node_comparator->addNode(updated_node->index);
+			for (auto &cluster : updated_node->gain_cluster) { //add new gain clusters to list
+				_rrg.gain_cluster.push_back(cluster);
+				_rrg.gain_cluster_counter++;
+			}
+			_node_comparator->addNode(updated_node->node.index);
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
@@ -449,18 +470,12 @@ bool GraphConstructor::requestGoal(
 	res.goal_available = _goal_updated && _current_goal_node != -1;
 	res.exploration_finished = !_running;
 	if (res.goal_available) {
-//		ROS_INFO_STREAM(
-//				"Current goal status " << (int)_prm.nodes[_current_goal_node].status);
 		if (_rrg.nodes[_current_goal_node].status
 				== rrg_nbv_exploration_msgs::Node::VISITED) {
-//			ROS_INFO_STREAM(
-//					"Current goal " << _current_goal_node << " from visited to active visited");
 			_rrg.nodes[_current_goal_node].status =
 					rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED;
 		} else if (_rrg.nodes[_current_goal_node].status
 				== rrg_nbv_exploration_msgs::Node::INITIAL) {
-//			ROS_INFO_STREAM(
-//					"Current goal " << _current_goal_node << " from initial to active");
 			_rrg.nodes[_current_goal_node].status =
 					rrg_nbv_exploration_msgs::Node::ACTIVE;
 		}
