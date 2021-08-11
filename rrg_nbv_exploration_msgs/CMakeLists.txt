@@ -17,9 +17,10 @@ find_package(catkin REQUIRED COMPONENTS
    Node.msg
    Edge.msg
    SphericalPoint.msg
-   Cluster.msg
+   GainCluster.msg
    BestAndCurrentNode.msg
    NodeToUpdate.msg
+   UpdatedNode.msg
    )
    
 add_service_files(

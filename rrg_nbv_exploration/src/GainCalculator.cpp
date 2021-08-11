@@ -276,10 +276,16 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node,
 					const rrg_nbv_exploration_msgs::GainCluster cluster2) {
 				return cluster1.size > cluster2.size;
 			});
+//	ROS_INFO_STREAM(
+//			"Node " << node.index << " with status " << (int) node.status);
+//	if (gain_clusters.size() > 0)
+//		ROS_INFO_STREAM(
+//				"prev best cluster (" << gain_clusters.at(0).center.theta << ", " << gain_clusters.at(0).center.phi << ", " <<gain_clusters.at(0).center.radius << ")");
+//	if (clusters.size() > 0)
+//		ROS_INFO_STREAM(
+//				"best cluster (" << clusters.at(0).center.theta << ", " << clusters.at(0).center.phi << ", " <<clusters.at(0).center.radius << ")");
 	if (clusters.size() == 0
-			|| ((node.status == rrg_nbv_exploration_msgs::Node::VISITED
-					|| node.status
-							== rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED)
+			|| (node.status == rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED
 					&& gain_clusters.size() > 0
 					&& clusterProximityCheck(gain_clusters.at(0),
 							clusters.at(0)))) {

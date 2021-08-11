@@ -66,7 +66,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_graph_path_calculator.reset(new GraphPathCalculator());
 	_node_comparator.reset(new NodeComparator());
-//	_frontier_clusterer.reset(new FrontierClusterer());
+	_frontier_clusterer.reset(new FrontierClusterer());
 	_running = false;
 }
 
@@ -100,7 +100,7 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_graph_searcher->initialize(_rrg);
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
-//	_frontier_clusterer->initialize(_rrg);
+	_frontier_clusterer->initialize(_rrg);
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
 }
@@ -128,9 +128,11 @@ void GraphConstructor::runRrgConstruction() {
 			expandGraph(true, !updatePathsWithReset);
 		if (updatePathsWithReset)
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg);
-//		std::list<FrontierCluster> frontiers =
-//				_frontier_clusterer->getSortedFrontiers(_rrg);
-//		ROS_INFO_STREAM(frontiers.size() << " distinctive frontiers");
+		std::vector<int> frontier_centers =
+				_frontier_clusterer->getFrontierCenters(_rrg);
+		for (auto frontier_node : frontier_centers) {
+			_node_comparator->addNode(frontier_node);
+		}
 		_node_comparator->maintainList(_rrg);
 		checkCurrentGoal();
 		publishNodeWithBestGain();
@@ -459,7 +461,6 @@ void GraphConstructor::updatedNodeCallback(
 				_rrg.gain_cluster.push_back(cluster);
 				_rrg.gain_cluster_counter++;
 			}
-			_node_comparator->addNode(updated_node->node.index);
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
