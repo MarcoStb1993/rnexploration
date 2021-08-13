@@ -73,11 +73,13 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_rrg.nodes.clear();
 	_rrg.edges.clear();
+	_rrg.gain_cluster.clear();
 	_nodes_to_update.clear();
 	_rrg.header.frame_id = "/map";
 	_rrg.ns = "rrt_tree";
 	_rrg.node_counter = 0;
 	_rrg.edge_counter = 0;
+	_rrg.gain_cluster_counter = 0;
 	rrg_nbv_exploration_msgs::Node root;
 	root.position = seed;
 	root.position.z += _sensor_height;
@@ -428,13 +430,14 @@ void GraphConstructor::updateCurrentGoal() {
 }
 
 void GraphConstructor::removeGainClusters(int node) {
-	for (auto it = std::end(_rrg.gain_cluster);
-			it != std::begin(_rrg.gain_cluster); --it) {
+	auto it = std::begin(_rrg.gain_cluster);
+	while (it != std::end(_rrg.gain_cluster)) {
 		//remove node's former gain clusters from list
 		if (it->node_index == node) {
-			_rrg.gain_cluster.erase(it);
+			it = _rrg.gain_cluster.erase(it);
 			_rrg.gain_cluster_counter--;
-		}
+		} else
+			++it;
 	}
 }
 
