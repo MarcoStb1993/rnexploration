@@ -50,6 +50,7 @@ struct FrontierCluster {
 		if (gain_cluster.size > highest_gain) {
 			center = gain_cluster.position;
 			center_node_index = gain_cluster.node_index;
+			highest_gain = gain_cluster.size;
 		}
 		gain_clusters.push_back(
 				std::make_pair(gain_cluster.node_index, gain_cluster.index));

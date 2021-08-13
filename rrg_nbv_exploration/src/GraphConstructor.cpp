@@ -130,6 +130,7 @@ void GraphConstructor::runRrgConstruction() {
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg);
 		std::vector<int> frontier_centers =
 				_frontier_clusterer->getFrontierCenters(_rrg);
+		_node_comparator->clear();
 		for (auto frontier_node : frontier_centers) {
 			_node_comparator->addNode(frontier_node);
 		}
@@ -369,14 +370,12 @@ void GraphConstructor::updateCurrentGoal() {
 	switch (_rrg.nodes[_current_goal_node].status) {
 	case rrg_nbv_exploration_msgs::Node::EXPLORED:
 		ROS_INFO("RNE goal explored");
-		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
 		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED:
 		ROS_INFO("RNE goal visited");
-		_node_comparator->removeNode(_current_goal_node);
 		_sort_nodes_to_update = true;
 		_rrg.nodes[_current_goal_node].gain = 0;
 		update_center = _rrg.nodes[_current_goal_node].position;
@@ -389,7 +388,6 @@ void GraphConstructor::updateCurrentGoal() {
 				rrg_nbv_exploration_msgs::Node::INITIAL;
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
-			_node_comparator->removeNode(_current_goal_node);
 			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
@@ -401,7 +399,6 @@ void GraphConstructor::updateCurrentGoal() {
 				rrg_nbv_exploration_msgs::Node::VISITED;
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
-			_node_comparator->removeNode(_current_goal_node);
 			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
@@ -409,7 +406,7 @@ void GraphConstructor::updateCurrentGoal() {
 		break;
 	case rrg_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO("RNE goal failed");
-		_node_comparator->removeNode(_current_goal_node);
+		removeGainClusters(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
 		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
 			ROS_WARN_STREAM("Exploration aborted, robot stuck");
@@ -430,6 +427,17 @@ void GraphConstructor::updateCurrentGoal() {
 	_current_goal_node = -1;
 }
 
+void GraphConstructor::removeGainClusters(int node) {
+	for (auto it = std::end(_rrg.gain_cluster);
+			it != std::begin(_rrg.gain_cluster); --it) {
+		//remove node's former gain clusters from list
+		if (it->node_index == node) {
+			_rrg.gain_cluster.erase(it);
+			_rrg.gain_cluster_counter--;
+		}
+	}
+}
+
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::UpdatedNode::ConstPtr &updated_node) {
 	if (updated_node->node.index != _last_updated_node
@@ -446,13 +454,7 @@ void GraphConstructor::updatedNodeCallback(
 				updated_node->node.position.z;
 		_last_updated_node = updated_node->node.index;
 		_nodes_to_update.remove(updated_node->node.index);
-		for (auto it = std::end(_rrg.gain_cluster);
-				it != std::begin(_rrg.gain_cluster); --it) { //remove node's former gain clusters from list
-			if (it->node_index == updated_node->node.index) {
-				_rrg.gain_cluster.erase(it);
-				_rrg.gain_cluster_counter--;
-			}
-		}
+		removeGainClusters(updated_node->node.index);
 		if (updated_node->node.status
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->node.status

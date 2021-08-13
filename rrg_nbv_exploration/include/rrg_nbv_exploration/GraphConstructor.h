@@ -288,6 +288,11 @@ private:
 	 */
 	void updateMapDimensions();
 	/**
+	 * @brief Remove gain clusters from the given node's SRP
+	 * @param Node index
+	 */
+	void removeGainClusters(int node);
+	/**
 	 * @brief Updates the current goal and the goals around it depending on the status navigation returned
 	 */
 	void updateCurrentGoal();
@@ -315,5 +320,6 @@ private:
 
 	bool resetRrgState(std_srvs::Trigger::Request &req,
 			std_srvs::Trigger::Response &res);
+
 };
 }

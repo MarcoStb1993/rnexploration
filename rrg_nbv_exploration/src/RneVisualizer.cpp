@@ -170,21 +170,60 @@ std_msgs::ColorRGBA RneVisualizer::getGainClusterColor(
 	color.g = 0.0f;
 	color.b = 0.0f;
 	color.a = 1.0f;
-	if (cluster.frontier <= 2) {
-		color.r = cluster.frontier * 0.5;
-	} else if (cluster.frontier > 2 && cluster.frontier <= 4) {
-		color.g = (cluster.frontier - 2) * 0.5;
-	} else if (cluster.frontier > 4 && cluster.frontier <= 6) {
-		color.b = (cluster.frontier - 4) * 0.5;
-	} else if (cluster.frontier > 6 && cluster.frontier <= 8) {
-		color.r = (cluster.frontier - 6) * 0.5;
-		color.g = (cluster.frontier - 6) * 0.5;
-	} else if (cluster.frontier > 8 && cluster.frontier <= 10) {
-		color.r = (cluster.frontier - 8) * 0.5;
-		color.b = (cluster.frontier - 8) * 0.5;
-	} else {
-		color.g = 0.5f;
-		color.b = 0.5f;
+	int frontier = cluster.frontier % 10;
+	switch (frontier) {
+	case 0: //red
+		color.r = 0.898f;
+		color.g = 0.098f;
+		color.b = 0.293f;
+		break;
+	case 1: //green
+		color.r = 0.234f;
+		color.g = 0.703f;
+		color.b = 0.293f;
+		break;
+	case 2: //yellow
+		color.r = 1.0f;
+		color.g = 1.0f;
+		color.b = 0.098f;
+		break;
+	case 3: //blue
+		color.r = 0.0f;
+		color.g = 0.508f;
+		color.b = 0.098f;
+		break;
+	case 4: //orange
+		color.r = 0.957f;
+		color.g = 0.508f;
+		color.b = 0.188f;
+		break;
+	case 5: //purple
+		color.r = 0.566f;
+		color.g = 0.117f;
+		color.b = 0.703f;
+		break;
+	case 6: //cyan
+		color.r = 0.273f;
+		color.g = 0.938f;
+		color.b = 0.938f;
+		break;
+	case 7: //magenta
+		color.r = 0.938f;
+		color.g = 0.195f;
+		color.b = 0.898f;
+		break;
+	case 8: //lime
+		color.r = 0.820f;
+		color.g = 0.957f;
+		color.b = 0.234f;
+		break;
+	case 9: //maroon
+		color.r = 0.5f;
+		color.g = 0.0f;
+		color.b = 0.0f;
+		break;
+	default:
+		break;
 	}
 	return color;
 }
