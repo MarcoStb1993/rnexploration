@@ -325,10 +325,10 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrg.nodes[iterator.first].status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-			_node_comparator->removeNode(iterator.first);
 			_nodes_to_update.push_back(iterator.first);
 			_sort_nodes_to_update = true;
-//			_rrg.nodes[iterator.first].gain = -1;
+			_rrg.nodes[iterator.first].gain = -1;
+			removeGainClusters(iterator.first);
 		}
 	}
 }

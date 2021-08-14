@@ -17,10 +17,10 @@ FrontierClusterer::~FrontierClusterer() {
 
 void FrontierClusterer::initialize(rrg_nbv_exploration_msgs::Graph &rrg) {
 	ros::NodeHandle private_nh("~");
-	double max_edge_distance;
-	private_nh.param("max_edge_distance", max_edge_distance, 2.0);
-	_cluster_distance_squared = pow(max_edge_distance, 2);
-	_min_neighbors = 2;
+	double eps_distance;
+	private_nh.param("eps_distance", eps_distance, 2.0);
+	_cluster_distance_squared = pow(eps_distance, 2);
+	private_nh.param("min_neighbors", _min_neighbors, 2);
 	_gain_cluster_searcher.reset(new GainClusterSearcher());
 	_gain_cluster_searcher->initialize(rrg);
 }
