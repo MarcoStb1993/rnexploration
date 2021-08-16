@@ -23,17 +23,32 @@ void FrontierClusterer::initialize(rrg_nbv_exploration_msgs::Graph &rrg) {
 	private_nh.param("min_neighbors", _min_neighbors, 2);
 	_gain_cluster_searcher.reset(new GainClusterSearcher());
 	_gain_cluster_searcher->initialize(rrg);
+
+	_recluster = false;
 }
 
-std::vector<int> FrontierClusterer::getFrontierCenters(
+int FrontierClusterer::getBestFrontierNode() {
+	return _frontiers.front().center_node_index;
+}
+
+void FrontierClusterer::maintainFrontiers(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	clusterGainClusters(rrg);
-	sortFrontiers();
-	std::vector<int> frontier_centers;
-	for (auto &frontier : _frontiers) {
-		frontier_centers.push_back(frontier.center_node_index);
+	if (_recluster) {
+		clusterGainClusters(rrg);
+		sortFrontiers();
 	}
-	return frontier_centers;
+}
+
+bool FrontierClusterer::isEmpty() {
+	return _frontiers.empty();
+}
+
+void FrontierClusterer::robotMoved() {
+	_recluster = true;
+}
+
+void FrontierClusterer::gainClusterChanged() {
+	_recluster = true;
 }
 
 void FrontierClusterer::clusterGainClusters(
@@ -49,7 +64,8 @@ void FrontierClusterer::clusterGainClusters(
 		if (gain_cluster.frontier != -1)  //unvisited gain cluster
 			continue;
 		gain_cluster.frontier = ++counter;
-		_frontiers.emplace_back(counter, gain_cluster);
+		_frontiers.emplace_back(counter, gain_cluster,
+				calculateGainCostRatio(rrg, gain_cluster));
 		std::queue<int> gain_cluster_queue;
 		std::vector<int> neighbor_gain_clusters =
 				_gain_cluster_searcher->searchInRadius(gain_cluster.position,
@@ -63,7 +79,9 @@ void FrontierClusterer::clusterGainClusters(
 			if (rrg.gain_cluster[gain_cluster_queue.front()].frontier == -1) {
 				rrg.gain_cluster[gain_cluster_queue.front()].frontier = counter;
 				_frontiers.back().addPoint(
-						rrg.gain_cluster[gain_cluster_queue.front()]);
+						rrg.gain_cluster[gain_cluster_queue.front()],
+						calculateGainCostRatio(rrg,
+								rrg.gain_cluster[gain_cluster_queue.front()]));
 				neighbor_gain_clusters = _gain_cluster_searcher->searchInRadius(
 						rrg.gain_cluster[gain_cluster_queue.front()].position,
 						_cluster_distance_squared);
@@ -74,7 +92,6 @@ void FrontierClusterer::clusterGainClusters(
 				}
 			}
 			gain_cluster_queue.pop();
-
 		}
 	}
 }
@@ -88,7 +105,14 @@ void FrontierClusterer::sortFrontiers() {
 
 bool FrontierClusterer::compareFrontiers(const FrontierCluster &cluster_one,
 		const FrontierCluster &cluster_two) {
-	return cluster_one.total_gain >= cluster_two.total_gain;
+	return cluster_one.highest_gcr >= cluster_two.highest_gcr;
+}
+
+double FrontierClusterer::calculateGainCostRatio(
+		rrg_nbv_exploration_msgs::Graph &rrg,
+		rrg_nbv_exploration_msgs::GainCluster &gain_cluster) {
+	return rrg.nodes[gain_cluster.node_index].gain
+			* exp(-1 * rrg.nodes[gain_cluster.node_index].distanceToRobot);
 }
 
 } /* namespace rrg_nbv_exploration */

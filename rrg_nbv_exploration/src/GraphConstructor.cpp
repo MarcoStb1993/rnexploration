@@ -65,7 +65,6 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_graph_searcher.reset(new GraphSearcher());
 	_collision_checker.reset(new CollisionChecker());
 	_graph_path_calculator.reset(new GraphPathCalculator());
-	_node_comparator.reset(new NodeComparator());
 	_frontier_clusterer.reset(new FrontierClusterer());
 	_running = false;
 }
@@ -101,7 +100,6 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_consecutive_failed_goals = 0;
 	_graph_searcher->initialize(_rrg);
 	_nodes_to_update.push_back(0);
-	_node_comparator->initialization();
 	_frontier_clusterer->initialize(_rrg);
 	_generator.seed(time(NULL));
 	return _collision_checker->initialize(seed);
@@ -130,13 +128,7 @@ void GraphConstructor::runRrgConstruction() {
 			expandGraph(true, !updatePathsWithReset);
 		if (updatePathsWithReset)
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg);
-		std::vector<int> frontier_centers =
-				_frontier_clusterer->getFrontierCenters(_rrg);
-		_node_comparator->clear();
-		for (auto frontier_node : frontier_centers) {
-			_node_comparator->addNode(frontier_node);
-		}
-		_node_comparator->maintainList(_rrg);
+		_frontier_clusterer->maintainFrontiers(_rrg);
 		checkCurrentGoal();
 		publishNodeWithBestGain();
 		publishNodeToUpdate();
@@ -260,8 +252,8 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 }
 
 void GraphConstructor::checkCurrentGoal() {
-	if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
-		_current_goal_node = _node_comparator->getBestNode();
+	if (_current_goal_node == -1 && !_frontier_clusterer->isEmpty()) {
+		_current_goal_node = _frontier_clusterer->getBestFrontierNode();
 		_moved_to_current_goal = false;
 		_goal_updated = true;
 		_updating = false;
@@ -297,8 +289,8 @@ bool GraphConstructor::determineNearestNodeToRobot() {
 					return false;
 				}
 			}
+			_frontier_clusterer->robotMoved();
 			_moved_to_current_goal = true;
-			_node_comparator->robotMoved();
 			_rrg.nearest_node = nearest_node;
 			return true;
 		}
@@ -310,8 +302,9 @@ void GraphConstructor::publishNodeWithBestGain() {
 	rrg_nbv_exploration_msgs::BestAndCurrentNode msg;
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
-			_node_comparator->isEmpty() ?
-					_current_goal_node : _node_comparator->getBestNode();
+			_frontier_clusterer->isEmpty() ?
+					_current_goal_node :
+					_frontier_clusterer->getBestFrontierNode();
 	msg.goal_updated = _goal_updated;
 	_best_and_current_goal_publisher.publish(msg);
 }
@@ -466,9 +459,8 @@ void GraphConstructor::updatedNodeCallback(
 				_rrg.gain_cluster.push_back(cluster);
 				_rrg.gain_cluster_counter++;
 			}
-		} else {
-			removeGainClusters(updated_node->node.index);
 		}
+		_frontier_clusterer->gainClusterChanged();
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
 }

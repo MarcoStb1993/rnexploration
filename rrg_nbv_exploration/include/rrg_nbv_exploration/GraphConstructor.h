@@ -23,7 +23,6 @@
 #include <rrg_nbv_exploration/CollisionChecker.h>
 #include <rrg_nbv_exploration/GraphPathCalculator.h>
 #include <rrg_nbv_exploration/GraphSearcher.h>
-#include <rrg_nbv_exploration/NodeComparator.h>
 #include <rrg_nbv_exploration/FrontierClusterer.h>
 
 namespace rrg_nbv_exploration {
@@ -88,10 +87,6 @@ private:
 	 * @brief Helper class for calculating a path between two nodes in the graph
 	 */
 	std::shared_ptr<GraphPathCalculator> _graph_path_calculator;
-	/**
-	 * @brief Helper class for calculating the gain cost ratio of a node and sorting them ordered by this ratio
-	 */
-	std::shared_ptr<NodeComparator> _node_comparator;
 	/**
 	 * @brief Helper class for clustering gain clusters into frontiers for goal selection
 	 */
