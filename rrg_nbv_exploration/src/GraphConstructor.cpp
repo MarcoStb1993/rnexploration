@@ -456,7 +456,7 @@ void GraphConstructor::updatedNodeCallback(
 		_rrg.nodes[updated_node->node.index].position.z =
 				updated_node->node.position.z;
 		_last_updated_node = updated_node->node.index;
-		_nodes_to_update.remove(updated_node->node.index);
+		_nodes_to_update.remove(updated_node->node.index); //removes all elements with this index
 		removeGainClusters(updated_node->node.index);
 		if (updated_node->node.status
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
@@ -466,6 +466,8 @@ void GraphConstructor::updatedNodeCallback(
 				_rrg.gain_cluster.push_back(cluster);
 				_rrg.gain_cluster_counter++;
 			}
+		} else {
+			removeGainClusters(updated_node->node.index);
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}

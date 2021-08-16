@@ -286,11 +286,9 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node,
 //				"best cluster (" << clusters.at(0).center.theta << ", " << clusters.at(0).center.phi << ", " <<clusters.at(0).center.radius << ")");
 	if (clusters.size() == 0
 			|| (node.status == rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED
-					&& gain_clusters.size() > 0
-					&& clusterProximityCheck(gain_clusters.at(0),
-							clusters.at(0)))) {
+					&& clusterProximityCheck(node.best_yaw, clusters.at(0)))) {
 		//no use exploring similar yaw again, sensor position approximation flawed in this case
-//		ROS_INFO_STREAM("Node " << node.index << " explored");
+//		ROS_INFO_STREAM("Node " << node.index << " is explored");
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
 	} else {
@@ -554,15 +552,19 @@ void GainCalculator::checkIfClusterPointExists(ClusterIndex index,
 	}
 }
 
-bool GainCalculator::clusterProximityCheck(
-		rrg_nbv_exploration_msgs::GainCluster &cluster1,
-		rrg_nbv_exploration_msgs::GainCluster &cluster2) {
-	if (abs(cluster1.center.theta - cluster2.center.theta)
-			<= (double) _delta_theta
-			&& abs(cluster1.center.phi - cluster2.center.phi)
-					<= (double) _delta_phi
-			&& abs(cluster1.center.radius - cluster2.center.radius)
-					<= _delta_radius) {
+bool GainCalculator::clusterProximityCheck(int best_yaw,
+		rrg_nbv_exploration_msgs::GainCluster &cluster) {
+//	if (abs(cluster1.center.theta - cluster2.center.theta)
+//			<= (double) _delta_theta
+//			&& abs(cluster1.center.phi - cluster2.center.phi)
+//					<= (double) _delta_phi
+//			&& abs(cluster1.center.radius - cluster2.center.radius)
+//					<= _delta_radius) {
+//		ROS_WARN_STREAM("Node set to explored due to best cluster proximity");
+//	ROS_INFO_STREAM(
+//			"Cluster proximity: " << cluster.center.theta << " - "<< best_yaw << " = "<< abs(cluster.center.theta - (double) best_yaw));
+	if (abs(cluster.center.theta - (double) best_yaw)
+			<= (double) _delta_theta) {
 //		ROS_WARN_STREAM("Node set to explored due to best cluster proximity");
 		return true;
 	}

@@ -270,14 +270,13 @@ private:
 			std::vector<ClusterIndex> &neighbors);
 
 	/**
-	 * @brief Checks whether two cluster are close to each other by comparing theta, phi and radius
-	 * position with a margin as big as the step sizes
-	 * @param Cluster one
-	 * @param Cluster two
+	 * @brief Checks whether the new best cluster's orientation is close to the previously best orientation
+	 * @param Yaw of previous best cluster
+	 * @param Cluster New best cluster
 	 * @return Returns true if clusters are close to each other
 	 */
-	bool clusterProximityCheck(rrg_nbv_exploration_msgs::GainCluster &cluster1,
-			rrg_nbv_exploration_msgs::GainCluster &cluster2);
+	bool clusterProximityCheck(int best_yaw,
+			rrg_nbv_exploration_msgs::GainCluster &cluster);
 
 	/**
 	 * Measures the likely z coordinate of the node by raytracing in the octree (first measures downward from the
