@@ -31,7 +31,7 @@
 	<arg name="eps_distance" default="2.0" />	
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
-		output="screen" >
+		output="screen">
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />

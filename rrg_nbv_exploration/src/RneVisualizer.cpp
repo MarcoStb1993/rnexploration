@@ -212,10 +212,10 @@ std_msgs::ColorRGBA RneVisualizer::getGainClusterColor(
 		color.g = 0.195f;
 		color.b = 0.898f;
 		break;
-	case 8: //lime
-		color.r = 0.820f;
-		color.g = 0.957f;
-		color.b = 0.234f;
+	case 8: //teal
+		color.r = 0.0f;
+		color.g = 0.5f;
+		color.b = 0.5f;
 		break;
 	case 9: //maroon
 		color.r = 0.5f;

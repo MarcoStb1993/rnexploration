@@ -24,6 +24,8 @@ void FrontierClusterer::initialize(rrg_nbv_exploration_msgs::Graph &rrg) {
 	_gain_cluster_searcher.reset(new GainClusterSearcher());
 	_gain_cluster_searcher->initialize(rrg);
 
+	_tsp_route_pub = _nh.advertise<nav_msgs::Path>("tsp_route", 1, false);
+
 	_recluster = false;
 }
 
@@ -35,7 +37,38 @@ void FrontierClusterer::maintainFrontiers(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	if (_recluster) {
 		clusterGainClusters(rrg);
-		sortFrontiers();
+		if (_frontiers.size() > 1)
+			orderFrontiersWithTsp(rrg);
+		else
+			_frontiers.clear(); //only robot position as frontier present, remove
+		ROS_INFO_STREAM("Sorted Frontiers");
+		for (auto frontier : _frontiers) {
+			ROS_INFO_STREAM(
+					"Frontier " << frontier.number << " at node " << frontier.center_node_index);
+		}
+		_recluster = false;
+	}
+	if (_tsp_route_pub.getNumSubscribers() > 0) {
+		nav_msgs::Path tsp_route;
+		ros::Time timestamp = ros::Time::now();
+		tsp_route.header.frame_id = "map";
+		tsp_route.header.stamp = timestamp;
+		for (auto frontier : _frontiers) {
+			geometry_msgs::PoseStamped path_pose;
+			path_pose.header.frame_id = "map";
+			path_pose.header.stamp = timestamp;
+			path_pose.pose.position =
+					rrg.nodes[frontier.center_node_index].position;
+			path_pose.pose.position.z += 0.1; //elevate route above RRG
+			double yaw = M_PI * rrg.nodes[frontier.center_node_index].best_yaw
+					/ 180.0;
+			tf2::Quaternion quaternion;
+			quaternion.setRPY(0, 0, yaw);
+			quaternion.normalize();
+			path_pose.pose.orientation = tf2::toMsg(quaternion);
+			tsp_route.poses.push_back(path_pose);
+		}
+		_tsp_route_pub.publish(tsp_route);
 	}
 }
 
@@ -54,7 +87,10 @@ void FrontierClusterer::gainClusterChanged() {
 void FrontierClusterer::clusterGainClusters(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	_frontiers.clear();
+	_frontier_edges.clear();
 	int counter = 0;
+	_frontiers.emplace_back(counter, rrg.nodes[rrg.nearest_node].position,
+			rrg.nearest_node); //robot position as start for TSP
 	for (auto &gain_cluster : rrg.gain_cluster) { //set all gain clusters to unvisited
 		gain_cluster.frontier = -1;
 	}
@@ -96,23 +132,171 @@ void FrontierClusterer::clusterGainClusters(
 	}
 }
 
-void FrontierClusterer::sortFrontiers() {
-	_frontiers.sort(
-			[this](FrontierCluster cluster_one, FrontierCluster cluster_two) {
-				return compareFrontiers(cluster_one, cluster_two);
-			});
-}
-
-bool FrontierClusterer::compareFrontiers(const FrontierCluster &cluster_one,
-		const FrontierCluster &cluster_two) {
-	return cluster_one.highest_gcr >= cluster_two.highest_gcr;
-}
-
 double FrontierClusterer::calculateGainCostRatio(
 		rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::GainCluster &gain_cluster) {
 	return rrg.nodes[gain_cluster.node_index].gain
 			* exp(-1 * rrg.nodes[gain_cluster.node_index].distanceToRobot);
+}
+
+void FrontierClusterer::orderFrontiersWithTsp(
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+//	ROS_INFO_STREAM("order with TSP");
+	std::vector<int> route;
+	for (auto &frontier : _frontiers) {
+		route.push_back(frontier.number);
+	}
+	route.push_back(0); //robot position as end, replace with root for homing
+	calculateFrontierGraphEdges(rrg, route);
+	std::string route_info = "Route: ";
+	for (auto n : route) {
+		route_info += std::to_string(n) + " ("
+				+ std::to_string(_frontiers[n].center_node_index) + ")" + "->";
+	}
+	route_info += " with distance=" + std::to_string(calculateDistance(route));
+	ROS_INFO_STREAM(route_info);
+//	ROS_INFO_STREAM("Calculated edges");
+	bool improved = true;
+	while (improved) {
+		improved = false;
+		double best_distance = calculateDistance(route);
+//		ROS_INFO_STREAM("Start distance: " << best_distance);
+		for (int i = 1; i < route.size() - 1; i++) { //omit first "frontier" (robot position)
+			for (int k = i + 1; k < route.size() - 1; k++) { //omit last "frontier" (robot position)
+				std::vector<int> new_route = twoOptSwap(route, i, k);
+				double new_distance = calculateDistance(new_route);
+//				ROS_INFO_STREAM(
+//						"Swapped " << i << " to " << k << " new distance: " << new_distance);
+				if (new_distance < best_distance) {
+					route = new_route;
+					best_distance = new_distance;
+					improved = true;
+				}
+			}
+		}
+		route_info = "Route: ";
+		for (auto n : route) {
+			route_info += std::to_string(n) + " ("
+					+ std::to_string(_frontiers[n].center_node_index) + ")"
+					+ "->";
+		}
+		route_info += " with distance=" + std::to_string(best_distance);
+		ROS_INFO_STREAM(route_info);
+	}
+//	ROS_INFO_STREAM("Finished 2-opt");
+	std::vector<FrontierCluster> frontiers;
+	for (int m = 1; m < route.size() - 1; m++) {
+		frontiers.push_back(_frontiers[route[m]]);
+	}
+	_frontiers = frontiers;
+//	ROS_INFO_STREAM("Sorted frontiers");
+}
+
+void FrontierClusterer::calculateFrontierGraphEdges(
+		rrg_nbv_exploration_msgs::Graph &rrg, std::vector<int> &route) {
+//	ROS_INFO_STREAM("Calculate graph edges");
+	for (int i = 0; i < route.size() - 2; i++) { //omit last two loops because of symmetrical graph edges (1) and start node again (2)
+		calculateFrontierGraphEdge(rrg, route, route[i]);
+	}
+}
+
+void FrontierClusterer::calculateFrontierGraphEdge(
+		rrg_nbv_exploration_msgs::Graph &rrg, std::vector<int> &route,
+		int frontier) {
+	int node_index = _frontiers[frontier].center_node_index;
+//	ROS_INFO_STREAM(
+//			"Calculate graph edge for frontier " << frontier << " at node " << node_index);
+	std::vector<double> distances(rrg.node_counter,
+			std::numeric_limits<double>::infinity()); //list of distances to all nodes
+	distances[node_index] = 0.0;
+	std::set<std::pair<double, int>> node_queue;
+	node_queue.insert(std::make_pair(distances[node_index], node_index));
+	while (!node_queue.empty()) { //Dijkstra's algorithm
+		double current_distance = node_queue.begin()->first;
+		int current_node = node_queue.begin()->second;
+		node_queue.erase(node_queue.begin());
+//		ROS_INFO_STREAM(
+//				"Looking at node " << current_node << " with distance to frontier " << current_distance);
+
+		for (auto edge : rrg.nodes[current_node].edges) {
+			int neighbor_node =
+					rrg.edges[edge].first_node == current_node ?
+							rrg.edges[edge].second_node :
+							rrg.edges[edge].first_node;
+			double neighbor_distance = rrg.edges[edge].length;
+			double total_distance = current_distance + neighbor_distance;
+//			ROS_INFO_STREAM(
+//					"Neighbor " << neighbor_node << " with edge length " << neighbor_distance << " has total distance " << total_distance << " compared to current: " << distances[neighbor_node] << (total_distance < distances[neighbor_node] ? " shorter": " longer"));
+			if (total_distance < distances[neighbor_node]) {
+				node_queue.erase(
+						std::make_pair(distances[neighbor_node],
+								neighbor_node));
+				distances[neighbor_node] = total_distance;
+				node_queue.insert(
+						std::make_pair(distances[neighbor_node],
+								neighbor_node));
+//				ROS_INFO_STREAM("set node " << neighbor_node << "'s path");
+			}
+		}
+	}
+//	ROS_INFO_STREAM("Dijkstra finished");
+	for (auto index : route) { //save all distances to other frontiers
+		if (index != frontier
+				&& !frontierEdgePresent(std::min(frontier, index),
+						std::max(frontier, index))) {
+			_frontier_edges.emplace_back(std::min(frontier, index),
+					std::max(frontier, index),
+					distances[_frontiers[index].center_node_index]);
+			_frontiers[index].addFrontierEdge(_frontier_edges.size() - 1);
+			_frontiers[frontier].addFrontierEdge(_frontier_edges.size() - 1);
+//			ROS_INFO_STREAM(
+//					"Add frontier edge " << (frontier < index ? frontier : index) << "->"<< (frontier < index ? index : frontier) << " with distance: " << distances[_frontiers[index].center_node_index]);
+		}
+	}
+}
+
+bool FrontierClusterer::frontierEdgePresent(int first_node, int second_node) {
+	bool present = false;
+	for (auto &edge : _frontier_edges) {
+		if (edge.first_node_index == first_node
+				&& edge.second_node_index == second_node)
+			present = true;
+	}
+	return present;
+}
+
+double FrontierClusterer::calculateDistance(std::vector<int> &route) {
+	double distance = 0.0;
+	for (int i = 1; i < route.size(); i++) {
+		ROS_INFO_STREAM("To Frontier node " << route[i]);
+		for (auto edge_index : _frontiers[route[i]].frontier_edges) {
+			if (_frontier_edges[edge_index].first_node_index
+					== std::min(route[i - 1], route[i])
+					&& _frontier_edges[edge_index].second_node_index
+							== std::max(route[i - 1], route[i])) {
+				ROS_INFO_STREAM(
+						"Frontier edge " << _frontier_edges[edge_index].first_node_index << "->" << _frontier_edges[edge_index].second_node_index << " distance=" << _frontier_edges[edge_index].distance);
+				distance += _frontier_edges[edge_index].distance;
+				break;
+			}
+		}
+	}
+	return distance;
+}
+
+std::vector<int> FrontierClusterer::twoOptSwap(std::vector<int> &route, int i,
+		int k) {
+	std::vector<int> new_route;
+	for (int j = 0; j < i; j++) {
+		new_route.push_back(route[j]);
+	}
+	for (int l = k; l >= i; l--) {
+		new_route.push_back(route[l]);
+	}
+	for (int m = k + 1; m < route.size(); m++) {
+		new_route.push_back(route[m]);
+	}
+	return new_route;
 }
 
 } /* namespace rrg_nbv_exploration */

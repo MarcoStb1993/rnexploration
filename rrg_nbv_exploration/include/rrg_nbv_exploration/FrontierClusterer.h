@@ -13,8 +13,11 @@
 #include <rrg_nbv_exploration_msgs/Node.h>
 #include <rrg_nbv_exploration_msgs/GainCluster.h>
 #include <rrg_nbv_exploration/GainClusterSearcher.h>
-#include "geometry_msgs/Point.h"
-#include "visualization_msgs/Marker.h"
+#include <geometry_msgs/Point.h>
+#include <nav_msgs/Path.h>
+#include <visualization_msgs/Marker.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <queue>
 
 /**
@@ -28,7 +31,19 @@ struct FrontierCluster {
 	int size, total_gain, center_node_index;
 	double highest_gcr;
 	std::vector<std::pair<int, int>> gain_clusters; //pairs of node index (first) and gain cluster index (second)
+	std::vector<int> frontier_edges;
 
+	/**
+	 * @brief Constructor for robot position as frontier
+	 */
+	FrontierCluster(int num, geometry_msgs::Point pos, int index) {
+		number = num;
+		center = pos;
+		center_node_index = index;
+		size = 0;
+		total_gain = 0;
+		highest_gcr = 0;
+	}
 	/**
 	 * @brief Constructor to initialize struct from gain cluster and GCR
 	 */
@@ -54,6 +69,25 @@ struct FrontierCluster {
 		}
 		gain_clusters.push_back(
 				std::make_pair(gain_cluster.node_index, gain_cluster.index));
+	}
+
+	void addFrontierEdge(int index) {
+		frontier_edges.push_back(index);
+	}
+};
+
+/**
+ * @brief Structure to store edges between frontier nodes consisting of a summed distance of the
+ * path in the RRG
+ */
+struct FrontierEdge {
+	int first_node_index, second_node_index;
+	double distance;
+
+	FrontierEdge(int first, int second, double dist) {
+		first_node_index = first;
+		second_node_index = second;
+		distance = dist;
 	}
 };
 
@@ -81,7 +115,7 @@ public:
 	 */
 	void maintainFrontiers(rrg_nbv_exploration_msgs::Graph &rrg);
 	/**
-	 * @brief Check if the list of frontiers is empty
+	 * @brief Check if the list of frontiers is empty (only current position present)
 	 * @return If the list is empty or not
 	 */
 	bool isEmpty();
@@ -95,6 +129,9 @@ public:
 	void gainClusterChanged();
 
 private:
+	ros::NodeHandle _nh;
+	ros::Publisher _tsp_route_pub;
+
 	/**
 	 * @brief Helper class for kd-tree FrontierCluster and nearest neighbor search
 	 */
@@ -103,7 +140,11 @@ private:
 	/**
 	 * @brief List of frontier clusters
 	 */
-	std::list<FrontierCluster> _frontiers;
+	std::vector<FrontierCluster> _frontiers;
+	/**
+	 * @brief List of edges connecting the frontiers
+	 */
+	std::vector<FrontierEdge> _frontier_edges;
 	/**
 	 * @brief Squared distance for gain clusters to count to a frontier cluster (same as max edge length)
 	 */
@@ -123,23 +164,30 @@ private:
 	 */
 	void clusterGainClusters(rrg_nbv_exploration_msgs::Graph &rrg);
 	/**
-	 * @brief Sort frontiers by their best GCRs
-	 */
-	void sortFrontiers();
-	/**
-	 * @brief Compare a frontier's GCR to another frontier's GCR
-	 * @param First frontier
-	 * @param Second frontier
-	 */
-	bool compareFrontiers(const FrontierCluster &cluster_one,
-			const FrontierCluster &cluster_two);
-	/**
 	 * @brief Calculate the GCR for a gain cluster
 	 * @param RRG
 	 * @param Gain cluster
 	 */
 	double calculateGainCostRatio(rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::GainCluster &gain_cluster);
+	/**
+	 * @brief Find the shortest route through all frontiers using 2-opt heuristic for TSP and order
+	 * them according to this route with the robot position as start and end point
+	 * @param RRG
+	 */
+	void orderFrontiersWithTsp(rrg_nbv_exploration_msgs::Graph &rrg);
+
+	void calculateFrontierGraphEdges(rrg_nbv_exploration_msgs::Graph &rrg,
+			std::vector<int> &route);
+
+	void calculateFrontierGraphEdge(rrg_nbv_exploration_msgs::Graph &rrg,
+			std::vector<int> &route, int frontier);
+
+	bool frontierEdgePresent(int first_node, int second_node);
+
+	double calculateDistance(std::vector<int> &route);
+
+	std::vector<int> twoOptSwap(std::vector<int> &route, int i, int k);
 
 };
 
