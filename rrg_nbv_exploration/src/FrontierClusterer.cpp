@@ -27,6 +27,11 @@ void FrontierClusterer::initialize(rrg_nbv_exploration_msgs::Graph &rrg) {
 	_tsp_route_pub = _nh.advertise<nav_msgs::Path>("tsp_route", 1, false);
 
 	_recluster = false;
+	_frontier_counter = 0;
+	_frontiers.clear();
+	_frontier_edges.clear();
+	_frontiers.emplace_back(_frontier_counter++,
+			rrg.nodes[rrg.nearest_node].position, rrg.nearest_node); //robot position as start for TSP
 }
 
 int FrontierClusterer::getBestFrontierNode() {
@@ -39,37 +44,15 @@ void FrontierClusterer::maintainFrontiers(
 		clusterGainClusters(rrg);
 		if (_frontiers.size() > 1)
 			orderFrontiersWithTsp(rrg);
-		else
-			_frontiers.clear(); //only robot position as frontier present, remove
-		ROS_INFO_STREAM("Sorted Frontiers");
-		for (auto frontier : _frontiers) {
-			ROS_INFO_STREAM(
-					"Frontier " << frontier.number << " at node " << frontier.center_node_index);
-		}
+
+//		ROS_INFO_STREAM("Sorted Frontiers");
+//		for (auto frontier : _frontiers) {
+//			ROS_INFO_STREAM(
+//					"Frontier " << frontier.number << " at node " << frontier.center_node_index);
+//		}
 		_recluster = false;
 	}
-	if (_tsp_route_pub.getNumSubscribers() > 0) {
-		nav_msgs::Path tsp_route;
-		ros::Time timestamp = ros::Time::now();
-		tsp_route.header.frame_id = "map";
-		tsp_route.header.stamp = timestamp;
-		for (auto frontier : _frontiers) {
-			geometry_msgs::PoseStamped path_pose;
-			path_pose.header.frame_id = "map";
-			path_pose.header.stamp = timestamp;
-			path_pose.pose.position =
-					rrg.nodes[frontier.center_node_index].position;
-			path_pose.pose.position.z += 0.1; //elevate route above RRG
-			double yaw = M_PI * rrg.nodes[frontier.center_node_index].best_yaw
-					/ 180.0;
-			tf2::Quaternion quaternion;
-			quaternion.setRPY(0, 0, yaw);
-			quaternion.normalize();
-			path_pose.pose.orientation = tf2::toMsg(quaternion);
-			tsp_route.poses.push_back(path_pose);
-		}
-		_tsp_route_pub.publish(tsp_route);
-	}
+	visualizeTspRoute(rrg);
 }
 
 bool FrontierClusterer::isEmpty() {
@@ -80,7 +63,7 @@ void FrontierClusterer::robotMoved() {
 	_recluster = true;
 }
 
-void FrontierClusterer::gainClusterChanged() {
+void FrontierClusterer::gainClusterRemoved() {
 	_recluster = true;
 }
 
@@ -88,9 +71,9 @@ void FrontierClusterer::clusterGainClusters(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	_frontiers.clear();
 	_frontier_edges.clear();
-	int counter = 0;
-	_frontiers.emplace_back(counter, rrg.nodes[rrg.nearest_node].position,
-			rrg.nearest_node); //robot position as start for TSP
+	_frontier_counter = 0;
+	_frontiers.emplace_back(_frontier_counter++,
+			rrg.nodes[rrg.nearest_node].position, rrg.nearest_node); //robot position as start for TSP
 	for (auto &gain_cluster : rrg.gain_cluster) { //set all gain clusters to unvisited
 		gain_cluster.frontier = -1;
 	}
@@ -99,8 +82,8 @@ void FrontierClusterer::clusterGainClusters(
 	for (auto &gain_cluster : rrg.gain_cluster) {
 		if (gain_cluster.frontier != -1)  //unvisited gain cluster
 			continue;
-		gain_cluster.frontier = ++counter;
-		_frontiers.emplace_back(counter, gain_cluster,
+		gain_cluster.frontier = _frontier_counter;
+		_frontiers.emplace_back(_frontier_counter, gain_cluster,
 				calculateGainCostRatio(rrg, gain_cluster));
 		std::queue<int> gain_cluster_queue;
 		std::vector<int> neighbor_gain_clusters =
@@ -112,15 +95,12 @@ void FrontierClusterer::clusterGainClusters(
 			}
 		}
 		while (!gain_cluster_queue.empty()) {
-			if (rrg.gain_cluster[gain_cluster_queue.front()].frontier == -1) {
-				rrg.gain_cluster[gain_cluster_queue.front()].frontier = counter;
-				_frontiers.back().addPoint(
-						rrg.gain_cluster[gain_cluster_queue.front()],
-						calculateGainCostRatio(rrg,
-								rrg.gain_cluster[gain_cluster_queue.front()]));
+			if (gain_cluster.frontier == -1) {
+				gain_cluster.frontier = _frontier_counter;
+				_frontiers.back().addPoint(gain_cluster,
+						calculateGainCostRatio(rrg, gain_cluster));
 				neighbor_gain_clusters = _gain_cluster_searcher->searchInRadius(
-						rrg.gain_cluster[gain_cluster_queue.front()].position,
-						_cluster_distance_squared);
+						gain_cluster.position, _cluster_distance_squared);
 				if (neighbor_gain_clusters.size() >= _min_neighbors) {
 					for (auto &neighbor_gain_cluster : neighbor_gain_clusters) {
 						gain_cluster_queue.push(neighbor_gain_cluster);
@@ -129,6 +109,7 @@ void FrontierClusterer::clusterGainClusters(
 			}
 			gain_cluster_queue.pop();
 		}
+		_frontier_counter++;
 	}
 }
 
@@ -137,6 +118,146 @@ double FrontierClusterer::calculateGainCostRatio(
 		rrg_nbv_exploration_msgs::GainCluster &gain_cluster) {
 	return rrg.nodes[gain_cluster.node_index].gain
 			* exp(-1 * rrg.nodes[gain_cluster.node_index].distanceToRobot);
+}
+
+void FrontierClusterer::addNode(rrg_nbv_exploration_msgs::Graph &rrg,
+		int node) {
+	_gain_cluster_searcher->rebuildIndex(rrg);
+	ROS_INFO_STREAM("add node "<< node);
+	for (auto &gain_cluster : getNodesGainCluster(rrg, node)) {
+		std::vector<int> neighbor_gain_clusters =
+				_gain_cluster_searcher->searchInRadius(gain_cluster.position,
+						_cluster_distance_squared);
+		ROS_INFO_STREAM(
+				"gain cluster " << gain_cluster.index << " has neighbors: " << neighbor_gain_clusters.size());
+		gain_cluster.frontier_neighbors = neighbor_gain_clusters.size();
+		if (gain_cluster.frontier_neighbors == 0) { //no neighbors -> new frontier
+			gain_cluster.frontier = _frontier_counter;
+			_frontiers.emplace_back(_frontier_counter++, gain_cluster,
+					calculateGainCostRatio(rrg, gain_cluster));
+		} else { // check if gain cluster's neighbors became core points
+			std::vector<int> new_core_points;
+			for (auto neighbor_cluster : neighbor_gain_clusters) {
+				if (++rrg.gain_cluster[neighbor_cluster].frontier_neighbors
+						== _min_neighbors) { //increase neighbor point's neighbor counter and check if it became a core point
+					new_core_points.push_back(neighbor_cluster);
+				} else if (rrg.gain_cluster[neighbor_cluster].frontier_neighbors
+						> _min_neighbors && gain_cluster.frontier == -1) { //add new gain cluster to first neighboring core point's frontier
+					gain_cluster.frontier =
+							rrg.gain_cluster[neighbor_cluster].frontier;
+				}
+			}
+			ROS_INFO_STREAM(
+					"created new core points: " << new_core_points.size());
+			if (new_core_points.size() > 0) {
+				for (auto core_point_neighbor : new_core_points) { //check for every new core point if it adds points to its frontier or units multiple
+					handleNewCorePoint(rrg, core_point_neighbor);
+				}
+			} else { //no neighboring core points -> new frontier
+				ROS_INFO_STREAM(
+						"new gain cluster is part of new frontier " << _frontier_counter);
+				gain_cluster.frontier = _frontier_counter;
+				_frontiers.emplace_back(_frontier_counter++, gain_cluster,
+						calculateGainCostRatio(rrg, gain_cluster));
+			}
+			if (gain_cluster.frontier_neighbors >= _min_neighbors) { // new gain cluster is core point
+				ROS_INFO_STREAM("new gain cluster is a core point");
+				handleNewCorePoint(rrg, gain_cluster.index);
+			}
+		}
+	}
+}
+
+void FrontierClusterer::handleNewCorePoint(rrg_nbv_exploration_msgs::Graph &rrg,
+		int core_point_index) {
+	ROS_INFO_STREAM("handle new core point " << core_point_index);
+	rrg_nbv_exploration_msgs::GainCluster *core_point =
+			&rrg.gain_cluster[core_point_index];
+	std::vector<int> affected_neighbors =
+			_gain_cluster_searcher->searchInRadius(core_point->position,
+					_cluster_distance_squared);
+
+	ROS_INFO_STREAM("affected neighbors: " << affected_neighbors.size());
+	std::vector<std::pair<int, int>> neighboring_frontier_cores; //pair of frontier index (first) and index in affected neighbors list (second)
+	for (int i = 0; i < affected_neighbors.size(); i++) { //check for neighboring core points from different frontiers
+		if (rrg.gain_cluster[affected_neighbors[i]].frontier_neighbors
+				>= _min_neighbors) {
+			neighboring_frontier_cores.push_back(
+					std::make_pair(
+							rrg.gain_cluster[affected_neighbors[i]].frontier,
+							i));
+		}
+	}
+
+	ROS_INFO_STREAM(
+			"neighboring frontier cores " << neighboring_frontier_cores.size());
+	if (neighboring_frontier_cores.size() == 0) { //no neighboring core points -> add all neighbor points to this frontier
+		changeGainClustersFrontier(rrg, affected_neighbors,
+				core_point->frontier);
+	} else if (neighboring_frontier_cores.size() == 1) { // one neighboring core point -> add to its frontier
+		ROS_INFO_STREAM(
+				"add to neighboring core point frontier: " << neighboring_frontier_cores[0].second);
+		affected_neighbors.erase(
+				affected_neighbors.begin()
+						+ neighboring_frontier_cores[0].second); //remove core point from list of points to change
+		changeGainClustersFrontier(rrg, affected_neighbors,
+				neighboring_frontier_cores[0].first);
+	} else if (neighboring_frontier_cores.size() == 1) { // two or more neighboring core points -> unite frontiers
+		int dominant_frontier = _frontiers.size();
+		for (auto core : neighboring_frontier_cores) { //find dominant frontier
+			if (core.first < dominant_frontier) {
+				dominant_frontier = core.first;
+			}
+		}
+		ROS_INFO_STREAM("unite into frontier " << dominant_frontier);
+		for (auto it = affected_neighbors.begin(); // remove node with same frontier from list of nodes to change
+		it != affected_neighbors.end(); it++) {
+			if (rrg.gain_cluster[*it].frontier == dominant_frontier) {
+				affected_neighbors.erase(it--);
+			}
+		}
+		std::set<int> frontiers_to_change; // collect all frontiers that are merged into dominant one
+		for (auto core : neighboring_frontier_cores) {
+			if (core.first != dominant_frontier) {
+				frontiers_to_change.insert(core.first);
+			}
+		}
+		for (auto frontier : frontiers_to_change) { // collect all gain clusters to add to dominant frontier
+			for (auto cluster : _frontiers[frontier].gain_clusters) {
+				affected_neighbors.push_back(cluster.gain_cluster_index);
+			}
+		}
+		changeGainClustersFrontier(rrg, affected_neighbors, dominant_frontier);
+	}
+}
+
+void FrontierClusterer::changeGainClustersFrontier(
+		rrg_nbv_exploration_msgs::Graph &rrg,
+		const std::vector<int> &affected_gain_clusters, int frontier_index) {
+	//no neighboring core points -> add all neighbor points to this frontier
+	for (auto affected_neighbor : affected_gain_clusters) {
+		//error happens here
+		if (rrg.gain_cluster[affected_neighbor].frontier >= 0) { //check that gain cluster was already assigned to a frontier
+			ROS_INFO_STREAM(
+					"Remove gain cluster" << affected_neighbor << " from frontier " << rrg.gain_cluster[affected_neighbor].frontier);
+			_frontiers[rrg.gain_cluster[affected_neighbor].frontier].removePoint(
+					rrg.gain_cluster[affected_neighbor]);
+		}
+		rrg.gain_cluster[affected_neighbor].frontier = frontier_index;
+		_frontiers[frontier_index].addPoint(rrg.gain_cluster[affected_neighbor],
+				calculateGainCostRatio(rrg,
+						rrg.gain_cluster[affected_neighbor]));
+	}
+}
+
+std::vector<rrg_nbv_exploration_msgs::GainCluster> FrontierClusterer::getNodesGainCluster(
+		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
+	std::vector<rrg_nbv_exploration_msgs::GainCluster> gain_cluster;
+	for (auto &cluster : rrg.gain_cluster) {
+		if (cluster.node_index == node)
+			gain_cluster.push_back(cluster);
+	}
+	return gain_cluster;
 }
 
 void FrontierClusterer::orderFrontiersWithTsp(
@@ -148,13 +269,13 @@ void FrontierClusterer::orderFrontiersWithTsp(
 	}
 	route.push_back(0); //robot position as end, replace with root for homing
 	calculateFrontierGraphEdges(rrg, route);
-	std::string route_info = "Route: ";
-	for (auto n : route) {
-		route_info += std::to_string(n) + " ("
-				+ std::to_string(_frontiers[n].center_node_index) + ")" + "->";
-	}
-	route_info += " with distance=" + std::to_string(calculateDistance(route));
-	ROS_INFO_STREAM(route_info);
+//	std::string route_info = "Route: ";
+//	for (auto n : route) {
+//		route_info += std::to_string(n) + " ("
+//				+ std::to_string(_frontiers[n].center_node_index) + ")" + "->";
+//	}
+//	route_info += " with distance=" + std::to_string(calculateDistance(route));
+//	ROS_INFO_STREAM(route_info);
 //	ROS_INFO_STREAM("Calculated edges");
 	bool improved = true;
 	while (improved) {
@@ -174,14 +295,14 @@ void FrontierClusterer::orderFrontiersWithTsp(
 				}
 			}
 		}
-		route_info = "Route: ";
-		for (auto n : route) {
-			route_info += std::to_string(n) + " ("
-					+ std::to_string(_frontiers[n].center_node_index) + ")"
-					+ "->";
-		}
-		route_info += " with distance=" + std::to_string(best_distance);
-		ROS_INFO_STREAM(route_info);
+//		route_info = "Route: ";
+//		for (auto n : route) {
+//			route_info += std::to_string(n) + " ("
+//					+ std::to_string(_frontiers[n].center_node_index) + ")"
+//					+ "->";
+//		}
+//		route_info += " with distance=" + std::to_string(best_distance);
+//		ROS_INFO_STREAM(route_info);
 	}
 //	ROS_INFO_STREAM("Finished 2-opt");
 	std::vector<FrontierCluster> frontiers;
@@ -268,14 +389,14 @@ bool FrontierClusterer::frontierEdgePresent(int first_node, int second_node) {
 double FrontierClusterer::calculateDistance(std::vector<int> &route) {
 	double distance = 0.0;
 	for (int i = 1; i < route.size(); i++) {
-		ROS_INFO_STREAM("To Frontier node " << route[i]);
+//		ROS_INFO_STREAM("To Frontier node " << route[i]);
 		for (auto edge_index : _frontiers[route[i]].frontier_edges) {
 			if (_frontier_edges[edge_index].first_node_index
 					== std::min(route[i - 1], route[i])
 					&& _frontier_edges[edge_index].second_node_index
 							== std::max(route[i - 1], route[i])) {
-				ROS_INFO_STREAM(
-						"Frontier edge " << _frontier_edges[edge_index].first_node_index << "->" << _frontier_edges[edge_index].second_node_index << " distance=" << _frontier_edges[edge_index].distance);
+//				ROS_INFO_STREAM(
+//						"Frontier edge " << _frontier_edges[edge_index].first_node_index << "->" << _frontier_edges[edge_index].second_node_index << " distance=" << _frontier_edges[edge_index].distance);
 				distance += _frontier_edges[edge_index].distance;
 				break;
 			}
@@ -297,6 +418,33 @@ std::vector<int> FrontierClusterer::twoOptSwap(std::vector<int> &route, int i,
 		new_route.push_back(route[m]);
 	}
 	return new_route;
+}
+
+void FrontierClusterer::visualizeTspRoute(
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (_tsp_route_pub.getNumSubscribers() > 0) {
+		//visualize TSP route
+		nav_msgs::Path tsp_route;
+		ros::Time timestamp = ros::Time::now();
+		tsp_route.header.frame_id = "map";
+		tsp_route.header.stamp = timestamp;
+		for (auto frontier : _frontiers) {
+			geometry_msgs::PoseStamped path_pose;
+			path_pose.header.frame_id = "map";
+			path_pose.header.stamp = timestamp;
+			path_pose.pose.position =
+					rrg.nodes[frontier.center_node_index].position;
+			path_pose.pose.position.z += 0.1; //elevate route above RRG
+			double yaw = M_PI * rrg.nodes[frontier.center_node_index].best_yaw
+					/ 180.0;
+			tf2::Quaternion quaternion;
+			quaternion.setRPY(0, 0, yaw);
+			quaternion.normalize();
+			path_pose.pose.orientation = tf2::toMsg(quaternion);
+			tsp_route.poses.push_back(path_pose);
+		}
+		_tsp_route_pub.publish(tsp_route);
+	}
 }
 
 } /* namespace rrg_nbv_exploration */

@@ -418,6 +418,7 @@ void GraphConstructor::updateCurrentGoal() {
 		ROS_INFO("RNE goal active or waiting");
 		return;
 	}
+	_frontier_clusterer->gainClusterRemoved();
 	_last_goal_node = _current_goal_node;
 	_current_goal_node = -1;
 }
@@ -450,7 +451,7 @@ void GraphConstructor::updatedNodeCallback(
 				updated_node->node.position.z;
 		_last_updated_node = updated_node->node.index;
 		_nodes_to_update.remove(updated_node->node.index); //removes all elements with this index
-		removeGainClusters(updated_node->node.index);
+//		removeGainClusters(updated_node->node.index);
 		if (updated_node->node.status
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->node.status
@@ -460,7 +461,7 @@ void GraphConstructor::updatedNodeCallback(
 				_rrg.gain_cluster_counter++;
 			}
 		}
-		_frontier_clusterer->gainClusterChanged();
+		_frontier_clusterer->addNode(_rrg, _last_updated_node);
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
 }

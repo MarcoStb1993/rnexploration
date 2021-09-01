@@ -21,16 +21,35 @@
 #include <queue>
 
 /**
+ * @brieft Structure to store important references to a gain cluster and the node it is at as well as
+ * the gain clusters GCR
+ */
+struct GainClusterInfo {
+	int gain_cluster_index, node_index;
+	double gcr;
+
+	GainClusterInfo(int n_index, int gc_index, double gain_cost_ratio) {
+		ROS_INFO_STREAM(
+				"init gain cluster info with " << gc_index << " at node " << n_index << " with gcr " << gain_cost_ratio);
+		node_index = n_index;
+		gain_cluster_index = gc_index;
+		gcr = gain_cost_ratio;
+	}
+
+	void resetGcr(double gain_cost_ratio) {
+		gcr = gain_cost_ratio;
+	}
+};
+
+/**
  * Structure to store frontier clusters which consists of one or multiple gain clusters in proximity
  * to each other. Its center position, size and gain (average and summed total) will be used to define
  * the next goal.
  */
 struct FrontierCluster {
 	int number;
-	geometry_msgs::Point center;
-	int size, total_gain, center_node_index;
-	double highest_gcr;
-	std::vector<std::pair<int, int>> gain_clusters; //pairs of node index (first) and gain cluster index (second)
+	int size, center_node_index, highest_gcr_index;
+	std::vector<GainClusterInfo> gain_clusters;
 	std::vector<int> frontier_edges;
 
 	/**
@@ -38,37 +57,58 @@ struct FrontierCluster {
 	 */
 	FrontierCluster(int num, geometry_msgs::Point pos, int index) {
 		number = num;
-		center = pos;
 		center_node_index = index;
+		highest_gcr_index = -1;
 		size = 0;
-		total_gain = 0;
-		highest_gcr = 0;
 	}
 	/**
 	 * @brief Constructor to initialize struct from gain cluster and GCR
 	 */
 	FrontierCluster(int num,
 			rrg_nbv_exploration_msgs::GainCluster &gain_cluster, double gcr) {
+		ROS_INFO_STREAM(
+				"init frontier cluster "<<num<< " with gain cluster " << gain_cluster.index << " at node " << gain_cluster.node_index << " with gcr " << gcr);
 		number = num;
-		center = gain_cluster.position;
 		center_node_index = gain_cluster.node_index;
 		size = 1;
-		total_gain = gain_cluster.size;
-		highest_gcr = gcr;
-		gain_clusters.push_back(
-				std::make_pair(gain_cluster.node_index, gain_cluster.index));
+		gain_clusters.emplace_back(gain_cluster.node_index, gain_cluster.index,
+				gcr);
+		highest_gcr_index = 0;
 	}
 
 	void addPoint(rrg_nbv_exploration_msgs::GainCluster &gain_cluster,
 			double gcr) {
-		total_gain += gain_cluster.size;
-		if (gcr > highest_gcr) {
-			center = gain_cluster.position;
+		ROS_INFO_STREAM(
+				"frontier " << number << ": add point " << gain_cluster.index << " at node " << gain_cluster.node_index << " with gcr " << gcr);
+		gain_clusters.emplace_back(gain_cluster.node_index, gain_cluster.index,
+				gcr);
+		size++;
+		ROS_INFO_STREAM(
+				"added point, size " << size << " highest gcr index " << highest_gcr_index);
+		if (highest_gcr_index == -1
+				|| gcr > gain_clusters[highest_gcr_index].gcr) {
+			ROS_INFO_STREAM("new highest gcr");
 			center_node_index = gain_cluster.node_index;
-			highest_gcr = gcr;
+			highest_gcr_index = gain_clusters.size() - 1;
 		}
-		gain_clusters.push_back(
-				std::make_pair(gain_cluster.node_index, gain_cluster.index));
+		ROS_INFO_STREAM("finito");
+	}
+
+	void removePoint(rrg_nbv_exploration_msgs::GainCluster &gain_cluster) {
+		bool removed_highest_gcr = gain_cluster.index
+				== gain_clusters[highest_gcr_index].gain_cluster_index;
+		gain_clusters.erase(gain_clusters.begin() + highest_gcr_index);
+		size--;
+		if (removed_highest_gcr) {
+			double highest_gcr = 0;
+			for (auto &cluster : gain_clusters) {
+				if (cluster.gcr > highest_gcr) {
+					highest_gcr = cluster.gcr;
+					highest_gcr_index = cluster.gain_cluster_index;
+				}
+			}
+			center_node_index = gain_clusters[highest_gcr_index].node_index;
+		}
 	}
 
 	void addFrontierEdge(int index) {
@@ -110,7 +150,7 @@ public:
 	 */
 	int getBestFrontierNode();
 	/**
-	 * @brief Recalculates the frontier clusters if necesary (robot moved or gain clusters changed)
+	 * @brief Recalculates the frontier clusters if necessary (robot moved or gain clusters changed)
 	 * @param RRG
 	 */
 	void maintainFrontiers(rrg_nbv_exploration_msgs::Graph &rrg);
@@ -123,10 +163,14 @@ public:
 	 * @brief Triggers a recalculation of all frontier clusters
 	 */
 	void robotMoved();
+
+	void gainClusterRemoved();
 	/**
-	 * @brief Triggers a recalculation of all frontier clusters
+	 * @brief Adds a node with its gain clusters to be clustered into a frontier
+	 * @param RRG
+	 * @param Index of node to be added
 	 */
-	void gainClusterChanged();
+	void addNode(rrg_nbv_exploration_msgs::Graph &rrg, int node);
 
 private:
 	ros::NodeHandle _nh;
@@ -157,9 +201,14 @@ private:
 	 * @brief If the frontier clusters need to be recalculated
 	 */
 	bool _recluster;
+	/**
+	 * @brief Global frontier counter
+	 */
+	int _frontier_counter;
 
 	/**
 	 * @brief Executes DBSCAN to cluster gain clusters into frontier clusters
+	 * @param List of gain clusters which server as starting set for clustering
 	 * @param RRG
 	 */
 	void clusterGainClusters(rrg_nbv_exploration_msgs::Graph &rrg);
@@ -189,6 +238,13 @@ private:
 
 	std::vector<int> twoOptSwap(std::vector<int> &route, int i, int k);
 
+	std::vector<rrg_nbv_exploration_msgs::GainCluster> getNodesGainCluster(
+			rrg_nbv_exploration_msgs::Graph &rrg, int node);
+	void visualizeTspRoute(rrg_nbv_exploration_msgs::Graph &rrg);
+	void handleNewCorePoint(rrg_nbv_exploration_msgs::Graph &rrg,
+			int core_point_index);
+	void changeGainClustersFrontier(rrg_nbv_exploration_msgs::Graph &rrg,
+			const std::vector<int> &affected_gain_clusters, int frontier_index);
 };
 
 } /* namespace rrg_nbv_exploration */

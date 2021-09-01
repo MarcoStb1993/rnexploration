@@ -24,8 +24,8 @@ std::vector<int> GainClusterSearcher::searchInRadius(
 	const size_t nMatches = _kd_tree_index.radiusSearch(&node_position_point[0],
 			search_radius, ret_matches, params);
 	std::vector<int> nodes_in_radius;
-	for (auto it : ret_matches) {
-		nodes_in_radius.push_back((int) it.first);
+	for (int i = 1; i < ret_matches.size(); i++) {
+		nodes_in_radius.push_back((int) ret_matches[i].first);
 	}
 	return nodes_in_radius;
 }

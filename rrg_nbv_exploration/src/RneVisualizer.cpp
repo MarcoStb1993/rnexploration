@@ -222,7 +222,7 @@ std_msgs::ColorRGBA RneVisualizer::getGainClusterColor(
 		color.g = 0.0f;
 		color.b = 0.0f;
 		break;
-	default:
+	default: //black
 		break;
 	}
 	return color;
