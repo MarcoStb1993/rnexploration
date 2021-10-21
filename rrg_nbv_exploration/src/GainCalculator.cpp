@@ -365,6 +365,7 @@ void GainCalculator::initializeCluster(int cluster_counter, int node_index,
 	current_cluster.index = cluster_counter - 1;
 	current_cluster.node_index = node_index;
 	current_cluster.frontier = -1;
+	current_cluster.previous_frontier = -1;
 	current_cluster.center.theta = 0.0;
 	current_cluster.center.phi = 0.0;
 	current_cluster.center.radius = 0.0;

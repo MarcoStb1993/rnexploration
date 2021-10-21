@@ -30,7 +30,7 @@ public:
 	 * @brief Finds all nodes in the current kd-tree in the given (squared) radius around a provided point, radius is squared because Euclidean distance is squared as well
 	 * @param 3D Point
 	 * @param Search radius (needs to be squared)
-	 * @return List of the indices of all gain clusters in this radius
+	 * @return List of the indices of all gain clusters in this radius without the cluster point itself
 	 */
 	std::vector<int> searchInRadius(geometry_msgs::Point cluster_position,
 			double squared_radius);

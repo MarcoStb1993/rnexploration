@@ -91,6 +91,56 @@ struct FrontierEdge {
 	}
 };
 
+/**
+ * @brief Structure to store changes between old and new frontiers in two lists with the previous
+ * frontier index and the new frontier index
+ */
+struct FrontierChange {
+	std::vector<int> previous_frontiers, new_frontiers;
+
+	FrontierChange(int previous_frontier, int new_frontier) {
+		previous_frontiers.push_back(previous_frontier);
+		new_frontiers.push_back(new_frontier);
+	}
+
+	bool checkForFrontier(int previous_frontier, int new_frontier) {
+		if (std::find(previous_frontiers.begin(), previous_frontiers.end(),
+				previous_frontier) != previous_frontiers.end()
+				|| std::find(new_frontiers.begin(), new_frontiers.end(),
+						new_frontier) != new_frontiers.end())
+			return true;
+		else
+			return false;
+	}
+
+	void addFrontierChange(int previous_frontier, int new_frontier) {
+		auto previous_result = std::find(previous_frontiers.begin(),
+				previous_frontiers.end(), previous_frontier);
+		if (previous_result == previous_frontiers.end())
+			previous_frontiers.push_back(previous_frontier);
+		auto new_result = std::find(new_frontiers.begin(), new_frontiers.end(),
+				new_frontier);
+		if (new_result == new_frontiers.end())
+			new_frontiers.push_back(new_frontier);
+	}
+
+	void addFrontierChanges(std::vector<int> prev_frontiers,
+			std::vector<int> n_frontiers) {
+		for (auto prev_frontier : prev_frontiers) {
+			auto previous_result = std::find(previous_frontiers.begin(),
+					previous_frontiers.end(), prev_frontier);
+			if (previous_result == previous_frontiers.end())
+				previous_frontiers.push_back(prev_frontier);
+		}
+		for (auto n_frontier : n_frontiers) {
+			auto new_result = std::find(new_frontiers.begin(),
+					new_frontiers.end(), n_frontier);
+			if (new_result == new_frontiers.end())
+				new_frontiers.push_back(n_frontier);
+		}
+	}
+};
+
 namespace rrg_nbv_exploration {
 
 /**
@@ -170,6 +220,14 @@ private:
 	 */
 	double calculateGainCostRatio(rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::GainCluster &gain_cluster);
+
+	void addFrontierChange(std::vector<FrontierChange> &frontier_changes,
+			int previous_frontier, int new_frontier);
+
+	void mapNewFrontiersToExisting(
+			const std::vector<FrontierCluster> &new_frontiers,
+			std::vector<FrontierChange> frontier_changes);
+
 	/**
 	 * @brief Find the shortest route through all frontiers using 2-opt heuristic for TSP and order
 	 * them according to this route with the robot position as start and end point
@@ -188,7 +246,6 @@ private:
 	double calculateDistance(std::vector<int> &route);
 
 	std::vector<int> twoOptSwap(std::vector<int> &route, int i, int k);
-
 };
 
 } /* namespace rrg_nbv_exploration */
