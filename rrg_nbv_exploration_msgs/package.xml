@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+	<name>rrg_nbv_exploration_msgs</name>
+	<version>0.0.0</version>
+	<description>The rrg_nbv_exploration_msgs package contains services and messages for RNE.</description>
+	<license>BSD</license>
+	<url type="repository">https://github.com/MarcoStb1993/rnexploration</url>
+	<url type="bugtracker">https://github.com/MarcoStb1993/rnexploration/issues</url>
+	<maintainer email="marco.stb1993@gmail.de">Marco Steinbrink</maintainer>
+	<author email="marco.stb1993@gmail.de">Marco Steinbrink</author>
+
+	<buildtool_depend>catkin</buildtool_depend>	
+	<build_depend>message_generation</build_depend>
+	<build_depend>roscpp</build_depend>
+	<build_depend>std_msgs</build_depend>
+	<build_depend>visualization_msgs</build_depend>
+	<build_depend>geometry_msgs</build_depend>
+	<build_export_depend>roscpp</build_export_depend>
+	<build_export_depend>std_msgs</build_export_depend>
+	<build_export_depend>visualization_msgs</build_export_depend>
+	<build_export_depend>geometry_msgs</build_export_depend>
+	<exec_depend>roscpp</exec_depend>
+	<exec_depend>std_msgs</exec_depend>
+	<exec_depend>visualization_msgs</exec_depend>
+	<exec_depend>geometry_msgs</exec_depend>
+	<exec_depend>message_runtime</exec_depend>
+</package>
