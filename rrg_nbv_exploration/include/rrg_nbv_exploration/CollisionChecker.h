@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include <rrg_nbv_exploration_msgs/Node.h>
+#include <rrg_nbv_exploration_msgs/Edge.h>
 #include "visualization_msgs/MarkerArray.h"
 #include "geometry_msgs/Point.h"
 #include <geometry_msgs/Pose.h>
@@ -48,6 +49,7 @@ public:
 	 * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot by checking for collisions
 	 * with fcl in the octomap
 	 * @param Reference to a possible new node in the RRT
+	 * @param Reference to a possible new edge in the RRT
 	 * @param Reference to the node that would be the nearest neighbour for a node with the given random position
 	 * @param Randomly sampled position serving as a base for a new node's position
 	 * @param Distance between the nearest node in the RRT and the randomly sampled position
@@ -55,9 +57,10 @@ public:
 	 * @return Returns true if a path (or a shorter path because of obstacles) between the nodes was found and false otherwise
 	 */
 	bool steer(rrg_nbv_exploration_msgs::Node &new_node,
+			rrg_nbv_exploration_msgs::Edge &new_edge,
 			rrg_nbv_exploration_msgs::Node &nearest_node,
 			geometry_msgs::Point rand_sample, double min_distance,
-			double check_circle);
+			double check_node);
 
 	/**
 	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
@@ -159,10 +162,12 @@ private:
 	 * @param Y-coordinate of the circle's center
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
+	 * @param Reference to the traversability cost of this line
+	 * @param Reference to the number of tiles in this line
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isCircleInCollision(double x, double y, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map);
+			std::vector<int8_t> &vis_map, int &cost, int &tiles);
 
 	/**
 	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
@@ -173,11 +178,13 @@ private:
 	 * @param Width of the rectangle divided by 2
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
+	 * @param Reference to the traversability cost of this line
+	 * @param Reference to the number of tiles in this line
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map);
+			std::vector<int8_t> &vis_map, int &cost, int &tiles);
 
 	/**
 	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
@@ -188,11 +195,13 @@ private:
 	 * @param Width of the rectangle divided by 2
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
+	 * @param Reference to the traversability cost of this line
+	 * @param Reference to the number of tiles in this line
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isAlignedRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map);
+			std::vector<int8_t> &vis_map, int &cost, int &tiles);
 
 	/**
 	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision
@@ -201,10 +210,13 @@ private:
 	 * @param y-coordinate
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
+	 * @param Reference to the traversability cost of this line
+	 * @param Reference to the number of tiles in this line
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isLineInCollision(int x_start, int x_end, int y,
-			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map);
+			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
+			int &cost, int &tiles);
 	/**
 	 * @brief Initialize collision visualization map
 	 * @param Occupancy grid map that is checked during steering

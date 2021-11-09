@@ -207,14 +207,14 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 	int node_with_shortest_distance = -1;
 	for (auto it : nodes) {
 		double distance = sqrt(it.second);
-		if (_collision_checker->steer(node, _rrg.nodes[it.first], rand_sample,
+		rrg_nbv_exploration_msgs::Edge edge;
+		if (_collision_checker->steer(node, edge, _rrg.nodes[it.first], rand_sample,
 				distance, !connected)) { //only check circle first time
 			connected = true;
 			node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 			node.gain = -1;
 			node.index = _rrg.node_counter;
 			height += _rrg.nodes[it.first].position.z;
-			rrg_nbv_exploration_msgs::Edge edge;
 			edge.index = _rrg.edge_counter++;
 			edge.first_node = it.first;
 			edge.second_node = node.index;
