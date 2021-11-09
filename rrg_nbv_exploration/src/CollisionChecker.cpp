@@ -10,9 +10,14 @@ CollisionChecker::CollisionChecker() {
 	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
 			"map");
+	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
+	private_nh.param("grid_map_unknown", _grid_map_unknown, -1);
 	ros::NodeHandle nh("rne");
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
+	_occupancy_grid_updates_sub = _nh.subscribe(
+			occupancy_grid_topic + "_updates", 1,
+			&CollisionChecker::occupancyGridUpdatesCallback, this);
 	_visualization_pub = nh.advertise<nav_msgs::OccupancyGrid>(
 			"rrg_collision_map", 1);
 	_rrt_collision_visualization_pub = nh.advertise<
@@ -236,11 +241,13 @@ bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
 
 bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
-	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height)
+	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height) {
 		return true;
+	}
 	for (int x = y * map.info.width + x_start; x <= y * map.info.width + x_end;
 			x++) {
-		if (map.data[x] == -1 || map.data[x] >= 100) {
+		if (map.data[x] == _grid_map_unknown
+				|| map.data[x] >= _grid_map_occupied) {
 			return true;
 		} else {
 			vis_map[x] = 0;
@@ -381,6 +388,21 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 void CollisionChecker::occupancyGridCallback(
 		const nav_msgs::OccupancyGrid::ConstPtr &map_msg) {
 	_occupancy_grid = *map_msg;
+}
+
+int CollisionChecker::getIndex(int x, int y) {
+	int sx = _occupancy_grid.info.width;
+	return y * sx + x;
+}
+
+void CollisionChecker::occupancyGridUpdatesCallback(
+		const map_msgs::OccupancyGridUpdate::ConstPtr &map_msg) {
+	int index = 0;
+	for (int y = map_msg->y; y < map_msg->y + map_msg->height; y++) {
+		for (int x = map_msg->x; x < map_msg->x + map_msg->width; x++) {
+			_occupancy_grid.data[getIndex(x, y)] = map_msg->data[index++];
+		}
+	}
 }
 
 bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,

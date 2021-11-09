@@ -5,6 +5,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <map_msgs/OccupancyGridUpdate.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_ros/transform_listener.h>
@@ -70,6 +71,7 @@ private:
 	ros::Publisher _collision_visualization;
 	ros::Publisher _visualization_pub;
 	ros::Subscriber _occupancy_grid_sub;
+	ros::Subscriber _occupancy_grid_updates_sub;
 
 	nav_msgs::OccupancyGrid _occupancy_grid;
 
@@ -101,6 +103,14 @@ private:
 	 * @brief Grid map cell edge length in m
 	 */
 	double _grid_map_resolution;
+	/**
+	 * @brief Grid map value that indicates a cell is occupied (or inscribed)
+	 */
+	int _grid_map_occupied;
+	/**
+	 * @brief Grid map value that indicates a cell is unknown
+	 */
+	int _grid_map_unknown;
 
 	std::vector<CircleLine> _circle_lines_offset;
 
@@ -114,6 +124,21 @@ private:
 	 */
 	void occupancyGridCallback(
 			const nav_msgs::OccupancyGrid::ConstPtr &map_msg);
+
+	/**
+	 * @brief Helper function to retrieve the occupancy grid's index for updating it
+	 * @param x coordinate
+	 * @param y coordinate
+	 * @return Index of the occupancy grid data
+	 */
+	int getIndex(int x, int y);
+
+	/**
+	 * @brief Function called by subscriber to map message which saves the current occupancy grid update for collision checking
+	 * @param Map message
+	 */
+	void occupancyGridUpdatesCallback(
+			const map_msgs::OccupancyGridUpdate::ConstPtr &map_msg);
 
 	/**
 	 * @brief Convert world coordinates to coordinates in the map
