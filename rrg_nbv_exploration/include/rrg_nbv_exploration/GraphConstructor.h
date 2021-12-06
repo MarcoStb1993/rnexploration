@@ -205,8 +205,10 @@ private:
 	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
 	 * @param If the paths of possibly connected nodes should be updated
+	 * @param Current robot pose
 	 */
-	void expandGraph(bool local, bool updatePaths);
+	void expandGraph(bool local, bool updatePaths,
+			geometry_msgs::Pose robot_pos);
 	/**
 	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -229,18 +231,21 @@ private:
 	 * @param Randomly sampled point
 	 * @param List of nodes to connect point with and their respective squared distances
 	 * @param If the paths of possibly connected nodes should be updated
+	 * @param Current robot pose
 	 */
 	void connectNewNode(geometry_msgs::Point rand_sample,
-			std::vector<std::pair<int, double>> nodes, bool updatePaths);
+			std::vector<std::pair<int, double>> nodes, bool updatePaths,
+			geometry_msgs::Pose robot_pos);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */
 	void checkCurrentGoal();
 	/**
 	 * @brief Update the PRM message variable holding the index of the node currently nearest to the robot
+	 * @param Robot position
 	 * @return Returns true if a new node is nearest to the robot
 	 */
-	bool determineNearestNodeToRobot();
+	bool determineNearestNodeToRobot(geometry_msgs::Point robot_pos);
 	/**
 	 * @brief Publish the node that currently has the best gain-cost-ratio
 	 */

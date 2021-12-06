@@ -344,7 +344,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 			new_node.traversability_cost = ((double) node_cost
 					/ (double) node_tiles) / (double) (_grid_map_occupied - 1); //average cost/tile normalized to [0,1]
 		}
-		new_edge.yaw = yaw;
+		new_edge.yaw = (int) (yaw * 180.0 / M_PI);
+		if (new_edge.yaw < 0)
+			new_edge.yaw += 360;
 		new_edge.traversability_cost =
 				distance > _path_box_distance_thres ?
 						((double) edge_cost / (double) edge_tiles)

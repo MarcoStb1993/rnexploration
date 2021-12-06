@@ -229,6 +229,10 @@
 		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
 		<arg name="nearest_node_tolerance" default="0.05" />	
 		<arg name="max_node_height_difference" default="0.3" />	
+		<arg name="gain_factor" default="1.0" />
+		<arg name="distance_factor" default="1.0" />
+		<arg name="heading_factor" default="1.0" />
+		<arg name="traversability_factor" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->

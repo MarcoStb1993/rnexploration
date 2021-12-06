@@ -17,7 +17,7 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="rviz" default="true" />
 	<arg name="min_edge_distance" default="1.0" />
-	<arg name="max_edge_distance" default="2.0" />	
+	<arg name="max_edge_distance" default="2.0" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
@@ -218,7 +218,8 @@
 		<arg name="sensor_vertical_fov_bottom" value="119" /> <!-- RealSense with 58 degree vFoV (range from 180 to 0 as the highest angle) -->
 		<arg name="sensor_vertical_fov_top" value="61" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
-		<arg name="occupancy_grid_topic" value="/move_base/global_costmap/costmap" />
+		<arg name="occupancy_grid_topic"
+			value="/move_base/global_costmap/costmap" />
 		<arg name="exploration_finished_timer_duration" value="10.0" />
 		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
@@ -226,11 +227,16 @@
 			default="$(arg grid_map_resolution)" />
 		<arg name="grid_map_occupied" default="75" />
 		<arg name="grid_map_unknown" default="-1" />
-		<arg name="local_sampling_radius" value="$(arg local_sampling_radius)" />		
+		<arg name="local_sampling_radius"
+			value="$(arg local_sampling_radius)" />
 		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
-		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
-		<arg name="nearest_node_tolerance" default="0.1" />	
-		<arg name="max_node_height_difference" default="1.0" />		
+		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />
+		<arg name="nearest_node_tolerance" default="0.1" />
+		<arg name="max_node_height_difference" default="1.0" />
+		<arg name="gain_factor" default="1.0" />
+		<arg name="distance_factor" default="1.0" />
+		<arg name="heading_factor" default="1.0" />
+		<arg name="traversability_factor" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->

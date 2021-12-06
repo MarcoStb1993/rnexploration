@@ -118,6 +118,22 @@ private:
 	 * @brief Did the robot move or not? Implies that all gain-cost-ratios must be recalculated
 	 */
 	bool _robot_moved;
+	/**
+	 * @brief Weighting factor for the information gain of a node
+	 */
+	double _gain_factor;
+	/**
+	 * @brief Weighting factor for the distance to a node
+	 */
+	double _distance_factor;
+	/**
+	 * @brief Weighting factor for the heading change while moving to a node
+	 */
+	double _heading_factor;
+	/**
+	 * @brief Weighting factor for the traversability cost along the path to a node
+	 */
+	double _traversability_factor;
 
 	/**
 	 * @brief Sorts list of nodes with a gain function, the node with the best gain-cost-ratio comes first
