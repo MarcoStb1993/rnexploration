@@ -315,7 +315,7 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 								_rrg.nodes[_rrg.nearest_node].position.y
 										- _rrg.nodes[nearest_node].position.y,
 								2);
-				if (distance_squared > _nearest_node_tolerance_squared) {
+				if (distance_squared <= _nearest_node_tolerance_squared) {
 					return false;
 				}
 			}
