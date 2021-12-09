@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf2
     tf2_ros
     nav_msgs
+    map_msgs
     dynamic_reconfigure
     )
 
@@ -26,6 +27,7 @@ find_package(octomap REQUIRED)
 
 generate_dynamic_reconfigure_options(
   cfg/GainCalculator.cfg
+  cfg/GraphConstructor.cfg
 )
 
 catkin_package(
@@ -62,6 +64,6 @@ target_link_libraries(rneVisualizationNode
     ${catkin_LIBRARIES}
     )
 
-add_dependencies(rneNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(rneNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS})

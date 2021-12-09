@@ -22,12 +22,18 @@
 	<arg name="check_init_position" default="false" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="grid_map_occupied" default="100" />
+	<arg name="grid_map_unknown" default="-1" />
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="min_edge_distance" default="1.0" />
 	<arg name="max_edge_distance" default="2.0" />	
 	<arg name="nearest_node_tolerance" default="0.1" />		
 	<arg name="max_node_height_difference" default="1.0" />	
 	<arg name="max_consecutive_failed_goals" default="5.0" />
+	<arg name="gain_factor" default="1.0" />	
+	<arg name="distance_factor" default="1.0" />	
+	<arg name="heading_factor" default="1.0" />	
+	<arg name="traversability_factor" default="1.0" />	
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -42,11 +48,17 @@
 		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
 		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
+		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
+		<param name="grid_map_unknown" type="int" value="$(arg grid_map_unknown)" />
 		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
 		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />
 		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
 		<param name="nearest_node_tolerance" type="double" value="$(arg nearest_node_tolerance)" />
-		<param name="max_consecutive_failed_goals" type="double" value="$(arg max_consecutive_failed_goals)" />			
+		<param name="max_consecutive_failed_goals" type="double" value="$(arg max_consecutive_failed_goals)" />		
+		<param name="gain_factor" type="double" value="$(arg gain_factor)" />
+		<param name="distance_factor" type="double" value="$(arg distance_factor)" />
+		<param name="heading_factor" type="double" value="$(arg heading_factor)" />
+		<param name="traversability_factor" type="double" value="$(arg traversability_factor)" />			
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

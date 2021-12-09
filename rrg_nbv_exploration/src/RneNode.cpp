@@ -1,6 +1,8 @@
 #include "ros/ros.h"
+#include <dynamic_reconfigure/server.h>
 
 #include <rrg_nbv_exploration/GraphConstructor.h>
+#include <rrg_nbv_exploration/GraphConstructorConfig.h>
 
 boost::shared_ptr<rrg_nbv_exploration::GraphConstructor> graph_constructor;
 
@@ -17,6 +19,15 @@ int main(int argc, char **argv) {
 			loopCallback);
 	graph_constructor.reset(new rrg_nbv_exploration::GraphConstructor());
 	graph_constructor->initialization();
+
+	dynamic_reconfigure::Server<rrg_nbv_exploration::GraphConstructorConfig> server;
+	dynamic_reconfigure::Server<rrg_nbv_exploration::GraphConstructorConfig>::CallbackType f;
+
+	f = boost::bind(
+			&rrg_nbv_exploration::GraphConstructor::dynamicReconfigureCallback,
+			&*graph_constructor, _1, _2);
+	server.setCallback(f);
+
 	ros::spin();
 	graph_constructor.reset();
 	return 0;

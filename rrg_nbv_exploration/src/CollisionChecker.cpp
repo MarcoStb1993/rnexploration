@@ -10,9 +10,14 @@ CollisionChecker::CollisionChecker() {
 	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
 			"map");
+	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
+	private_nh.param("grid_map_unknown", _grid_map_unknown, -1);
 	ros::NodeHandle nh("rne");
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
+	_occupancy_grid_updates_sub = _nh.subscribe(
+			occupancy_grid_topic + "_updates", 1,
+			&CollisionChecker::occupancyGridUpdatesCallback, this);
 	_visualization_pub = nh.advertise<nav_msgs::OccupancyGrid>(
 			"rrg_collision_map", 1);
 	_rrt_collision_visualization_pub = nh.advertise<
@@ -58,17 +63,18 @@ void CollisionChecker::precalculateCircleLinesOffset(
 }
 
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return true;
 	for (auto it : _circle_lines_offset) {
 		if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-				map_y + it.y_offset, map, vis_map))
+				map_y + it.y_offset, map, vis_map, cost, tiles))
 			return true; //collision = true;
 		if (it.y_offset != 0)
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y - it.y_offset, map, vis_map))
+					map_y - it.y_offset, map, vis_map, cost, tiles))
 				return true;
 	}
 	return false;
@@ -76,7 +82,7 @@ bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 
 bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-		std::vector<int8_t> &vis_map) {
+		std::vector<int8_t> &vis_map, int &cost, int &tiles) {
 	std::array<MapPoint, 4> map_corners;
 	std::array<GridPoint, 4> grid_corners;
 	double cos_yaw, sin_yaw;
@@ -183,7 +189,8 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 //				"xbot=(" << iterator_x_bot << ","<< iterator_y << "), offset: " << offset_x_bot);
 //		ROS_INFO_STREAM(
 //				"Line start=(" << x_start << ","<<grid_y <<") line end=(" << x_end << "," << grid_y << ")");
-		if (isLineInCollision(x_start, x_end, grid_y, map, vis_map))
+		if (isLineInCollision(x_start, x_end, grid_y, map, vis_map, cost,
+				tiles))
 			return true;
 		if (iterator_y < map_corners[0].y) {
 			offset_x_top += gradient_top;
@@ -198,14 +205,16 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 //	ROS_INFO_STREAM(
 //			"Line start=(" << grid_x + (int) round(offset_x_bot) << ","<<grid_y <<") line end=(" << grid_x + (int) round(offset_x_top) << "," << grid_y << ")");
 	if (isLineInCollision(grid_x + (int) round(offset_x_bot),
-			grid_x + (int) round(offset_x_top), grid_y, map, vis_map))
+			grid_x + (int) round(offset_x_top), grid_y, map, vis_map, cost,
+			tiles))
 		return true;
 	return false;
 }
 
 bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
 		double yaw, double half_height, double half_width,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
 	std::array<MapPoint, 2> map_corners;
 	std::array<GridPoint, 2> grid_corners;
 	if (yaw == -M_PI / 2 || yaw == M_PI / 2) { //height in y direction
@@ -228,21 +237,26 @@ bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
 
 	for (unsigned int i = grid_corners[1].y; i <= grid_corners[0].y; i++) {
 		if (isLineInCollision(grid_corners[0].x, grid_corners[1].x, i, map,
-				vis_map))
+				vis_map, cost, tiles))
 			return true;
 	}
 	return false;
 }
 
 bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map) {
-	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height)
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
+	if (x_start < 0 || x_end > map.info.width || y < 0 || y > map.info.height) {
 		return true;
+	}
 	for (int x = y * map.info.width + x_start; x <= y * map.info.width + x_end;
 			x++) {
-		if (map.data[x] == -1 || map.data[x] >= 100) {
+		if (map.data[x] == _grid_map_unknown
+				|| map.data[x] >= _grid_map_occupied) {
 			return true;
 		} else {
+			cost += map.data[x];
+			tiles += 1;
 			vis_map[x] = 0;
 		}
 	}
@@ -270,8 +284,9 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 	_node_points.markers.clear();
 	if (_check_init_position) {
 		std::vector<int8_t> tmp_vis_map_data = vis_map.data;
-		if (!isCircleInCollision(position.x, position.y, map,
-				tmp_vis_map_data)) {
+		int node_cost = 0, node_tiles = 0;
+		if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data,
+				node_cost, node_tiles)) {
 			vis_map.data = tmp_vis_map_data;
 			_visualization_pub.publish(vis_map);
 			return true;
@@ -282,9 +297,9 @@ bool CollisionChecker::initialize(geometry_msgs::Point position) {
 }
 
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
+		rrg_nbv_exploration_msgs::Edge &new_edge,
 		rrg_nbv_exploration_msgs::Node &nearest_node,
-		geometry_msgs::Point rand_sample, double distance,
-		double check_circle) {
+		geometry_msgs::Point rand_sample, double distance, double check_node) {
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
 	vis_map.header.stamp = ros::Time::now();
@@ -292,9 +307,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 	std::vector<int8_t> tmp_vis_map_data = vis_map.data;
 	double yaw = atan2(rand_sample.y - nearest_node.position.y,
 			rand_sample.x - nearest_node.position.x);
-//	ROS_INFO_STREAM(
-//			"node: (" << nearest_node.position.x << ", " << nearest_node.position.y << "), rand sample: (" << rand_sample.x << ", " << rand_sample.y << "), yaw=" << yaw);
-	bool rectangle = (
+	int edge_cost = 0, edge_tiles = 0;
+	bool edge_free = (
 			distance > _path_box_distance_thres ?
 					fmod(yaw, M_PI / 2) == 0 ?
 							!isAlignedRectangleInCollision(
@@ -303,23 +317,41 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 									(nearest_node.position.y + rand_sample.y)
 											/ 2, yaw,
 									(distance - _path_box_distance_thres) / 2,
-									_robot_width / 2, map, tmp_vis_map_data) :
+									_robot_width / 2, map, tmp_vis_map_data,
+									edge_cost, edge_tiles) :
 							!isRectangleInCollision(
 									(nearest_node.position.x + rand_sample.x)
 											/ 2,
 									(nearest_node.position.y + rand_sample.y)
 											/ 2, yaw,
 									(distance - _path_box_distance_thres) / 2,
-									_robot_width / 2, map, tmp_vis_map_data)
+									_robot_width / 2, map, tmp_vis_map_data,
+									edge_cost, edge_tiles)
 					:
 					true);
-	bool circle = !isCircleInCollision(rand_sample.x, rand_sample.y, map,
-			tmp_vis_map_data);
-	if (rectangle && circle) {
-		new_node.position.x = rand_sample.x;
-		new_node.position.y = rand_sample.y;
-		new_node.position.z = rand_sample.z;
-		new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+	int node_cost = 0, node_tiles = 0;
+	bool node_free =
+			check_node ?
+					!isCircleInCollision(rand_sample.x, rand_sample.y, map,
+							tmp_vis_map_data, node_cost, node_tiles) :
+					true;
+	if (edge_free && node_free) {
+		if (check_node) {
+			new_node.position.x = rand_sample.x;
+			new_node.position.y = rand_sample.y;
+			new_node.position.z = rand_sample.z;
+			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+			new_node.traversability_cost = ((double) node_cost
+					/ (double) node_tiles) / (double) (_grid_map_occupied - 1); //average cost/tile normalized to [0,1]
+		}
+		new_edge.yaw = (int) (yaw * 180.0 / M_PI);
+		if (new_edge.yaw < 0)
+			new_edge.yaw += 360;
+		new_edge.traversability_cost =
+				distance > _path_box_distance_thres ?
+						((double) edge_cost / (double) edge_tiles)
+								/ (double) (_grid_map_occupied - 1) :
+						0.0; //average cost/tile normalized to [0,1]
 		vis_map.data = tmp_vis_map_data;
 		_visualization_pub.publish(vis_map);
 		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
@@ -381,6 +413,21 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 void CollisionChecker::occupancyGridCallback(
 		const nav_msgs::OccupancyGrid::ConstPtr &map_msg) {
 	_occupancy_grid = *map_msg;
+}
+
+int CollisionChecker::getIndex(int x, int y) {
+	int sx = _occupancy_grid.info.width;
+	return y * sx + x;
+}
+
+void CollisionChecker::occupancyGridUpdatesCallback(
+		const map_msgs::OccupancyGridUpdate::ConstPtr &map_msg) {
+	int index = 0;
+	for (int y = map_msg->y; y < map_msg->y + map_msg->height; y++) {
+		for (int x = map_msg->x; x < map_msg->x + map_msg->width; x++) {
+			_occupancy_grid.data[getIndex(x, y)] = map_msg->data[index++];
+		}
+	}
 }
 
 bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,
