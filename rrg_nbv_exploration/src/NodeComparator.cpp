@@ -86,22 +86,19 @@ void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	for (auto &node : _nodes_ordered_by_reward) {
 		if (node.reward_function == 0 || _robot_moved) {
-			double inhibiting_factor =
-					((_distance_factor
-							* (1.0
-									- (rrg.nodes[node.node].distance_to_robot
-											/ rrg.longest_distance_to_robot)))
+			node.reward_function =
+					(_gain_factor * rrg.nodes[node.node].gain
+							+ _distance_factor
+									* (1.0
+											- (rrg.nodes[node.node].distance_to_robot
+													/ rrg.longest_distance_to_robot))
 							+ (_traversability_factor
 									* (1.0
 											- rrg.nodes[node.node].traversability_cost_to_robot))
 							+ (_heading_factor
 									* (1.0
 											- rrg.nodes[node.node].heading_change_to_robot_best_view)))
-							/ 3;
-			if (inhibiting_factor == 0.0)
-				inhibiting_factor = 1.0;
-			node.reward_function = (_gain_factor * rrg.nodes[node.node].gain)
-					* inhibiting_factor;
+							/ 4.0;
 			rrg.nodes[node.node].reward_function = node.reward_function;
 		}
 	}
