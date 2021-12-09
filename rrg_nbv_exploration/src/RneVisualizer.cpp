@@ -9,7 +9,7 @@ RneVisualizer::RneVisualizer() {
 			1000);
 	_rrg_text_info_visualization_pub = nh.advertise<
 			visualization_msgs::MarkerArray>("rrg_vis_info", 1000);
-	_info_interval = 5.0;
+	_info_interval = 1.0;
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -143,6 +143,7 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 			break;
 		default:
 			color.b = 1.0f;
+			color.g = 1 - node.reward_function;
 			break;
 		}
 	}
