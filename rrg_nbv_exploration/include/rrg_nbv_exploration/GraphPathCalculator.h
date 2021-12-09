@@ -58,8 +58,9 @@ public:
 	 * @param Index of the node closest to the robot
 	 * @param Current graph
 	 * @param Robot pose
+	 * @return True if node headings were updated
 	 */
-	void updateHeadingToRobot(int startNode, rrg_nbv_exploration_msgs::Graph &rrg,
+	bool updateHeadingToRobot(int startNode, rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Pose robot_pos);
 
 	/**

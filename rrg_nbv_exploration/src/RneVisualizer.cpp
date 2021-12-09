@@ -63,7 +63,8 @@ void RneVisualizer::visualizeRrgGraph(
 			_node_points.colors.push_back(getColor(rrg->nodes[i]));
 			if (publishInfo)
 				addInfoTextVisualization(_node_info_texts,
-						rrg->nodes[i].position, i, rrg->nodes[i].gain);
+						rrg->nodes[i].position, i,
+						rrg->nodes[i].reward_function);
 		}
 		for (int j = 0; j < rrg->edges.size(); j++) {
 			_edge_line_list.points.push_back(
@@ -86,7 +87,8 @@ void RneVisualizer::visualizeRrgGraph(
 
 void RneVisualizer::addInfoTextVisualization(
 		visualization_msgs::MarkerArray &_node_info_texts,
-		const geometry_msgs::Point node_position, int node, double gain) {
+		const geometry_msgs::Point node_position, int node,
+		double reward_function) {
 	visualization_msgs::Marker node_info_text;
 	node_info_text.header.frame_id = "/map";
 	node_info_text.ns = "rrt_tree";
@@ -103,7 +105,11 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = node_position.y;
 	node_info_text.pose.position.z = node_position.z + 0.5;
 	std::ostringstream oss;
-	oss << "(" << node << ")" << std::setprecision(4) << gain;
+	if (reward_function > 0)
+		oss << "(" << node << ")" << std::fixed << std::setprecision(3)
+				<< reward_function;
+	else
+		oss << "(" << node << ")";
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
 }

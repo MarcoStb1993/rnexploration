@@ -26,43 +26,43 @@ void NodeComparator::initialization() {
 
 	_sort_list = false;
 	_robot_moved = false;
-	_nodes_ordered_by_gcr.clear();
+	_nodes_ordered_by_reward.clear();
 }
 
 void NodeComparator::maintainList(rrg_nbv_exploration_msgs::Graph &rrg) {
 	if (_sort_list) {
-		calculateGainCostRatios(rrg);
-		sortByGain();
+		calculateRewardFunctions(rrg);
+		sortByReward();
 		_robot_moved = false;
 	}
 }
 
 void NodeComparator::clear() {
-	_nodes_ordered_by_gcr.clear();
+	_nodes_ordered_by_reward.clear();
 	_sort_list = false;
 }
 
 void NodeComparator::addNode(int node) {
-	_nodes_ordered_by_gcr.emplace_back(node);
+	_nodes_ordered_by_reward.emplace_back(node);
 	_sort_list = true;
 }
 
 void NodeComparator::removeNode(int node) {
-	_nodes_ordered_by_gcr.remove_if([node](CompareStruct n) {
+	_nodes_ordered_by_reward.remove_if([node](CompareStruct n) {
 		return n.node == node;
 	});
 }
 
 int NodeComparator::getBestNode() {
-	return _nodes_ordered_by_gcr.front().node;
+	return _nodes_ordered_by_reward.front().node;
 }
 
 int NodeComparator::getListSize() {
-	return _nodes_ordered_by_gcr.size();
+	return _nodes_ordered_by_reward.size();
 }
 
 bool NodeComparator::isEmpty() {
-	return _nodes_ordered_by_gcr.empty();
+	return _nodes_ordered_by_reward.empty();
 }
 
 void NodeComparator::robotMoved() {
@@ -74,41 +74,61 @@ void NodeComparator::setSortList() {
 	_sort_list = true;
 }
 
-void NodeComparator::sortByGain() {
-	_nodes_ordered_by_gcr.sort(
+void NodeComparator::sortByReward() {
+	_nodes_ordered_by_reward.sort(
 			[this](CompareStruct node_one, CompareStruct node_two) {
-				return compareNodeByRatios(node_one, node_two);
+				return compareNodeByReward(node_one, node_two);
 			});
 	_sort_list = false;
 }
 
-void NodeComparator::calculateGainCostRatios(
+void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	for (auto &node : _nodes_ordered_by_gcr) {
-		if (node.gain_cost_ratio == 0 || _robot_moved) {
-			node.gain_cost_ratio = rrg.nodes[node.node].gain
-					* exp(-1 * rrg.nodes[node.node].distance_to_robot);
-			;
-			if (rrg.nodes[node.node].gain == -1) //if gain=-1 the above calculation prefers nodes further away, reverse this effect
-				node.gain_cost_ratio = -node.gain_cost_ratio - 1;
+	for (auto &node : _nodes_ordered_by_reward) {
+		if (node.reward_function == 0 || _robot_moved) {
+			double inhibiting_factor =
+					((_distance_factor
+							* (1.0
+									- (rrg.nodes[node.node].distance_to_robot
+											/ rrg.longest_distance_to_robot)))
+							+ (_traversability_factor
+									* (1.0
+											- rrg.nodes[node.node].traversability_cost_to_robot))
+							+ (_heading_factor
+									* (1.0
+											- rrg.nodes[node.node].heading_change_to_robot_best_view)))
+							/ 3;
+			if (inhibiting_factor == 0.0)
+				inhibiting_factor = 1.0;
+			node.reward_function = (_gain_factor * rrg.nodes[node.node].gain)
+					* inhibiting_factor;
+			rrg.nodes[node.node].reward_function = node.reward_function;
 		}
 	}
 }
 
-double NodeComparator::getNodeGainCostRatio(int node) {
-	auto it = std::find_if(_nodes_ordered_by_gcr.begin(),
-			_nodes_ordered_by_gcr.end(), [node](CompareStruct n) {
+double NodeComparator::getNodeRewardFunction(int node) {
+	auto it = std::find_if(_nodes_ordered_by_reward.begin(),
+			_nodes_ordered_by_reward.end(), [node](CompareStruct n) {
 				return n.node == node;
 			});
-	if (it != _nodes_ordered_by_gcr.end())
-		return it->gain_cost_ratio;
+	if (it != _nodes_ordered_by_reward.end())
+		return it->reward_function;
 	else
 		return 0;
 }
 
-bool NodeComparator::compareNodeByRatios(const CompareStruct &node_one,
+bool NodeComparator::compareNodeByReward(const CompareStruct &node_one,
 		const CompareStruct &node_two) {
-	return node_one.gain_cost_ratio >= node_two.gain_cost_ratio;
+	return node_one.reward_function >= node_two.reward_function;
+}
+
+void NodeComparator::dynamicReconfigureCallback(
+		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
+	_gain_factor = config.gain_factor;
+	_distance_factor = config.distance_factor;
+	_traversability_factor = config.traversability_factor;
+	_heading_factor = config.heading_factor;
 }
 
 } /* namespace rrg_nbv_exploration */

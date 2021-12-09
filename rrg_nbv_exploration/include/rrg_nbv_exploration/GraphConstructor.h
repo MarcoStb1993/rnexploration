@@ -55,6 +55,10 @@ public:
 	 */
 	void runRrgConstruction();
 
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::GraphConstructorConfig &config,
+			uint32_t level);
+
 private:
 	ros::NodeHandle _nh;
 

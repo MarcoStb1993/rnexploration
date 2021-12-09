@@ -211,7 +211,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
 	} else {
-		node.gain = best_yaw_score;
+		node.gain = view_score;
 		node.best_yaw = best_yaw;
 	}
 

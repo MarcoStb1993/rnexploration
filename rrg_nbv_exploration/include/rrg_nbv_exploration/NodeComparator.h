@@ -11,38 +11,36 @@
 #include "ros/ros.h"
 #include <rrg_nbv_exploration_msgs/Graph.h>
 #include <rrg_nbv_exploration_msgs/Node.h>
-#include <stack>
-
-#include <fstream>
+#include <rrg_nbv_exploration/GraphConstructorConfig.h>
 
 namespace rrg_nbv_exploration {
 
 /**
- * @brief Structure to store the node and the particular gain-cost-ratio
+ * @brief Structure to store the node and the particular reward function
  */
 struct CompareStruct {
 	int node;
-	double gain_cost_ratio;
+	double reward_function;
 
 	/**
 	 * @brief Constructor to initialize struct with node index in graph list
 	 */
 	CompareStruct(int n) {
 		node = n;
-		gain_cost_ratio = 0.0;
+		reward_function = 0.0;
 	}
 
 	/**
-	 * @brief Constructor to initialize struct with node index in graph list and gain-cost-ratio
+	 * @brief Constructor to initialize struct with node index in graph list and reward function
 	 */
-	CompareStruct(int n, double gcr) {
+	CompareStruct(int n, double rf) {
 		node = n;
-		gain_cost_ratio = gcr;
+		reward_function = rf;
 	}
 };
 
 /**
- * @brief Class to maintain the list of nodes ordered by gain-cost-ratio
+ * @brief Class to maintain the list of nodes ordered by reward function
  */
 class NodeComparator {
 public:
@@ -55,7 +53,7 @@ public:
 	void initialization();
 
 	/**
-	 * @brief Sort list and recalculate gain-cost-ratios if necessary
+	 * @brief Sort list and recalculate reward functions if necessary
 	 * @param Current graph
 	 */
 	void maintainList(rrg_nbv_exploration_msgs::Graph &rrg);
@@ -78,8 +76,8 @@ public:
 	void removeNode(int node);
 
 	/**
-	 * @brief Get the node with the best cost-gain-ratio
-	 * @return Index of the node with the best cost-gain-ratio in the tree
+	 * @brief Get the node with the best reward function
+	 * @return Index of the node with the reward function in the tree
 	 */
 	int getBestNode();
 
@@ -96,7 +94,8 @@ public:
 	bool isEmpty();
 
 	/**
-	 * @brief Triggers a recalculation of all node's path distances and a sorting of the list
+	 * @brief Triggered by a recalculation of all node's path distances and/or heading and a
+	 * starts a sorting of the list
 	 */
 	void robotMoved();
 
@@ -105,17 +104,21 @@ public:
 	 */
 	void setSortList();
 
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::GraphConstructorConfig &config,
+			uint32_t level);
+
 private:
 	/**
-	 * @brief All nodes (their position in the rrg node list) and their respective gain-cost-ratio ordered ascendingly
+	 * @brief All nodes (their position in the rrg node list) and their respective reward function ordered ascending
 	 */
-	std::list<CompareStruct> _nodes_ordered_by_gcr;
+	std::list<CompareStruct> _nodes_ordered_by_reward;
 	/**
 	 * @brief Should the list be sorted or not
 	 */
 	bool _sort_list;
 	/**
-	 * @brief Did the robot move or not? Implies that all gain-cost-ratios must be recalculated
+	 * @brief Did the robot move or not? Implies that all reward functions must be recalculated
 	 */
 	bool _robot_moved;
 	/**
@@ -136,30 +139,30 @@ private:
 	double _traversability_factor;
 
 	/**
-	 * @brief Sorts list of nodes with a gain function, the node with the best gain-cost-ratio comes first
+	 * @brief Sorts list of nodes with a reward function, the node with the highest reward function comes first
 	 */
-	void sortByGain();
+	void sortByReward();
 
 	/**
-	 * @brief Calculates the gain-cost-ratio of each node in the list of nodes
+	 * @brief Calculates the reward function of each node in the list of nodes
 	 * @param Current graph
 	 */
-	void calculateGainCostRatios(rrg_nbv_exploration_msgs::Graph &rrh);
+	void calculateRewardFunctions(rrg_nbv_exploration_msgs::Graph &rrh);
 
 	/**
-	 * @brief Returns the gain-cost-ratio of the given node index
-	 * @param Node index of which the gain-cost-ratio should be returned
-	 * @return Gain-cost-ratio for given node
+	 * @brief Returns the reward function of the given node index
+	 * @param Node index of which the reward function should be returned
+	 * @return Reward function for given node
 	 */
-	double getNodeGainCostRatio(int node);
+	double getNodeRewardFunction(int node);
 
 	/**
-	 * @brief Compares the two given nodes and returns true if the first node's gain-cost-ratio is better than the second
+	 * @brief Compares the two given nodes and returns true if the first node's reward function is better than the second
 	 * @param First node
 	 * @param Second node
-	 * @param Returns if the first node's gain-cost-ratio is better than the second node's gain-cost-ratio
+	 * @param Returns if the first node's reward function is better than the second node's reward function
 	 */
-	bool compareNodeByRatios(const CompareStruct &node_one,
+	bool compareNodeByReward(const CompareStruct &node_one,
 			const CompareStruct &node_two);
 
 };
