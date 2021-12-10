@@ -56,7 +56,7 @@ private:
 	 */
 	void addInfoTextVisualization(
 			visualization_msgs::MarkerArray &_node_info_texts,
-			const geometry_msgs::Point node_position, int node, double gain);
+			const geometry_msgs::Point node_position, int node, double reward_function);
 	/**
 	 * @brief Return the color for the given node depending on its status and gain
 	 * @param Node to determine color for

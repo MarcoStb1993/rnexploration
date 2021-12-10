@@ -22,7 +22,7 @@ Information if the current goal is still viable (only active if exploration mode
 #### Subscribed Topics
 
 **bestAndCurrentGoal** ([rrg_nbv_exploration_msgs/BestAndCurrentNode](../rrg_nbv_exploration_msgs/msg/BestAndCurrentNode.msg))  
-Current exploration goal and node with best gain-cost-ratio
+Current exploration goal and node with best reward function
 
 **explorationMode** ([std_msgs/Bool](http://docs.ros.org/api/std_msgs/html/msg/Bool.html))  
 RSM's currently set exploration mode (true: interrupt, false: finish)

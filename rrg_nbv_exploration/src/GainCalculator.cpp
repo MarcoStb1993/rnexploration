@@ -89,7 +89,8 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
-	if (!measureNodeHeight(node) && node.distanceToRobot != 0
+
+	if (!measureNodeHeight(node) && node.distance_to_robot != 0
 			&& node.edges.size() < 2) {
 		//node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 		node.gain = -1;
@@ -211,7 +212,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 		node.status = rrg_nbv_exploration_msgs::Node::EXPLORED;
 		node.gain = 0;
 	} else {
-		node.gain = best_yaw_score;
+		node.gain = view_score;
 		node.best_yaw = best_yaw;
 	}
 

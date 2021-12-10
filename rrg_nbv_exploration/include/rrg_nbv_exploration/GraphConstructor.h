@@ -55,6 +55,10 @@ public:
 	 */
 	void runRrgConstruction();
 
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::GraphConstructorConfig &config,
+			uint32_t level);
+
 private:
 	ros::NodeHandle _nh;
 
@@ -131,6 +135,14 @@ private:
 	 */
 	double _sensor_height;
 	/**
+	 * @brief Squared min distance between two nodes in the graph
+	 */
+	double _min_edge_distance_squared;
+	/**
+	 * @brief Max distance between two nodes in the graph
+	 */
+	double _max_edge_distance;
+	/**
 	 * @brief Squared max distance between two nodes in the graph
 	 */
 	double _max_edge_distance_squared;
@@ -159,10 +171,6 @@ private:
 	 */
 	double _robot_radius;
 	/**
-	 * Width of the robot in m
-	 */
-	double _robot_width;
-	/**
 	 * @brief If current goal is currently updating
 	 */
 	bool _updating;
@@ -183,10 +191,6 @@ private:
 	 */
 	double _nearest_node_tolerance_squared;
 	/**
-	 * @brief Add a node directly in front of the robot in addition to the root node to avoid stalling
-	 */
-	bool _add_start_node;
-	/**
 	 * @brief Maximum number of consecutive failed goals before exploration is cancelled
 	 */
 	int _max_consecutive_failed_goals;
@@ -205,8 +209,10 @@ private:
 	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
 	 * @param If the paths of possibly connected nodes should be updated
+	 * @param Current robot pose
 	 */
-	void expandGraph(bool local, bool updatePaths);
+	void expandGraph(bool local, bool updatePaths,
+			geometry_msgs::Pose robot_pos);
 	/**
 	 * @brief Randomly samples a point from within the map dimensions
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -225,23 +231,25 @@ private:
 	 */
 	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
 	/**
-	 * @brief Tries to connect a randomly sampled point to the nearest neighbors in the existing graph, which are inside the inflated radius around it
-	 * or which circle's intersection has a chord with a width of at least the robot width
+	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the max radius in the existing graph
 	 * @param Randomly sampled point
-	 * @param Node index of node closest to randomly sampled point
+	 * @param List of nodes to connect point with and their respective squared distances
 	 * @param If the paths of possibly connected nodes should be updated
+	 * @param Current robot pose
 	 */
-	void connectNewNode(geometry_msgs::Point rand_sample,int nearest_node,
-			bool updatePaths);
+	void connectNewNode(geometry_msgs::Point rand_sample,
+			std::vector<std::pair<int, double>> nodes, bool updatePaths,
+			geometry_msgs::Pose robot_pos);
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */
 	void checkCurrentGoal();
 	/**
 	 * @brief Update the PRM message variable holding the index of the node currently nearest to the robot
+	 * @param Robot position
 	 * @return Returns true if a new node is nearest to the robot
 	 */
-	bool determineNearestNodeToRobot();
+	bool determineNearestNodeToRobot(geometry_msgs::Point robot_pos);
 	/**
 	 * @brief Publish the node that currently has the best gain-cost-ratio
 	 */

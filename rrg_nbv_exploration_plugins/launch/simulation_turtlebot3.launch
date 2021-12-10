@@ -221,11 +221,17 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
+		<arg name="grid_map_occupied" default="100" />
+		<arg name="grid_map_unknown" default="-1" />
 		<arg name="local_sampling_radius" value="$(arg local_sampling_radius)" />
 		<arg name="nearest_node_tolerance" default="0.05" />	
 		<arg name="max_node_height_difference" default="0.3" />	
 		<arg name="radius_factor_active" default="$(arg radius_factor_active)" />
 		<arg name="add_start_node" default="false" />
+		<arg name="gain_factor" default="1.0" />
+		<arg name="distance_factor" default="1.0" />
+		<arg name="heading_factor" default="1.0" />
+		<arg name="traversability_factor" default="1.0" />
 	</include>
 
 	<!-- RViz für Exploration -->

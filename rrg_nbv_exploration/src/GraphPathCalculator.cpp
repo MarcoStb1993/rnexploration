@@ -6,6 +6,7 @@ GraphPathCalculator::GraphPathCalculator() :
 	ros::NodeHandle private_nh("~");
 	private_nh.param<std::string>("robot_frame", _robot_frame,
 			"base_footprint");
+	_last_robot_yaw = 0;
 }
 
 geometry_msgs::Pose GraphPathCalculator::getRobotPose() {
@@ -23,28 +24,58 @@ geometry_msgs::Pose GraphPathCalculator::getRobotPose() {
 	return robot_pose;
 }
 
+int GraphPathCalculator::getRobotYaw(const geometry_msgs::Pose &robot_pos) {
+	//get current robot orientation (yaw) for heading change calculation
+	tf2::Quaternion q(robot_pos.orientation.x, robot_pos.orientation.y,
+			robot_pos.orientation.z, robot_pos.orientation.w);
+	tf2::Matrix3x3 m(q);
+	double roll, pitch, yaw;
+	m.getRPY(roll, pitch, yaw);
+	int robot_yaw = (int) ((yaw * 180 / M_PI)); //all headings in degrees [0,360)
+	if (robot_yaw < 0)
+		robot_yaw += 360;
+
+	return robot_yaw;
+}
+
 void GraphPathCalculator::updatePathsToRobot(int startNode,
-		rrg_nbv_exploration_msgs::Graph &rrg, bool reset) {
+		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose robot_pos,
+		bool reset) {
+	int robot_yaw = getRobotYaw(robot_pos); //get current robot orientation (yaw) for heading change calculation
+	_last_robot_yaw = robot_yaw;
 	//run Dijkstra on RRG and assign distance and path to each node
-//	ROS_INFO_STREAM(
-//			"update paths to robot from start node " << startNode << (reset ? " with reset": " locally"));
 	std::set<std::pair<double, int>> node_queue;
-	if (reset) {
+	if (reset) { //robot moved and is currently at startNode's position
 		for (auto &node : rrg.nodes) {
-			node.distanceToRobot = std::numeric_limits<double>::infinity();
-			node.pathToRobot.clear();
+			node.distance_to_robot = std::numeric_limits<double>::infinity();
+			node.path_to_robot.clear();
+			node.heading_change_to_robot = 0;
+			node.traversability_cost_to_robot = 0.0;
+			node.heading_in = 0;
 		}
-		rrg.nodes[startNode].distanceToRobot = 0;
-		rrg.nodes[startNode].pathToRobot.push_back(startNode);
+		rrg.nodes[startNode].distance_to_robot = 0;
+		rrg.nodes[startNode].path_to_robot.push_back(startNode);
+		rrg.nodes[startNode].heading_change_to_robot = 0;
+		rrg.nodes[startNode].traversability_cost_to_robot =
+				rrg.nodes[startNode].traversability_cost;
+		rrg.nodes[startNode].heading_in = robot_yaw;
+		if (rrg.nodes[startNode].gain > 0)
+			rrg.nodes[startNode].heading_change_to_robot_best_view =
+					(double) getAbsoluteAngleDiff(
+							rrg.nodes[startNode].heading_in,
+							rrg.nodes[startNode].best_yaw)
+							/ (180.0
+									* (double) rrg.nodes[startNode].path_to_robot.size());
+		else
+			rrg.nodes[startNode].heading_change_to_robot_best_view = 0.0;
+		rrg.longest_distance_to_robot = 0;
 	}
 	node_queue.insert(
-			std::make_pair(rrg.nodes[startNode].distanceToRobot, startNode));
+			std::make_pair(rrg.nodes[startNode].distance_to_robot, startNode));
 	while (!node_queue.empty()) {
 		double current_distance = node_queue.begin()->first;
 		int current_node = node_queue.begin()->second;
 		node_queue.erase(node_queue.begin());
-//			ROS_INFO_STREAM(
-//					"Looking at node " << current_node << " with distance to robot " << current_distance);
 		for (auto edge : rrg.nodes[current_node].edges) {
 			int neighbor_node =
 					rrg.edges[edge].first_node == current_node ?
@@ -52,23 +83,113 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 							rrg.edges[edge].first_node;
 			double neighbor_distance = rrg.edges[edge].length;
 			double total_distance = current_distance + neighbor_distance;
-//				ROS_INFO_STREAM(
-//						"Neighbor " << neighbor_node << " with edge length " << neighbor_distance << " has total distance " << total_distance << " compared to current: " << rrg.nodes[neighbor_node].distanceToRobot << (total_distance < rrg.nodes[neighbor_node].distanceToRobot ? " shorter": " longer"));
-			if (total_distance < rrg.nodes[neighbor_node].distanceToRobot) {
+			if (total_distance < rrg.nodes[neighbor_node].distance_to_robot) {
 				node_queue.erase(
-						std::make_pair(rrg.nodes[neighbor_node].distanceToRobot,
+						std::make_pair(
+								rrg.nodes[neighbor_node].distance_to_robot,
 								neighbor_node));
-				rrg.nodes[neighbor_node].distanceToRobot = total_distance;
-				rrg.nodes[neighbor_node].pathToRobot =
-						rrg.nodes[current_node].pathToRobot;
-				rrg.nodes[neighbor_node].pathToRobot.push_back(neighbor_node);
+				rrg.nodes[neighbor_node].distance_to_robot = total_distance;
+				if (total_distance > rrg.longest_distance_to_robot) {
+					rrg.longest_distance_to_robot = total_distance;
+				}
+				rrg.nodes[neighbor_node].path_to_robot =
+						rrg.nodes[current_node].path_to_robot;
+				rrg.nodes[neighbor_node].path_to_robot.push_back(neighbor_node);
+				int current_heading_out = 0;
+				if (rrg.edges[edge].second_node == current_node) { //edge yaw is from first to second node
+					current_heading_out =
+							rrg.edges[edge].yaw >= 180 ?
+									rrg.edges[edge].yaw - 180 :
+									rrg.edges[edge].yaw + 180;
+				} else {
+					current_heading_out = rrg.edges[edge].yaw;
+				}
+				rrg.nodes[neighbor_node].heading_in = current_heading_out;
+				rrg.nodes[neighbor_node].heading_change_to_robot =
+						rrg.nodes[current_node].heading_change_to_robot
+								+ getAbsoluteAngleDiff(
+										rrg.nodes[current_node].heading_in,
+										current_heading_out); //calculate heading cost from current to neighbor node
+				if (rrg.nodes[neighbor_node].gain > 0)
+					rrg.nodes[neighbor_node].heading_change_to_robot_best_view =
+							(double) (rrg.nodes[neighbor_node].heading_change_to_robot
+									+ getAbsoluteAngleDiff(
+											rrg.nodes[neighbor_node].heading_in,
+											rrg.nodes[neighbor_node].best_yaw))
+									/ (180.0
+											* (double) rrg.nodes[neighbor_node].path_to_robot.size());
+				else
+					rrg.nodes[neighbor_node].heading_change_to_robot_best_view =
+							0.0;
+				rrg.nodes[neighbor_node].traversability_cost_to_robot =
+						rrg.nodes[current_node].traversability_cost_to_robot
+								+ rrg.nodes[neighbor_node].traversability_cost
+								+ rrg.edges[edge].traversability_cost;
 				node_queue.insert(
-						std::make_pair(rrg.nodes[neighbor_node].distanceToRobot,
+						std::make_pair(
+								rrg.nodes[neighbor_node].distance_to_robot,
 								neighbor_node));
-//					ROS_INFO_STREAM("set node " << neighbor_node << "'s path");
 			}
 		}
 	}
+}
+
+bool GraphPathCalculator::updateHeadingToRobot(int startNode,
+		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose robot_pos) {
+	int robot_yaw = getRobotYaw(robot_pos);
+	if (robot_yaw == _last_robot_yaw) //only calculate new heading if yaw changed
+		return false;
+	rrg.nodes[startNode].heading_in = robot_yaw;
+	if (rrg.nodes[startNode].gain > 0)
+		rrg.nodes[startNode].heading_change_to_robot_best_view =
+				(double) getAbsoluteAngleDiff(rrg.nodes[startNode].heading_in,
+						rrg.nodes[startNode].best_yaw)
+						/ (180.0
+								* (double) rrg.nodes[startNode].path_to_robot.size());
+	else
+		rrg.nodes[startNode].heading_change_to_robot_best_view = 0.0;
+	_last_robot_yaw = robot_yaw;
+	std::map<int, int> first_nodes; //nodes with a direct edge to the start node (index, heading difference)
+	for (int edge : rrg.nodes[startNode].edges) { //find nodes with direct edge to start node and calculate the difference
+		int first_node = -1;
+		int edge_yaw = -1;
+		if (rrg.edges[edge].first_node == startNode) {
+			first_node = rrg.edges[edge].second_node;
+			edge_yaw = rrg.edges[edge].yaw;
+		} else { //reverse yaw when travelling edge the opposite way
+			first_node = rrg.edges[edge].first_node;
+			edge_yaw =
+					rrg.edges[edge].yaw >= 180 ?
+							rrg.edges[edge].yaw - 180 :
+							rrg.edges[edge].yaw + 180;
+		}
+		int new_yaw = getAbsoluteAngleDiff(edge_yaw,
+				rrg.nodes[startNode].heading_in);
+		//get signed difference between angles
+		int difference = new_yaw
+				- rrg.nodes[first_node].heading_change_to_robot;
+		difference = (difference + 180) % 360 - 180;
+		first_nodes.insert(std::make_pair(first_node, difference));
+	}
+	for (int i = 0; i < rrg.node_counter; i++) { //update all node headings to robot depending on the first node in their particular path
+		if (rrg.nodes[i].path_to_robot.size() >= 2) {
+			rrg.nodes[i].heading_change_to_robot =
+					rrg.nodes[i].heading_change_to_robot
+							+ first_nodes.at(rrg.nodes[i].path_to_robot[1]);
+			if (rrg.nodes[i].gain > 0)
+				rrg.nodes[i].heading_change_to_robot_best_view =
+						rrg.nodes[i].heading_change_to_robot_best_view
+								+ ((double) first_nodes.at(
+										rrg.nodes[i].path_to_robot[1])
+										/ (180.0
+												* (double) rrg.nodes[i].path_to_robot.size()));
+		}
+	}
+	return true;
+}
+
+int GraphPathCalculator::getAbsoluteAngleDiff(int x, int y) {
+	return 180 - abs(abs(x - y) - 180);
 }
 
 void GraphPathCalculator::getNavigationPath(
@@ -77,17 +198,17 @@ void GraphPathCalculator::getNavigationPath(
 		geometry_msgs::Point robot_pose) {
 //	ROS_INFO_STREAM("get nav path from " << rrg.nearest_node << " to " << goal_node);
 	ros::Time timestamp = ros::Time::now();
-	//add robot position with orientation towards nearest node as first path node
+//add robot position with orientation towards nearest node as first path node
 //	geometry_msgs::PoseStamped path_pose;
 //	path_pose.header.frame_id = "map";
 //	path_pose.header.stamp = timestamp;
 //	path_pose.pose.position = robot_pose;
 //	path_pose.pose.position.z =
-//			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.z;
+//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.z;
 //	double yaw = atan2(
-//			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.y
+//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.y
 //					- robot_pose.y,
-//			rrg.nodes[rrg.nodes[goal_node].pathToRobot[0]].position.x
+//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.x
 //					- robot_pose.x);
 //	tf2::Quaternion quaternion_robot;
 //	quaternion_robot.setRPY(0, 0, yaw);
@@ -118,34 +239,34 @@ void GraphPathCalculator::getNavigationPath(
 	} else { //build a path from start to root and from goal to root until they meet
 
 		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
-		std::vector<int> pathToRobot = rrg.nodes[goal_node].pathToRobot;
-		if (pathToRobot.size() >= 2) {
+		std::vector<int> path_to_robot = rrg.nodes[goal_node].path_to_robot;
+		if (path_to_robot.size() >= 2) {
 			double distance_first_second_squared = pow(
-					rrg.nodes[pathToRobot.at(0)].position.x
-							- rrg.nodes[pathToRobot.at(1)].position.x, 2)
+					rrg.nodes[path_to_robot.at(0)].position.x
+							- rrg.nodes[path_to_robot.at(1)].position.x, 2)
 					+ pow(
-							rrg.nodes[pathToRobot.at(0)].position.y
-									- rrg.nodes[pathToRobot.at(1)].position.y,
+							rrg.nodes[path_to_robot.at(0)].position.y
+									- rrg.nodes[path_to_robot.at(1)].position.y,
 							2);
 			double distance_second_squared = pow(
-					robot_pose.x - rrg.nodes[pathToRobot.at(1)].position.x, 2)
+					robot_pose.x - rrg.nodes[path_to_robot.at(1)].position.x, 2)
 					+ pow(
 							robot_pose.y
-									- rrg.nodes[pathToRobot.at(1)].position.y,
+									- rrg.nodes[path_to_robot.at(1)].position.y,
 							2);
 			if (distance_first_second_squared > distance_second_squared) {
 				//remove first node from path since it leads backwards on the path
-				pathToRobot.erase(pathToRobot.begin());
+				path_to_robot.erase(path_to_robot.begin());
 			}
 		}
-		for (auto &i : pathToRobot) { //iterate through nodes in path and add as waypoints for path
+		for (auto &i : path_to_robot) { //iterate through nodes in path and add as waypoints for path
 			geometry_msgs::PoseStamped path_pose;
 			path_pose.header.frame_id = "map";
 			path_pose.header.stamp = timestamp;
 			path_pose.pose.position = rrg.nodes[i].position;
 			tf2::Quaternion quaternion;
 			double yaw;
-			if (&i == &pathToRobot.front()) { //if node is first element in list, add poses between robot and node
+			if (&i == &path_to_robot.front()) { //if node is first element in list, add poses between robot and node
 				geometry_msgs::Pose robot_pose = getRobotPose();
 				robot_pose.position.z = rrg.nodes[i].position.z;
 				yaw = atan2(rrg.nodes[i].position.y - robot_pose.position.y,
@@ -155,7 +276,7 @@ void GraphPathCalculator::getNavigationPath(
 				addInterNodes(path, robot_pose.position, rrg.nodes[i].position,
 						tf2::toMsg(quaternion), yaw);
 			}
-			if (&i != &pathToRobot.back()) //if node is not last element in list, get orientation between this node and the next
+			if (&i != &path_to_robot.back()) //if node is not last element in list, get orientation between this node and the next
 				yaw = atan2(
 						rrg.nodes[*(&i + 1)].position.y
 								- rrg.nodes[i].position.y,
@@ -169,7 +290,7 @@ void GraphPathCalculator::getNavigationPath(
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
 			//add in between nodes
-			if (&i != &pathToRobot.back()) { //add in between node
+			if (&i != &path_to_robot.back()) { //add in between node
 				addInterNodes(path, rrg.nodes[i].position,
 						rrg.nodes[*(&i + 1)].position, tf2::toMsg(quaternion),
 						yaw);

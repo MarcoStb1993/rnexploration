@@ -23,6 +23,7 @@
 	<build_depend>rrg_nbv_exploration_msgs</build_depend>
 	<build_depend>geometry_msgs</build_depend>
 	<build_depend>nav_msgs</build_depend>
+	<build_depend>map_msgs</build_depend>
 	<build_depend>dynamic_reconfigure</build_depend>
 	<build_export_depend>actionlib</build_export_depend>
 	<build_export_depend>move_base_msgs</build_export_depend>
@@ -36,6 +37,7 @@
 	<build_export_depend>rrg_nbv_exploration_msgs</build_export_depend>
 	<build_export_depend>geometry_msgs</build_export_depend>
 	<build_export_depend>nav_msgs</build_export_depend>
+	<build_export_depend>map_msgs</build_export_depend>
 	<build_export_depend>dynamic_reconfigure</build_export_depend>
 	<exec_depend>actionlib</exec_depend>
 	<exec_depend>move_base_msgs</exec_depend>
@@ -50,6 +52,7 @@
 	<exec_depend>rrg_nbv_exploration_msgs</exec_depend>
 	<exec_depend>geometry_msgs</exec_depend>
 	<exec_depend>nav_msgs</exec_depend>
+	<exec_depend>map_msgs</exec_depend>
 	<exec_depend>dynamic_reconfigure</exec_depend>
 </package>
 

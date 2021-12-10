@@ -8,7 +8,6 @@
 #include <rrg_nbv_exploration/GainCalculatorConfig.h>
 
 #include <boost/multi_array.hpp>
-#include <fstream>
 
 /**
  * Structure to store the step and corresponding cosine and sine value for gain calculation speedup
