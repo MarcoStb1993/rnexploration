@@ -13,6 +13,7 @@ CollisionChecker::CollisionChecker() {
 			"map");
 	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	private_nh.param("grid_map_unknown", _grid_map_unknown, -1);
+	private_nh.param("inflation_active", _inflation_active, true);
 	ros::NodeHandle nh("rne");
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
@@ -114,6 +115,7 @@ bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 double CollisionChecker::inflateCircle(double x, double y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
+	//TODO: move away from obstacles on collision and repeat inflation
 	double current_radius = ceil(_robot_radius / _grid_map_resolution)
 			* _grid_map_resolution; //round up radius to next full grid map tile
 	int prevOffsetIndex = -1;
@@ -377,19 +379,6 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
 	double yaw = atan2(rand_sample.y - nearest_node.position.y,
 			rand_sample.x - nearest_node.position.x);
-//		<<<<<<< HEAD
-//		if (!isCircleInCollision(rand_sample.x, rand_sample.y, map,
-//				tmp_vis_map_data)) {
-//			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y, map,
-//			tmp_vis_map_data);
-//			new_node.squared_radius = pow(new_node.radius, 2);
-//			new_node.position.x = rand_sample.x;
-//			new_node.position.y = rand_sample.y;
-//			new_node.position.z = rand_sample.z;
-//			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-//			_vis_map.data = tmp_vis_map_data;
-//			_visualization_pub.publish(_vis_map);
-//			=======
 	int edge_cost = 0, edge_tiles = 0;
 	bool edge_free = (
 			distance > _path_box_distance_thres ?
@@ -420,6 +409,14 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 					true;
 	if (edge_free && node_free) {
 		if (check_node) {
+			if (_inflation_active) {
+				new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
+						map, tmp_vis_map_data, node_cost, node_tiles);
+				new_node.squared_radius = pow(new_node.radius, 2);
+			} else {
+				new_node.radius = _robot_radius;
+				new_node.squared_radius = pow(_robot_radius, 2);
+			}
 			new_node.position.x = rand_sample.x;
 			new_node.position.y = rand_sample.y;
 			new_node.position.z = rand_sample.z;

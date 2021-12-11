@@ -216,6 +216,7 @@ void GraphConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
 void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 		std::vector<std::pair<int, double>> nodes, bool updatePaths,
 		geometry_msgs::Pose robot_pos) {
+	//TODO: regard inflation and handle engulfed nodes
 	alignPointToGridMap(rand_sample);
 	bool connected = false;
 	rrg_nbv_exploration_msgs::Node node;

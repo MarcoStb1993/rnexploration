@@ -36,6 +36,7 @@
 	<arg name="distance_factor" default="1.0" />	
 	<arg name="heading_factor" default="1.0" />	
 	<arg name="traversability_factor" default="1.0" />	
+	<arg name="inflation_active" default="true" />	
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
 		output="screen">
@@ -60,7 +61,8 @@
 		<param name="gain_factor" type="double" value="$(arg gain_factor)" />
 		<param name="distance_factor" type="double" value="$(arg distance_factor)" />
 		<param name="heading_factor" type="double" value="$(arg heading_factor)" />
-		<param name="traversability_factor" type="double" value="$(arg traversability_factor)" />			
+		<param name="traversability_factor" type="double" value="$(arg traversability_factor)" />
+		<param name="inflation_active" type="bool" value="$(arg inflation_active)" />					
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

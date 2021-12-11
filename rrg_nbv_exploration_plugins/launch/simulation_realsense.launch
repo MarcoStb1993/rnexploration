@@ -239,6 +239,7 @@
 		<arg name="distance_factor" default="1.0" />
 		<arg name="heading_factor" default="0.5" />
 		<arg name="traversability_factor" default="0.5" />
+		<arg name="inflation_active" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->

@@ -134,6 +134,10 @@ private:
 	 */
 	int _grid_map_unknown;
 	/**
+	 * brief If the inflation of nodes (wavefront) is active
+	 */
+	bool _inflation_active;
+	/**
 	 * @brief List of pairs of radius and and respective x and y offsets from the circle's center that
 	 * form a ring around the edge of the circle with the next smaller radius, only contains positive
 	 * y-offsets, negative ones are symmetrical
