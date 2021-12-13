@@ -37,11 +37,12 @@
 	<include
 		file="$(find rrg_nbv_exploration_plugins)/launch/gazebo.launch">
 		<arg name="world_file" value="$(arg world)" />
-		<arg name="realsense_enabled" value="true" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
 		<arg name="z" default="$(arg z)" />
 		<arg name="yaw" default="$(arg yaw)" />
+		<arg name="laser_enabled" value="true" />
+		<arg name="realsense_enabled" value="true" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">

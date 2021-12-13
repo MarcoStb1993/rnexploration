@@ -12,8 +12,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param("delta_radius", _delta_radius, 0.1);
 	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
 	private_nh.param("sensor_vertical_fov_bottom", _sensor_vertical_fov_bottom,
-			0);
-	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 180);
+			180);
+	private_nh.param("sensor_vertical_fov_top", _sensor_vertical_fov_top, 0);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	private_nh.param("sensor_size", _sensor_size, 0.1);
 	private_nh.param("min_view_score", _min_view_score, 0.1);
@@ -33,6 +33,13 @@ GainCalculator::GainCalculator() :
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
+	if (_sensor_vertical_fov_top > _sensor_vertical_fov_bottom) {
+		ROS_ERROR_STREAM(
+				"Sensor vertical FoV top must be smaller than bottom! Straight up is 0 degrees and down is 180 degrees.");
+		double tmp = _sensor_vertical_fov_bottom;
+		_sensor_vertical_fov_bottom = _sensor_vertical_fov_top;
+		_sensor_vertical_fov_top = tmp;
+	}
 	_best_gain_per_view = 0;
 	_max_gain_points = 0;
 	_last_updated_node.index = -1;
@@ -84,8 +91,6 @@ void GainCalculator::precalculateGainPollPoints() {
 	_best_gain_per_view = phi_steps.size() * range_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
 	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
-//	ROS_WARN_STREAM(
-//			"Ray sampling gain calculation initialized with " << _max_gain_points << " poll points and max reachable gain per view of " << _best_gain_per_view);
 }
 
 void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
@@ -202,7 +207,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
 
 //	ROS_INFO_STREAM(
-//			"Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
+//			"Node "<< node.index<< "Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
 
 	if (view_score < _min_view_score
 			|| (node.status == rrg_nbv_exploration_msgs::Node::VISITED

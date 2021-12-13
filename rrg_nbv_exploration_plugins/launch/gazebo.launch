@@ -3,9 +3,9 @@
 <launch>
 	<arg name="world_file"
 		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+	<arg name="laser_enabled" default="true" />
 	<arg name="realsense_enabled" default="false" />
-	<arg name="fd_scanner_enabled" default="false" />
-	<arg name="fd_scanner_angled" default="false" />
+	<arg name="velodyne_enabled" default="false" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -38,9 +38,8 @@
 			command="$(find xacro)/xacro '$(find rrg_nbv_exploration_plugins)/urdf/husky.urdf.xacro'
 		    robot_namespace:=$(arg robot_namespace)
 		    realsense_enabled:=$(arg realsense_enabled)
-		    fd_scanner_enabled:=$(arg fd_scanner_enabled)
-		    fd_scanner_angled:=$(arg fd_scanner_angled)
-		    laser_enabled:=true
+		    laser_enabled:=$(arg laser_enabled)
+		    velodyne_enabled:=$(arg velodyne_enabled)
 		    urdf_extras:=$(arg urdf_extras)
 		    " />
 
@@ -54,13 +53,6 @@
 			<node name="realsense_controller_spawner" pkg="controller_manager"
 				type="spawner"
 				args="realsense_joint_state_controller realsense_controller" />
-		</group>
-		<group if="$(arg fd_scanner_enabled)">
-			<rosparam command="load"
-				file="$(find fd_scanner)/config/fd_scanner_control.yaml" />
-			<node name="fd_scanner_controller_spawner"
-				pkg="controller_manager" type="spawner"
-				args="fd_scanner_state_controller fd_scanner_controller" />
 		</group>
 
 		<!-- Spawn controllers -->

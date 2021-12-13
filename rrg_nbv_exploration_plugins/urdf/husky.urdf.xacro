@@ -40,12 +40,7 @@
 	<xacro:property name="husky_rear_bumper_extend"
 		value="$(optenv HUSKY_REAR_BUMPER_EXTEND 0)" />
 
-	<xacro:arg name="fd_scanner_enabled" default="false" />
-	<xacro:arg name="fd_scanner_angled" default="false" />
-	<xacro:arg name="fd_scanner_xyz"
-		default="$(optenv HUSKY_FD_SCANNER_XYZ -0.3 0 0)" />
-	<xacro:arg name="fd_scanner_rpy"
-		default="$(optenv HUSKY_FD_SCANNER_RPY 0 0 0)" />
+	<xacro:arg name="velodyne_enabled" default="false" />
 
 	<xacro:arg name="robot_namespace" default="/" />
 
@@ -62,9 +57,13 @@
 	<xacro:include
 		filename="$(find rrg_nbv_exploration_plugins)/urdf/sensor_arch.urdf.xacro" />
 	<xacro:include
-		filename="$(find fd_scanner)/urdf/fd_scanner.urdf.xacro" />
+		filename="$(find velodyne_description)/urdf/VLP-16.urdf.xacro" />
 
 	<xacro:property name="M_PI" value="3.14159" />
+
+	<material name="black000">
+		<color rgba="0 0 0 1" />
+	</material>
 
 	<!-- Base Size -->
 	<xacro:property name="base_x_size" value="0.98740000" />
@@ -228,19 +227,37 @@
 			prefix="camera" topic="camera" parent_link="realsense_mountpoint" />
 	</xacro:if>
 
-	<xacro:if value="$(arg fd_scanner_enabled)">
+	<xacro:if value="$(arg velodyne_enabled)">
 
-		<xacro:fd_scanner prefix="fd_scanner"
-			robot_namespace="$(arg robot_namespace)"
-			angled="$(arg fd_scanner_angled)"
-			simulated_velodyne="true" />
+		<link name="velodyne_mount">
+			<visual>
+				<geometry>
+					<box size="0.1 0.1 0.1" />
+				</geometry>
+				<material name="black000" />
+			</visual>
+			<collision>
+				<geometry>
+					<box size="0.1 0.1 0.1" />
+				</geometry>
+			</collision>
+			<inertial>
+				<mass value="0.3" />
+				<inertia ixx="1e-3" ixy="1e-3" ixz="1e-3" iyy="1e-3"
+					iyz="1e-3" izz="1e-3" />
+			</inertial>
+		</link>
 
-		<joint name="fd_scanner_joint" type="fixed">
-			<origin xyz="$(arg fd_scanner_xyz)"
-				rpy="$(arg fd_scanner_rpy)" />
+		<joint name="velodyne_mount_joint" type="fixed">
+			<origin xyz="0 0 0.05" rpy="0 0 0" />
 			<parent link="top_plate_link" />
-			<child link="fd_scanner_link" />
+			<child link="velodyne_mount" />
 		</joint>
+
+		<xacro:VLP-16 parent="velodyne_mount" name="velodyne"
+			topic="velodyne_points" hz="10" samples="1875" gpu="true">
+			<origin xyz="0 0 0.05" rpy="0 0 0" />
+		</xacro:VLP-16>
 	</xacro:if>
 
 	<gazebo>
@@ -283,16 +300,17 @@
 		</plugin>
 	</gazebo>
 	<gazebo>
-	    <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
-	      <alwaysOn>true</alwaysOn>
-	      <updateRate>50.0</updateRate>
-	      <bodyName>base_footprint</bodyName>
-	      <topicName>ground_truth/state</topicName>
-	      <gaussianNoise>0.01</gaussianNoise>
-	      <frameName>world</frameName>
-	      <xyzOffsets>0 0 0</xyzOffsets>
-	      <rpyOffsets>0 0 0</rpyOffsets>
-    	</plugin>
+		<plugin name="p3d_base_controller"
+			filename="libgazebo_ros_p3d.so">
+			<alwaysOn>true</alwaysOn>
+			<updateRate>50.0</updateRate>
+			<bodyName>base_footprint</bodyName>
+			<topicName>ground_truth/state</topicName>
+			<gaussianNoise>0.01</gaussianNoise>
+			<frameName>world</frameName>
+			<xyzOffsets>0 0 0</xyzOffsets>
+			<rpyOffsets>0 0 0</rpyOffsets>
+		</plugin>
 	</gazebo>
 
 </robot>
