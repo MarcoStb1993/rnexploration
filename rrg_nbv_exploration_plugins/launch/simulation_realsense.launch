@@ -43,6 +43,8 @@
 		<arg name="yaw" default="$(arg yaw)" />
 		<arg name="laser_enabled" value="true" />
 		<arg name="realsense_enabled" value="true" />
+		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="use_ekf" value="false" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">

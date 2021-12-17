@@ -25,7 +25,7 @@
 	<arg name="navigation_global_planner"
 		default="rrg_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.7" />
-	<arg name="min_view_score" default="0.1" />
+	<arg name="min_view_score" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="radius_factor_active" default="false" />
 	<!-- Robot starting position in world -->
@@ -43,6 +43,8 @@
 		<arg name="yaw" default="$(arg yaw)" />
 		<arg name="laser_enabled" value="false" />
 		<arg name="velodyne_enabled" value="true" />
+		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="use_ekf" value="false" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
@@ -88,7 +90,7 @@
 	<node name="velodyne_laserscan_node" pkg="velodyne_laserscan"
 		type="velodyne_laserscan_node">
 		<param name="ring" value="-1" />
-		<param name="resolution" value="0.01" />
+		<param name="resolution" value="0.007" />
 	</node>
 
 	<!-- GMapping -->
@@ -228,8 +230,8 @@
 		<arg name="delta_phi" value="$(arg delta_phi)" />
 		<arg name="delta_theta" value="$(arg delta_theta)" />
 		<arg name="sensor_horizontal_fov" value="360" />
-		<arg name="sensor_vertical_fov_bottom" value="75" /> <!-- range from 180 to 0 as the highest angle -->
-		<arg name="sensor_vertical_fov_top" value="105" />
+		<arg name="sensor_vertical_fov_bottom" value="105" /> <!-- range from 180 to 0 as the highest angle -->
+		<arg name="sensor_vertical_fov_top" value="75" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic"
 			value="/move_base/global_costmap/costmap" />
