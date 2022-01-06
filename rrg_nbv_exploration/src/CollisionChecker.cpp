@@ -14,6 +14,9 @@ CollisionChecker::CollisionChecker() {
 	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	private_nh.param("grid_map_unknown", _grid_map_unknown, -1);
 	private_nh.param("inflation_active", _inflation_active, true);
+	double min_edge_distance;
+	private_nh.param("min_edge_distance", min_edge_distance, 1.0);
+	_min_edge_distance_squared = pow(min_edge_distance, 2);
 	ros::NodeHandle nh("rne");
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
@@ -70,63 +73,151 @@ void CollisionChecker::precalculateCircleLinesOffset() {
 	_circle_lines_offset = calculateCircleLinesOffset(_robot_radius);
 }
 
-bool CollisionChecker::isSetInCollision(double center_x, double center_y,
+int CollisionChecker::isSetInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-		std::vector<CircleLine> offsets, int &cost, int &tiles) {
+		std::vector<CircleLine> offsets, int &cost, int &tiles,
+		bool recalculate) {
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
-		return true;
-	for (auto it : offsets) {
-		if (it.x_start == 0) {
+		return Directions::none;
+	int new_cost = cost;
+	int new_tiles = tiles;
+	std::vector<int8_t> tmp_vis_map = vis_map;
+	int direction = Directions::center;
+	bool fixed_direction = false; //if a direction becomes fixed, it cannot be merged anymore
+	for (auto it : offsets) { //always starts at highest x offset and ends at highest y offset
+		if (recalculate || it.x_start == 0) { //circle
+			ROS_INFO_STREAM(
+					"Circle offset " << it.x_offset << " " << it.y_offset);
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y + it.y_offset, map, vis_map, cost, tiles))
-				return true;
-			if (it.y_offset != 0)
+					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles)) {
+				ROS_INFO_STREAM("Collision detected");
+				return Directions::none;
+			}
+			if (it.y_offset != 0) { //y offset is only 0 in the center slice, otherwise symmetrical
 				if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-						map_y - it.y_offset, map, vis_map, cost, tiles))
-					return true;
-		} else {
+						map_y - it.y_offset, map, tmp_vis_map, new_cost,
+						new_tiles)) {
+					ROS_INFO_STREAM("Collision detected");
+					return Directions::none;
+				}
+			}
+		} else { //ring
+			ROS_INFO_STREAM(
+					"Ring offset " << it.x_offset << " " << it.y_offset);
+			const int max_x_offset = offsets.begin()->x_offset;
+			const int max_y_offset = offsets.end()->x_offset;
 			if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
-					map_y + it.y_offset, map, vis_map, cost, tiles))
-				return true;
+					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles)) //northwest quadrant
+				if (!checkDirection(direction, fixed_direction,
+						it.x_offset == max_x_offset ? Directions::south :
+						it.y_offset == max_y_offset ?
+								Directions::east : Directions::southeast))
+					return Directions::none;
 			if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
-					map_y + it.y_offset, map, vis_map, cost, tiles))
-				return true;
-			if (it.y_offset != 0) {
+					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles)) //southwest quadrant
+				if (!checkDirection(direction, fixed_direction,
+						it.x_offset == max_x_offset ? Directions::north :
+						it.y_offset == max_y_offset ?
+								Directions::east : Directions::northeast))
+					return Directions::none;
+			if (it.y_offset != 0) { //y offset is only 0 in the center slice, otherwise symmetrical
 				if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
-						map_y - it.y_offset, map, vis_map, cost, tiles))
-					return true;
+						map_y - it.y_offset, map, tmp_vis_map, new_cost,
+						new_tiles)) //northeast quadrant
+					if (!checkDirection(direction, fixed_direction,
+							it.x_offset == max_x_offset ? Directions::south :
+							it.y_offset == max_y_offset ?
+									Directions::west : Directions::southwest))
+						return Directions::none;
 				if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
-						map_y - it.y_offset, map, vis_map, cost, tiles))
-					return true;
+						map_y - it.y_offset, map, tmp_vis_map, new_cost,
+						new_tiles)) //southeast quadrant
+					if (!checkDirection(direction, fixed_direction,
+							it.x_offset == max_x_offset ? Directions::north :
+							it.y_offset == max_y_offset ?
+									Directions::west : Directions::northwest))
+						return Directions::none;
 			}
 		}
 	}
-	return false;
+	if (direction == Directions::center) { //only store cost, tiles and visualization when no collision was detected
+		ROS_INFO_STREAM("Check successful");
+		cost = new_cost;
+		tiles = new_tiles;
+		vis_map = tmp_vis_map;
+	}
+	return direction;
 }
 
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
+	ROS_INFO_STREAM("check circle collision");
 	return isSetInCollision(center_x, center_y, map, vis_map,
-			_circle_lines_offset, cost, tiles);
+			_circle_lines_offset, cost, tiles) != Directions::center;
 }
 
-double CollisionChecker::inflateCircle(double x, double y,
+bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
+		int new_direction) {
+	if (current_direction == Directions::center) { //first direction (initialization)
+		current_direction = new_direction;
+		return true;
+	}
+	const int difference = getAbsoluteAngleDiff(current_direction,
+			new_direction);
+	if (difference == 0) {
+		return true; //same directions
+	} else if ((fixed && difference >= 90) || difference >= 135) {
+		return false;
+	} else if (difference <= 90) { //merge directions
+		int keep_direction = current_direction;
+		if (fixed || difference == 45) { //keep diagonal direction
+			current_direction =
+					(current_direction == 0 || (current_direction % 90) == 0) ?
+							new_direction : current_direction;
+		} else if (current_direction <= west && new_direction >= east) { //jump around north
+			current_direction = (current_direction - difference / 2) % 360;
+		} else if (new_direction <= west && current_direction >= east) {
+			current_direction = (new_direction - difference / 2) % 360;
+		} else if (current_direction > new_direction) { //merge
+			current_direction = current_direction - difference / 2;
+		} else {
+			current_direction = new_direction - difference / 2;
+		}
+		fixed = true;
+	}
+	return true;
+}
+
+double CollisionChecker::inflateCircle(double &x, double &y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-	//TODO: move away from obstacles on collision and repeat inflation
+	ROS_INFO_STREAM("Inflate Circle at: " << x << ", " << y);
 	double current_radius = ceil(_robot_radius / _grid_map_resolution)
 			* _grid_map_resolution; //round up radius to next full grid map tile
 	int prevOffsetIndex = -1;
 	std::vector<int8_t> tmp_vis_map = vis_map;
-	for (auto it : _inflated_ring_lines_offsets) { //iterate over already existing offsets first
-		if (isSetInCollision(x, y, map, tmp_vis_map, it.second, cost, tiles)) {
+	//TODO: when to stop moving? keep track of former positions to stop when reaching one
+	for (int i = 0; i < _inflated_ring_lines_offsets.size(); i++) { //iterate over already existing offsets first
+		int direction = isSetInCollision(x, y, map, tmp_vis_map,
+				_inflated_ring_lines_offsets[i].second, cost, tiles);
+		if (direction == Directions::none) {
+			ROS_INFO_STREAM(
+					"Non-evadable collision detected at radius " << current_radius);
 			return current_radius;
+		} else if (direction == Directions::center) {
+			current_radius = _inflated_ring_lines_offsets[i].first;
+			prevOffsetIndex++;
+		} else {
+			if (moveCircle(x, y, direction, i - 1, map, tmp_vis_map, cost,
+					tiles)) {
+				i--;
+			} else {
+				return current_radius;
+			}
 		}
 		vis_map = tmp_vis_map;
-		current_radius = it.first;
-		prevOffsetIndex++;
 	}
 	current_radius += _grid_map_resolution;
 	for (double radius = current_radius; radius < _sensor_range; radius +=
@@ -137,20 +228,72 @@ double CollisionChecker::inflateCircle(double x, double y,
 				prevOffsetIndex >= 0 ?
 						_inflated_ring_lines_offsets[prevOffsetIndex].second :
 						_circle_lines_offset;
+//		ROS_INFO_STREAM("New inflation set for radius " << current_radius);
 		for (int i = 0; i < prevOffsetSet.size(); i++) { //prev offset set size must be smaller equals new offset set
 			newOffsetSet[i].x_start = prevOffsetSet[i].x_offset + 1;
+//			ROS_INFO_STREAM(
+//					i << " x_offset: " << newOffsetSet[i].x_offset << " y_offset: " << newOffsetSet[i].y_offset << " x_start: " << newOffsetSet[i].x_start);
 		}
-		if (isSetInCollision(x, y, map, tmp_vis_map, newOffsetSet, cost,
-				tiles)) {
+		int direction = isSetInCollision(x, y, map, tmp_vis_map, newOffsetSet,
+				cost, tiles);
+		if (direction == Directions::none) {
+			ROS_INFO_STREAM(
+					"Non-evadable collision detected at radius " << current_radius);
 			return current_radius;
+		} else if (direction == Directions::center) {
+			current_radius = radius;
+			prevOffsetIndex++;
+			_inflated_ring_lines_offsets.push_back(
+					std::make_pair(current_radius, newOffsetSet));
+		} else {
+			if (moveCircle(x, y, direction, prevOffsetIndex, map, tmp_vis_map,
+					cost, tiles)) {
+				radius -= _grid_map_resolution;
+			} else {
+				return current_radius;
+			}
 		}
 		vis_map = tmp_vis_map;
-		current_radius = radius;
-		_inflated_ring_lines_offsets.push_back(
-				std::make_pair(current_radius, newOffsetSet));
-		prevOffsetIndex++;
 	}
+	ROS_INFO_STREAM("Inflated to radius " << current_radius);
 	return current_radius;
+}
+
+bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
+	ROS_INFO_STREAM("Move circle in direction " << direction);
+	geometry_msgs::Point new_point;
+	if (direction <= Directions::northwest || direction >= northeast) {
+		new_point.x += _grid_map_resolution;
+	} else if (direction <= southeast && direction >= southwest) {
+		new_point.x -= _grid_map_resolution;
+	}
+	if (direction <= Directions::northeast && direction >= southeast) {
+		new_point.y -= _grid_map_resolution;
+	} else if (direction <= Directions::southwest && direction >= northwest) {
+		new_point.y += _grid_map_resolution;
+	}
+	//check distance to other nodes
+	double min_distance;
+	int nearest_node;
+	_graph_searcher->findNearestNeighbour(new_point, min_distance,
+			nearest_node);
+	if (min_distance < _min_edge_distance_squared) {
+		ROS_INFO_STREAM("Too close to node" << nearest_node);
+		return false;
+	}
+	if (isSetInCollision(new_point.x, new_point.y, map, vis_map,
+			_inflated_ring_lines_offsets[ring].second, cost, tiles, true)
+			== Directions::center) {
+		ROS_INFO_STREAM("Moved to position: " << x << ", " << y);
+		x = new_point.x;
+		y = new_point.y;
+		return true;
+	} else {
+		ROS_INFO_STREAM("Moving failed due to collision");
+		return false;
+	}
 }
 
 bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
@@ -161,10 +304,8 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 	double cos_yaw, sin_yaw;
 	if (yaw < -PI_HALF) {
 		yaw += M_PI; //	combine mirrored case (-PI < yaw < -PI/2 => 0 < yaw < PI/2)
-//		ROS_INFO_STREAM("Add PI to yaw, new yaw= " << yaw);
 	} else if (yaw > PI_HALF) {
 		yaw -= M_PI; //	combine mirrored case (PI > yaw > PI/2 => 0 > yaw > -PI/2)
-//		ROS_INFO_STREAM("Subtract PI from yaw, new yaw= " << yaw);
 	}
 	cos_yaw = cos(yaw);
 	sin_yaw = sin(yaw);
@@ -173,7 +314,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 	double height_cos = half_height * cos_yaw;
 	double height_sin = half_height * sin_yaw;
 	if (yaw > 0 && yaw < PI_HALF) { //height from top left to bottom right
-//		ROS_INFO_STREAM("height from top left to bottom right");
 		map_corners[0] = { x + height_cos - width_sin, y + width_cos
 				+ height_sin }; //left corner
 		map_corners[1] = { x - height_cos - width_sin, y + width_cos
@@ -183,7 +323,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		map_corners[3] = { x - height_cos + width_sin, y - width_cos
 				- height_sin }; //right corner
 	} else { // yaw >  -PI_HALF && yaw < 0 (height from bottom left to top right)
-//		ROS_INFO_STREAM("height from bottom left to top right");
 		map_corners[0] = { x - height_cos - width_sin, y + width_cos
 				- height_sin }; //left corner
 		map_corners[1] = { x - height_cos + width_sin, y - width_cos
@@ -196,9 +335,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 	double gradient_up = (map_corners[2].x - map_corners[3].x)
 			/ (map_corners[2].y - map_corners[3].y);
 	double gradient_down = -1 / gradient_up;
-//	ROS_INFO_STREAM(
-//			"Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << "), c1=(" << map_corners[1].x << ", " << map_corners[1].y << "), c2=(" << map_corners[2].x << ", " << map_corners[2].y << "), c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
-
 	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
 			grid_corners[0].y, map)
 			|| !worldToMap(map_corners[1].x, map_corners[1].y,
@@ -208,9 +344,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			|| !worldToMap(map_corners[3].x, map_corners[3].y,
 					grid_corners[3].x, grid_corners[3].y, map))
 		return true;
-//	ROS_INFO_STREAM(
-//			"Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << "), c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << "), c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << "), c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
-//	ROS_INFO_STREAM("M down: " << gradient_down << ", M up: " << gradient_up);
 	unsigned int grid_x = grid_corners[3].x;
 	unsigned int grid_y = grid_corners[3].y;
 	double gradient_top = gradient_up;
@@ -219,7 +352,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			* _grid_map_resolution;
 	double iterator_x = (floor(map_corners[3].x / _grid_map_resolution) + 0.5)
 			* _grid_map_resolution;
-//	ROS_INFO_STREAM("s=(" << iterator_x << ", " << iterator_y << ")");
 	double iterator_x_top = map_corners[3].x
 			+ gradient_top * (iterator_y - map_corners[3].y);
 	double offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
@@ -238,8 +370,6 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 									- _grid_map_resolution);
 			offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
 			top_corner_reached = true;
-//			ROS_INFO_STREAM(
-//					"Top corner reached sy="<< iterator_y << " top y=" << map_corners[2].y);
 			x_end = grid_corners[2].x;
 		} else
 			x_end = grid_x + (int) round(offset_x_top);
@@ -251,17 +381,9 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 									- _grid_map_resolution);
 			offset_x_bot = (iterator_x_bot - iterator_x) / _grid_map_resolution;
 			bot_corner_reached = true;
-//			ROS_INFO_STREAM(
-//					"Bot corner reached sy="<< iterator_y << " bot y=" << map_corners[1].y);
 			x_start = grid_corners[1].x;
 		} else
 			x_start = grid_x + (int) round(offset_x_bot);
-//		ROS_INFO_STREAM(
-//				"xtop=(" << iterator_x_top << ","<< iterator_y << "), offset: " << offset_x_top);
-//		ROS_INFO_STREAM(
-//				"xbot=(" << iterator_x_bot << ","<< iterator_y << "), offset: " << offset_x_bot);
-//		ROS_INFO_STREAM(
-//				"Line start=(" << x_start << ","<<grid_y <<") line end=(" << x_end << "," << grid_y << ")");
 		if (isLineInCollision(x_start, x_end, grid_y, map, vis_map, cost,
 				tiles))
 			return true;
@@ -271,12 +393,7 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		}
 		grid_y += 1;
 		iterator_y += _grid_map_resolution;
-//		ROS_INFO_STREAM("map y: " << iterator_y << ", grid y: " << grid_y);
 	}
-//	ROS_INFO_STREAM(
-//			"Left corner reached sy="<< iterator_y << " left y=" << map_corners[0].y);
-//	ROS_INFO_STREAM(
-//			"Line start=(" << grid_x + (int) round(offset_x_bot) << ","<<grid_y <<") line end=(" << grid_x + (int) round(offset_x_top) << "," << grid_y << ")");
 	if (isLineInCollision(grid_x + (int) round(offset_x_bot),
 			grid_x + (int) round(offset_x_top), grid_y, map, vis_map, cost,
 			tiles))
@@ -297,17 +414,11 @@ bool CollisionChecker::isAlignedRectangleInCollision(double x, double y,
 		map_corners[0] = { x - half_height, y + half_width }; //bottom left corner
 		map_corners[1] = { x + half_height, y - half_width }; //top right corner
 	}
-//	ROS_INFO_STREAM(
-//			"Aligned Rectangle (map) : c0=(" << map_corners[0].x << ", " << map_corners[0].y << ", c1=(" << map_corners[1].x << ", " << map_corners[1].y << ", c2=(" << map_corners[2].x << ", " << map_corners[2].y << ", c3=(" << map_corners[3].x << ", " << map_corners[3].y << ")");
-
 	if (!worldToMap(map_corners[0].x, map_corners[0].y, grid_corners[0].x,
 			grid_corners[0].y, map)
 			|| !worldToMap(map_corners[1].x, map_corners[1].y,
 					grid_corners[1].x, grid_corners[1].y, map))
 		return true;
-//	ROS_INFO_STREAM(
-//			"Aligned Rectangle (grid): c0=(" << grid_corners[0].x << ", " << grid_corners[0].y << ", c1=(" << grid_corners[1].x << ", " << grid_corners[1].y << ", c2=(" << grid_corners[2].x << ", " << grid_corners[2].y << ", c3=(" << grid_corners[3].x << ", " << grid_corners[3].y << ")");
-
 	for (unsigned int i = grid_corners[1].y; i <= grid_corners[0].y; i++) {
 		if (isLineInCollision(grid_corners[0].x, grid_corners[1].x, i, map,
 				vis_map, cost, tiles))
@@ -330,7 +441,7 @@ bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 		} else {
 			cost += map.data[x];
 			tiles += 1;
-			vis_map[x] = 0;
+			vis_map[x] = map.data[x];
 		}
 	}
 	return false;
@@ -346,7 +457,9 @@ void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
 	_init_vis_map = true;
 }
 
-bool CollisionChecker::initialize(geometry_msgs::Point position) {
+bool CollisionChecker::initialize(geometry_msgs::Point position,
+		std::shared_ptr<GraphSearcher> graph_searcher) {
+	_graph_searcher = graph_searcher;
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
@@ -372,6 +485,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 		rrg_nbv_exploration_msgs::Edge &new_edge,
 		rrg_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double distance, double check_node) {
+	ROS_INFO_STREAM(
+			"Steer to new node at " << rand_sample.x << ", " << rand_sample.y);
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
 	_vis_map.header.stamp = ros::Time::now();
@@ -380,6 +495,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 	double yaw = atan2(rand_sample.y - nearest_node.position.y,
 			rand_sample.x - nearest_node.position.x);
 	int edge_cost = 0, edge_tiles = 0;
+	//TODO: regard changed edge position, length, tiles and cost due to moving circle
 	bool edge_free = (
 			distance > _path_box_distance_thres ?
 					fmod(yaw, M_PI / 2) == 0 ?
@@ -410,6 +526,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 	if (edge_free && node_free) {
 		if (check_node) {
 			if (_inflation_active) {
+				ROS_INFO_STREAM("Inflate");
 				new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
 						map, tmp_vis_map_data, node_cost, node_tiles);
 				new_node.squared_radius = pow(new_node.radius, 2);
@@ -468,6 +585,10 @@ void CollisionChecker::occupancyGridCallback(
 int CollisionChecker::getIndex(int x, int y) {
 	int sx = _occupancy_grid.info.width;
 	return y * sx + x;
+}
+
+int CollisionChecker::getAbsoluteAngleDiff(int x, int y) {
+	return 180 - abs(abs(x - y) - 180);
 }
 
 void CollisionChecker::occupancyGridUpdatesCallback(

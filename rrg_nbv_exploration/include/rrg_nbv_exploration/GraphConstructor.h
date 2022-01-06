@@ -21,7 +21,6 @@
 
 #include <rrg_nbv_exploration/CollisionChecker.h>
 #include <rrg_nbv_exploration/GraphPathCalculator.h>
-#include <rrg_nbv_exploration/GraphSearcher.h>
 #include <rrg_nbv_exploration/NodeComparator.h>
 
 namespace rrg_nbv_exploration {
@@ -83,7 +82,7 @@ private:
 	 */
 	std::shared_ptr<CollisionChecker> _collision_checker;
 	/**
-	 * @brief Helper class for kd-tree GraphConstructor and nearest neighbour search
+	 * @brief Helper class for kd-tree GraphConstructor and nearest neighbor search
 	 */
 	std::shared_ptr<GraphSearcher> _graph_searcher;
 	/**

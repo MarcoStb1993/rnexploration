@@ -107,7 +107,7 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
-	return _collision_checker->initialize(seed);
+	return _collision_checker->initialize(seed, _graph_searcher);
 }
 
 void GraphConstructor::startRrgConstruction() {
@@ -164,6 +164,7 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths,
 	_graph_searcher->findNearestNeighbour(rand_sample, min_distance,
 			nearest_node);
 	if (min_distance >= _min_edge_distance_squared) {
+		//TODO: remove max distance if the connecting edge is short enough?
 		if (min_distance >= _max_edge_distance_squared) {
 			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
 			double distance = sqrt(min_distance);
@@ -257,7 +258,7 @@ void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
 	if (connected) {
 		node.position.z = height / nodes.size();
 		node.distance_to_robot = shortest_distance;
-		if(shortest_distance > _rrg.longest_distance_to_robot)
+		if (shortest_distance > _rrg.longest_distance_to_robot)
 			_rrg.longest_distance_to_robot = shortest_distance;
 		node.path_to_robot =
 				_rrg.nodes[node_with_shortest_distance].path_to_robot;
