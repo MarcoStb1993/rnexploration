@@ -30,6 +30,40 @@ CollisionChecker::CollisionChecker() {
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 	_init_vis_map = false;
+	precalculateCircleLinesOffset();
+}
+
+bool CollisionChecker::initialize(geometry_msgs::Point position,
+		std::shared_ptr<GraphSearcher> graph_searcher) {
+	_graph_searcher = std::move(graph_searcher);
+	nav_msgs::OccupancyGrid map = _occupancy_grid;
+	_vis_map.header.stamp = ros::Time::now();
+	_vis_map.info.map_load_time = ros::Time::now();
+	initVisMap(map);
+	_node_edges.markers.clear();
+	_node_points.markers.clear();
+	if (_check_init_position) {
+		std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+		int node_cost = 0, node_tiles = 0;
+		if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data,
+				node_cost, node_tiles)) {
+			_vis_map.data = tmp_vis_map_data;
+			_visualization_pub.publish(_vis_map);
+			return true;
+		}
+		return false;
+	} else
+		return true;
+}
+
+void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
+	_vis_map.header.frame_id = "map";
+	_vis_map.info.resolution = map.info.resolution;
+	_vis_map.info.width = map.info.width;
+	_vis_map.info.height = map.info.height;
+	_vis_map.info.origin = map.info.origin;
+	_vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
+	_init_vis_map = true;
 }
 
 std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
@@ -73,6 +107,34 @@ void CollisionChecker::precalculateCircleLinesOffset() {
 	_circle_lines_offset = calculateCircleLinesOffset(_robot_radius);
 }
 
+void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
+	double new_radius = -1;
+	std::vector<CircleLine> prevOffsetSet;
+	if (_inflated_ring_lines_offsets.empty()) { //first inflation ring offset
+		new_radius = ceil(_robot_radius / _grid_map_resolution)
+				* _grid_map_resolution + _grid_map_resolution; //round up radius to next full grid map tile
+		prevOffsetSet = _circle_lines_offset;
+	} else if (_inflated_ring_lines_offsets.back().first + _grid_map_resolution
+			> _sensor_range) {
+		return; //abort, all inflation ring offsets are calculated
+	} else { //new inflation ring
+		new_radius = _inflated_ring_lines_offsets.back().first
+				+ _grid_map_resolution;
+		prevOffsetSet = _inflated_ring_lines_offsets.back().second;
+	}
+	std::vector<CircleLine> newOffsetSet = calculateCircleLinesOffset(
+			new_radius);
+//	ROS_INFO_STREAM("New inflation set for radius " << new_radius);
+	for (int i = 0; i < prevOffsetSet.size(); i++) { //prev offset set size must be smaller equals new offset set
+		newOffsetSet[i].x_start = prevOffsetSet[i].x_offset + 1;
+//		ROS_INFO_STREAM(
+//				"("<< i << ") x_offset: " << newOffsetSet[i].x_offset << " y_offset: " << newOffsetSet[i].y_offset << " x_start: " << newOffsetSet[i].x_start);
+	}
+	_inflated_ring_lines_offsets.push_back(
+			std::make_pair(new_radius, newOffsetSet));
+
+}
+
 int CollisionChecker::isSetInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
 		std::vector<CircleLine> offsets, int &cost, int &tiles,
@@ -87,24 +149,19 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 	bool fixed_direction = false; //if a direction becomes fixed, it cannot be merged anymore
 	for (auto it : offsets) { //always starts at highest x offset and ends at highest y offset
 		if (recalculate || it.x_start == 0) { //circle
-			ROS_INFO_STREAM(
-					"Circle offset " << it.x_offset << " " << it.y_offset);
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
-					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles)) {
-				ROS_INFO_STREAM("Collision detected");
+					map_y + it.y_offset, map, tmp_vis_map, new_cost,
+					new_tiles)) {
 				return Directions::none;
 			}
 			if (it.y_offset != 0) { //y offset is only 0 in the center slice, otherwise symmetrical
 				if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
 						map_y - it.y_offset, map, tmp_vis_map, new_cost,
 						new_tiles)) {
-					ROS_INFO_STREAM("Collision detected");
 					return Directions::none;
 				}
 			}
 		} else { //ring
-			ROS_INFO_STREAM(
-					"Ring offset " << it.x_offset << " " << it.y_offset);
 			const int max_x_offset = offsets.begin()->x_offset;
 			const int max_y_offset = offsets.end()->x_offset;
 			if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
@@ -142,7 +199,6 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 		}
 	}
 	if (direction == Directions::center) { //only store cost, tiles and visualization when no collision was detected
-		ROS_INFO_STREAM("Check successful");
 		cost = new_cost;
 		tiles = new_tiles;
 		vis_map = tmp_vis_map;
@@ -153,7 +209,6 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-	ROS_INFO_STREAM("check circle collision");
 	return isSetInCollision(center_x, center_y, map, vis_map,
 			_circle_lines_offset, cost, tiles) != Directions::center;
 }
@@ -193,77 +248,47 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 double CollisionChecker::inflateCircle(double &x, double &y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-	ROS_INFO_STREAM("Inflate Circle at: " << x << ", " << y);
-	double current_radius = ceil(_robot_radius / _grid_map_resolution)
-			* _grid_map_resolution; //round up radius to next full grid map tile
-	int prevOffsetIndex = -1;
+//	ROS_INFO_STREAM("Inflate Circle at: " << x << ", " << y);
 	std::vector<int8_t> tmp_vis_map = vis_map;
-	//TODO: when to stop moving? keep track of former positions to stop when reaching one
-	for (int i = 0; i < _inflated_ring_lines_offsets.size(); i++) { //iterate over already existing offsets first
-		int direction = isSetInCollision(x, y, map, tmp_vis_map,
-				_inflated_ring_lines_offsets[i].second, cost, tiles);
-		if (direction == Directions::none) {
-			ROS_INFO_STREAM(
-					"Non-evadable collision detected at radius " << current_radius);
-			return current_radius;
-		} else if (direction == Directions::center) {
-			current_radius = _inflated_ring_lines_offsets[i].first;
-			prevOffsetIndex++;
-		} else {
-			if (moveCircle(x, y, direction, i - 1, map, tmp_vis_map, cost,
-					tiles)) {
-				i--;
-			} else {
-				return current_radius;
-			}
-		}
-		vis_map = tmp_vis_map;
-	}
-	current_radius += _grid_map_resolution;
-	for (double radius = current_radius; radius < _sensor_range; radius +=
-			_grid_map_resolution) { //check in rings with increasing radius and save the offsets
-		std::vector<CircleLine> newOffsetSet = calculateCircleLinesOffset(
-				radius);
-		std::vector<CircleLine> prevOffsetSet =
-				prevOffsetIndex >= 0 ?
-						_inflated_ring_lines_offsets[prevOffsetIndex].second :
-						_circle_lines_offset;
-//		ROS_INFO_STREAM("New inflation set for radius " << current_radius);
-		for (int i = 0; i < prevOffsetSet.size(); i++) { //prev offset set size must be smaller equals new offset set
-			newOffsetSet[i].x_start = prevOffsetSet[i].x_offset + 1;
-//			ROS_INFO_STREAM(
-//					i << " x_offset: " << newOffsetSet[i].x_offset << " y_offset: " << newOffsetSet[i].y_offset << " x_start: " << newOffsetSet[i].x_start);
-		}
-		int direction = isSetInCollision(x, y, map, tmp_vis_map, newOffsetSet,
+	if (_inflated_ring_lines_offsets.empty())
+		calculateNextInflatedCircleLinesOffset();
+	double current_radius = _inflated_ring_lines_offsets.front().first;
+	auto it = _inflated_ring_lines_offsets.begin();
+	int index = 0;
+	std::vector<std::pair<double, double>> previous_positions;
+	previous_positions.push_back(std::make_pair(x, y));
+	while (it != _inflated_ring_lines_offsets.end()) {
+		int direction = isSetInCollision(x, y, map, tmp_vis_map, it->second,
 				cost, tiles);
 		if (direction == Directions::none) {
-			ROS_INFO_STREAM(
-					"Non-evadable collision detected at radius " << current_radius);
 			return current_radius;
 		} else if (direction == Directions::center) {
-			current_radius = radius;
-			prevOffsetIndex++;
-			_inflated_ring_lines_offsets.push_back(
-					std::make_pair(current_radius, newOffsetSet));
+			current_radius = it->first;
+			if (it == --_inflated_ring_lines_offsets.end()) { //calculate next inflation ring if not reached sensor range
+				calculateNextInflatedCircleLinesOffset();
+			}
+			index++;
+			it = _inflated_ring_lines_offsets.begin() + index; //increasing vector size invalidates iterator
 		} else {
-			if (moveCircle(x, y, direction, prevOffsetIndex, map, tmp_vis_map,
-					cost, tiles)) {
-				radius -= _grid_map_resolution;
-			} else {
+			if (!moveCircle(x, y, direction, index, previous_positions, map,
+					tmp_vis_map, cost, tiles)) { //don't increment iterator, repeat this inflation for new position next iteration
 				return current_radius;
 			}
 		}
 		vis_map = tmp_vis_map;
 	}
-	ROS_INFO_STREAM("Inflated to radius " << current_radius);
+//	ROS_INFO_STREAM("Inflated to radius " << current_radius);
 	return current_radius;
 }
 
 bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
+		std::vector<std::pair<double, double>> &previous_positions,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-	ROS_INFO_STREAM("Move circle in direction " << direction);
+//	ROS_INFO_STREAM("Move circle in direction " << direction);
 	geometry_msgs::Point new_point;
+	new_point.x = x;
+	new_point.y = y;
 	if (direction <= Directions::northwest || direction >= northeast) {
 		new_point.x += _grid_map_resolution;
 	} else if (direction <= southeast && direction >= southwest) {
@@ -280,18 +305,31 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 	_graph_searcher->findNearestNeighbour(new_point, min_distance,
 			nearest_node);
 	if (min_distance < _min_edge_distance_squared) {
-		ROS_INFO_STREAM("Too close to node" << nearest_node);
+//		ROS_INFO_STREAM(
+//				"Point ("<< new_point.x << ", " << new_point.y<<") too close to node " << nearest_node << " (" << sqrt(min_distance) << "m)");
 		return false;
 	}
+	//check previous positions
+	for (auto it = previous_positions.rbegin(); it != previous_positions.rend();
+			++it) {
+		if (it->first == new_point.x && it->second == new_point.y) {
+//			ROS_INFO_STREAM(
+//					"Point ("<< new_point.x << ", " << new_point.y<<") was already tried");
+			return false;
+		}
+	}
 	if (isSetInCollision(new_point.x, new_point.y, map, vis_map,
-			_inflated_ring_lines_offsets[ring].second, cost, tiles, true)
-			== Directions::center) {
-		ROS_INFO_STREAM("Moved to position: " << x << ", " << y);
+			ring == 0 ?
+					_circle_lines_offset :
+					_inflated_ring_lines_offsets.at(ring - 1).second, cost,
+			tiles, true) == Directions::center) {
+//		ROS_INFO_STREAM("Moved to position: " << x << ", " << y);
 		x = new_point.x;
 		y = new_point.y;
+		previous_positions.push_back(std::make_pair(x, y));
 		return true;
 	} else {
-		ROS_INFO_STREAM("Moving failed due to collision");
+//		ROS_INFO_STREAM("Moving failed due to collision");
 		return false;
 	}
 }
@@ -447,46 +485,12 @@ bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 	return false;
 }
 
-void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
-	_vis_map.header.frame_id = "map";
-	_vis_map.info.resolution = map.info.resolution;
-	_vis_map.info.width = map.info.width;
-	_vis_map.info.height = map.info.height;
-	_vis_map.info.origin = map.info.origin;
-	_vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
-	_init_vis_map = true;
-}
-
-bool CollisionChecker::initialize(geometry_msgs::Point position,
-		std::shared_ptr<GraphSearcher> graph_searcher) {
-	_graph_searcher = graph_searcher;
-	nav_msgs::OccupancyGrid map = _occupancy_grid;
-	_vis_map.header.stamp = ros::Time::now();
-	_vis_map.info.map_load_time = ros::Time::now();
-	initVisMap(map);
-	precalculateCircleLinesOffset();
-	_node_edges.markers.clear();
-	_node_points.markers.clear();
-	if (_check_init_position) {
-		std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
-		int node_cost = 0, node_tiles = 0;
-		if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data,
-				node_cost, node_tiles)) {
-			_vis_map.data = tmp_vis_map_data;
-			_visualization_pub.publish(_vis_map);
-			return true;
-		}
-		return false;
-	} else
-		return true;
-}
-
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 		rrg_nbv_exploration_msgs::Edge &new_edge,
 		rrg_nbv_exploration_msgs::Node &nearest_node,
 		geometry_msgs::Point rand_sample, double distance, double check_node) {
-	ROS_INFO_STREAM(
-			"Steer to new node at " << rand_sample.x << ", " << rand_sample.y);
+//	ROS_INFO_STREAM(
+//			"Steer to new node at " << rand_sample.x << ", " << rand_sample.y);
 	nav_msgs::OccupancyGrid map = _occupancy_grid;
 	bool no_collision = false;
 	_vis_map.header.stamp = ros::Time::now();
@@ -526,7 +530,6 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 	if (edge_free && node_free) {
 		if (check_node) {
 			if (_inflation_active) {
-				ROS_INFO_STREAM("Inflate");
 				new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
 						map, tmp_vis_map_data, node_cost, node_tiles);
 				new_node.squared_radius = pow(new_node.radius, 2);

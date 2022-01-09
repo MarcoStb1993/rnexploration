@@ -92,7 +92,7 @@ public:
 	/**
 	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
 	 * @param Robot's position where RRT root is placed
-	 * @param Pointer to a helper class for nearest neighbor search in the RRG
+	 * @param Helper class for nearest neighbor search in the RRG
 	 * @return If initialization succeeded
 	 */
 	bool initialize(geometry_msgs::Point position,
@@ -222,6 +222,12 @@ private:
 	void precalculateCircleLinesOffset();
 
 	/**
+	 * @brief Calculate the x and y offsets and the x start for the current inflation radius up to the
+	 * sensor range
+	 */
+	void calculateNextInflatedCircleLinesOffset();
+
+	/**
 	 * @brief Check if a set of offsets with the given center is in collision
 	 * @param X-coordinate of the set's center
 	 * @param Y-coordinate of the set's center
@@ -324,6 +330,7 @@ private:
 	 * @param Reference to y-coordinate of the circle's center
 	 * @param Direction in which the circle will be moved
 	 * @param Index of the ring line offset that is currently being evaluated
+	 * @param List of positions the circle was at before (abort if new position is a previous one)
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
@@ -331,6 +338,7 @@ private:
 	 * @return True if moving circle was successful, false otherwise
 	 */
 	bool moveCircle(double &x, double &y, int direction, int ring,
+			std::vector<std::pair<double, double>> &previous_positions,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
 			int &cost, int &tiles);
 
