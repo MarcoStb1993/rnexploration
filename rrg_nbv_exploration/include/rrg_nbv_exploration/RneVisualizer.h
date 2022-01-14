@@ -32,6 +32,10 @@ private:
 	 * Interval time at which the graph info should be published (in s)
 	 */
 	double _info_interval;
+	/**
+	 * Node count in the RRG
+	 */
+	int _last_rrg_node_count;
 
 	/**
 	 * @brief Visualization function that publishes the RRG-visualization in the topic "rrg_vis" and is called when receiving new input from topic "rrg"
@@ -47,6 +51,7 @@ private:
 	 */
 	void initializeVisualization(visualization_msgs::Marker &_node_points,
 			visualization_msgs::Marker &_edge_line_list);
+
 	/**
 	 * @brief Adds info text for each node to the visualization consisting of it's number and gain
 	 * @param Reference to message to populate with info text
@@ -57,6 +62,12 @@ private:
 	void addInfoTextVisualization(
 			visualization_msgs::MarkerArray &_node_info_texts,
 			const geometry_msgs::Point node_position, int node, double reward_function);
+
+	/**
+	 * @brief Clear the info text markers if the graph is being rebuilt
+	 */
+	void clearInfoText();
+
 	/**
 	 * @brief Return the color for the given node depending on its status and gain
 	 * @param Node to determine color for

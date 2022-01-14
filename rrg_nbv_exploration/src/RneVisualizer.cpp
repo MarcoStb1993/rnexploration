@@ -10,6 +10,7 @@ RneVisualizer::RneVisualizer() {
 	_rrg_text_info_visualization_pub = nh.advertise<
 			visualization_msgs::MarkerArray>("rrg_vis_info", 1000);
 	_info_interval = 1.0;
+	_last_rrg_node_count = 0;
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -79,10 +80,14 @@ void RneVisualizer::visualizeRrgGraph(
 		_rrg_visualization_pub.publish(_node_points);
 		_rrg_visualization_pub.publish(_edge_line_list);
 		if (publishInfo) {
+			if (rrg->node_counter < _last_rrg_node_count) { //graph normally only grows
+				clearInfoText();
+			}
 			_rrg_text_info_visualization_pub.publish(_node_info_texts);
 			_last_info_publish = ros::Time::now();
 		}
 	}
+	_last_rrg_node_count = rrg->node_counter;
 }
 
 void RneVisualizer::addInfoTextVisualization(
@@ -112,6 +117,17 @@ void RneVisualizer::addInfoTextVisualization(
 		oss << "(" << node << ")";
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
+}
+
+void RneVisualizer::clearInfoText() {
+	visualization_msgs::Marker node_info_text;
+	node_info_text.header.frame_id = "/map";
+	node_info_text.ns = "rrt_tree";
+	node_info_text.id = 0;
+	node_info_text.action = visualization_msgs::Marker::DELETEALL;
+	visualization_msgs::MarkerArray _node_info_texts;
+	_node_info_texts.markers.push_back(node_info_text);
+	_rrg_text_info_visualization_pub.publish(_node_info_texts);
 }
 
 std_msgs::ColorRGBA RneVisualizer::getColor(
