@@ -63,6 +63,8 @@
 		<param name="distance_factor" type="double" value="$(arg distance_factor)" />
 		<param name="heading_factor" type="double" value="$(arg heading_factor)" />
 		<param name="traversability_factor" type="double" value="$(arg traversability_factor)" />
+		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />		
+		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
 		<param name="inflation_active" type="bool" value="$(arg inflation_active)" />
 		<param name="move_nodes" type="bool" value="$(arg move_nodes)" />							
 	</node>

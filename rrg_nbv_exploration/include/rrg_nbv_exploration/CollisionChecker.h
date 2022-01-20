@@ -196,6 +196,7 @@ private:
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
 	visualization_msgs::MarkerArray _node_edges;
+	int _marker_id;
 
 	/**
 	 * @brief Function called by subscriber to map message which saves the current occupancy grid for collision checking

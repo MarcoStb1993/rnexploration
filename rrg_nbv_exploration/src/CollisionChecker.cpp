@@ -59,6 +59,7 @@ void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
 	}
 	_node_edges.markers.clear();
 	_node_points.markers.clear();
+	_marker_id = 0;
 
 	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
 	int node_cost = 0, node_tiles = 0;
@@ -79,7 +80,7 @@ void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
 			node_point.header.frame_id = "/map";
 			node_point.header.stamp = ros::Time();
 			node_point.ns = "rrt_collision_vis";
-			node_point.id = 2 * _node_points.markers.size();
+			node_point.id = _marker_id++;
 			node_point.action = visualization_msgs::Marker::ADD;
 			node_point.pose.orientation.w = 1.0;
 			node_point.type = visualization_msgs::Marker::CYLINDER;
@@ -159,7 +160,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 	if (!(_inflation_active ?
 			checkEngulfing(rand_sample, nearest_node, min_distance, rrg) :
 			checkDistance(rand_sample, nearest_node, min_distance, rrg))) {
-		return false;
+		return false; //node is engulfed by other node's radius (inflation active) or too close (inactive)
 	}
 	alignPointToGridMap(rand_sample);
 	nav_msgs::OccupancyGrid map = *_occupancy_grid;
@@ -180,7 +181,6 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 					* 45;
 			if (direction_from_nearest_node == 360)
 				direction_from_nearest_node = 0;
-			geometry_msgs::Point old_point = rand_sample;
 			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
 					direction_from_nearest_node, map, tmp_vis_map_data,
 					node_cost, node_tiles);
@@ -257,7 +257,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 						node_edge.header.frame_id = "/map";
 						node_edge.header.stamp = ros::Time();
 						node_edge.ns = "rrt_collision_vis";
-						node_edge.id = 2 * _node_points.markers.size() + 1;
+						node_edge.id = _marker_id++;
 						node_edge.action = visualization_msgs::Marker::ADD;
 						node_edge.type = visualization_msgs::Marker::CUBE;
 						node_edge.scale.x = edge_length;
@@ -331,7 +331,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 				node_point.header.frame_id = "/map";
 				node_point.header.stamp = ros::Time();
 				node_point.ns = "rrt_collision_vis";
-				node_point.id = 2 * _node_points.markers.size();
+				node_point.id = _marker_id++;
 				node_point.action = visualization_msgs::Marker::ADD;
 				node_point.pose.orientation.w = 1.0;
 				node_point.type = visualization_msgs::Marker::CYLINDER;
@@ -376,11 +376,8 @@ void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
 	}
 	std::vector<CircleLine> newOffsetSet = calculateCircleLinesOffset(
 			new_radius);
-//	ROS_INFO_STREAM("New inflation set for radius " << new_radius);
 	for (int i = 0; i < prevOffsetSet.size(); i++) { //prev offset set size must be smaller equals new offset set
 		newOffsetSet[i].x_start = prevOffsetSet[i].x_offset + 1;
-//		ROS_INFO_STREAM(
-//				"("<< i << ") x_offset: " << newOffsetSet[i].x_offset << " y_offset: " << newOffsetSet[i].y_offset << " x_start: " << newOffsetSet[i].x_start);
 	}
 	_inflated_ring_lines_offsets.push_back(
 			std::make_pair(new_radius, newOffsetSet));
@@ -545,7 +542,6 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 		}
 		vis_map = tmp_vis_map;
 	}
-//	ROS_INFO_STREAM("Inflated to radius " << current_radius);
 	return current_radius;
 }
 
@@ -553,7 +549,6 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 		std::vector<std::pair<double, double>> &previous_positions,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-//	ROS_INFO_STREAM("Move circle in direction " << direction);
 	geometry_msgs::Point new_point;
 	new_point.x = x;
 	new_point.y = y;
@@ -775,8 +770,6 @@ bool CollisionChecker::calculate_edge(int nearest_node, double &edge_length,
 						- pow(_robot_width / 2, 2));
 		edge_length = distance - new_node_path_box_distance
 				- nearest_node_path_box_distance;
-//		ROS_INFO_STREAM(
-//				"NN radius: " << rrg.nodes[nearest_node].radius << " d1: " << nearest_node_path_box_distance << " new node radius: " << new_node.radius << " d2: " << new_node_path_box_distance << " edge length: " << edge_length);
 		if (edge_length <= 0) {
 			edge_length = 0;
 			return false;
@@ -811,6 +804,7 @@ bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
 	nearest_node = -1;
 	std::vector<std::pair<int, double>> nearby_nodes =
 			_graph_searcher->searchInRadius(point, pow(_largest_radius, 2));
+	//TODO: bring new node close enough to nearest node to allow connection
 	for (auto it : nearby_nodes) {
 		if (rrg.nodes[it.first].squared_radius > it.second) {
 			return false;
@@ -836,11 +830,11 @@ bool CollisionChecker::checkDistance(geometry_msgs::Point &point,
 			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
 			double distance = sqrt(min_distance);
 			point.x = rrg.nodes[nearest_node].position.x
-					- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+					- (_max_edge_distance
 							* (rrg.nodes[nearest_node].position.x - point.x)
 							/ distance);
 			point.y = rrg.nodes[nearest_node].position.y
-					- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+					- (_max_edge_distance
 							* (rrg.nodes[nearest_node].position.y - point.y)
 							/ distance);
 		}
