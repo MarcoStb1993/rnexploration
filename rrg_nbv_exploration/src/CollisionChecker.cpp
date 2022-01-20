@@ -14,9 +14,12 @@ CollisionChecker::CollisionChecker() {
 	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	private_nh.param("grid_map_unknown", _grid_map_unknown, -1);
 	private_nh.param("inflation_active", _inflation_active, true);
+	private_nh.param("move_nodes", _move_nodes, true);
 	double min_edge_distance;
 	private_nh.param("min_edge_distance", min_edge_distance, 1.0);
 	_min_edge_distance_squared = pow(min_edge_distance, 2);
+	private_nh.param("max_edge_distance", _max_edge_distance, 1.0);
+	_max_edge_distance_squared = pow(_max_edge_distance, 2);
 	ros::NodeHandle nh("rne");
 	_occupancy_grid_sub = _nh.subscribe(occupancy_grid_topic, 1,
 			&CollisionChecker::occupancyGridCallback, this);
@@ -30,30 +33,71 @@ CollisionChecker::CollisionChecker() {
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 	_init_vis_map = false;
+	_largest_radius = 0;
 	precalculateCircleLinesOffset();
 }
 
-bool CollisionChecker::initialize(geometry_msgs::Point position,
-		std::shared_ptr<GraphSearcher> graph_searcher) {
+void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
+		std::shared_ptr<GraphSearcher> graph_searcher,
+		std::shared_ptr<GraphPathCalculator> graph_path_calculator) {
 	_graph_searcher = std::move(graph_searcher);
-	nav_msgs::OccupancyGrid map = _occupancy_grid;
+	_graph_path_calculator = std::move(graph_path_calculator);
+	nav_msgs::OccupancyGrid map = *_occupancy_grid;
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
 	initVisMap(map);
+	_largest_radius = _robot_radius;
+	if (!_node_edges.markers.empty()) { //remove all visualized markers
+		visualization_msgs::Marker node_point;
+		node_point.header.frame_id = "/map";
+		node_point.header.stamp = ros::Time();
+		node_point.ns = "rrt_collision_vis";
+		node_point.id = 0;
+		node_point.action = visualization_msgs::Marker::DELETEALL;
+		_node_points.markers.push_back(node_point);
+		_rrt_collision_visualization_pub.publish(_node_points);
+	}
 	_node_edges.markers.clear();
 	_node_points.markers.clear();
-	if (_check_init_position) {
-		std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
-		int node_cost = 0, node_tiles = 0;
-		if (!isCircleInCollision(position.x, position.y, map, tmp_vis_map_data,
-				node_cost, node_tiles)) {
-			_vis_map.data = tmp_vis_map_data;
-			_visualization_pub.publish(_vis_map);
-			return true;
+
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	int node_cost = 0, node_tiles = 0;
+	if (_inflation_active
+			&& !isCircleInCollision(root.position.x, root.position.y, map,
+					tmp_vis_map_data, node_cost, node_tiles)) {
+		bool move_nodes = _move_nodes;
+		_move_nodes = false;
+		root.radius = inflateCircle(root.position.x, root.position.y,
+				Directions::none, map, tmp_vis_map_data, node_cost, node_tiles);
+		root.squared_radius = pow(root.radius, 2);
+		_largest_radius = std::max(root.radius, _largest_radius);
+		root.traversability_cost = ((double) node_cost / (double) node_tiles)
+				/ (double) (_grid_map_occupied - 1);
+		_move_nodes = move_nodes;
+		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+			visualization_msgs::Marker node_point;
+			node_point.header.frame_id = "/map";
+			node_point.header.stamp = ros::Time();
+			node_point.ns = "rrt_collision_vis";
+			node_point.id = 2 * _node_points.markers.size();
+			node_point.action = visualization_msgs::Marker::ADD;
+			node_point.pose.orientation.w = 1.0;
+			node_point.type = visualization_msgs::Marker::CYLINDER;
+			node_point.scale.x = 2 * root.radius;
+			node_point.scale.y = 2 * root.radius;
+			node_point.scale.z = 0.01;
+			node_point.color.g = 1.0f;
+			node_point.color.a = 0.5f;
+			node_point.pose.position.x = root.position.x;
+			node_point.pose.position.y = root.position.y;
+			node_point.pose.position.z = 0.005;
+			_node_points.markers.push_back(node_point);
+
+			_rrt_collision_visualization_pub.publish(_node_points);
 		}
-		return false;
-	} else
-		return true;
+	}
+	_vis_map.data = tmp_vis_map_data;
+	_visualization_pub.publish(_vis_map);
 }
 
 void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
@@ -105,6 +149,214 @@ std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
 
 void CollisionChecker::precalculateCircleLinesOffset() {
 	_circle_lines_offset = calculateCircleLinesOffset(_robot_radius);
+}
+
+bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
+		rrg_nbv_exploration_msgs::Node &new_node,
+		geometry_msgs::Point rand_sample) {
+	double min_distance;
+	int nearest_node;
+	if (!(_inflation_active ?
+			checkEngulfing(rand_sample, nearest_node, min_distance, rrg) :
+			checkDistance(rand_sample, nearest_node, min_distance, rrg))) {
+		return false;
+	}
+	alignPointToGridMap(rand_sample);
+	nav_msgs::OccupancyGrid map = *_occupancy_grid;
+	_vis_map.header.stamp = ros::Time::now();
+	_vis_map.info.map_load_time = ros::Time::now();
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	//check circle for collisions and inflate it up to max sensor range if none are found
+	int node_cost = 0, node_tiles = 0;
+	if (!isCircleInCollision(rand_sample.x, rand_sample.y, map,
+			tmp_vis_map_data, node_cost, node_tiles)) {
+		double yaw = atan2(rand_sample.y - rrg.nodes[nearest_node].position.y,
+				rand_sample.x - rrg.nodes[nearest_node].position.x);
+		if (_inflation_active) {
+			double direction = yaw * 180.0 / M_PI;
+			if (direction < 0)
+				direction += 360;
+			int direction_from_nearest_node = ((int) round(direction / 45))
+					* 45;
+			if (direction_from_nearest_node == 360)
+				direction_from_nearest_node = 0;
+			geometry_msgs::Point old_point = rand_sample;
+			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
+					direction_from_nearest_node, map, tmp_vis_map_data,
+					node_cost, node_tiles);
+			new_node.squared_radius = pow(new_node.radius, 2);
+			_largest_radius = std::max(new_node.radius, _largest_radius);
+		} else {
+			new_node.radius = _robot_radius;
+			new_node.squared_radius = pow(_robot_radius, 2);
+		}
+		new_node.position.x = rand_sample.x;
+		new_node.position.y = rand_sample.y;
+		new_node.position.z = rand_sample.z;
+		new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+		//check if new node can be connected to other nodes
+		std::vector<std::pair<int, double>> nodes =
+				_graph_searcher->searchInRadius(new_node.position,
+						_inflation_active ?
+								pow(_sensor_range + _largest_radius, 2) :
+								_max_edge_distance_squared); //search for neighbors in largest existing radius + max radius possible (which could be reached by this node) if inflation is active
+		bool connected = false;
+		double height = 0;
+		std::vector<rrg_nbv_exploration_msgs::Edge> new_edges;
+		std::vector<visualization_msgs::Marker> new_edge_markers;
+		for (auto it : nodes) {
+			double distance = sqrt(it.second);
+			double edge_yaw = atan2(
+					new_node.position.y - rrg.nodes[it.first].position.y,
+					new_node.position.x - rrg.nodes[it.first].position.x);
+			geometry_msgs::Point edge_center;
+			double edge_length;
+			int edge_cost = 0, edge_tiles = 0;
+			bool check_required = calculate_edge(it.first, edge_length,
+					distance, edge_center, new_node, rrg);
+			if (edge_length > _max_edge_distance) //path box only allowed up to a given length
+				continue;
+			else if (_inflation_active && edge_length <= 0
+					&& it.second < rrg.nodes[it.first].squared_radius) {
+				return false; //new node position engulfed by this node's radius
+			}
+			bool edge_free =
+					check_required ?
+							fmod(edge_yaw, M_PI / 2) == 0 ?
+									!isAlignedRectangleInCollision(
+											edge_center.x, edge_center.y,
+											edge_yaw, edge_length / 2,
+											_robot_width / 2, map,
+											tmp_vis_map_data, edge_cost,
+											edge_tiles) :
+									!isRectangleInCollision(edge_center.x,
+											edge_center.y, edge_yaw,
+											edge_length / 2, _robot_width / 2,
+											map, tmp_vis_map_data, edge_cost,
+											edge_tiles)
+							: true;
+			if (edge_free) {
+				rrg_nbv_exploration_msgs::Edge new_edge;
+				connected = true;
+				height += rrg.nodes[it.first].position.z;
+				new_edge.yaw = (int) (edge_yaw * 180.0 / M_PI);
+				if (new_edge.yaw < 0)
+					new_edge.yaw += 360;
+				new_edge.traversability_cost =
+						edge_length > 0 ?
+								((double) edge_cost / (double) edge_tiles)
+										/ (double) (_grid_map_occupied - 1) :
+								0.0; //average cost/tile normalized to [0,1]
+				new_edge.first_node = it.first;
+				new_edge.second_node = rrg.node_counter;
+				new_edge.length = distance;
+				new_edges.push_back(new_edge);
+				if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+					visualization_msgs::Marker node_edge;
+					if (edge_length > 0) {
+						node_edge.header.frame_id = "/map";
+						node_edge.header.stamp = ros::Time();
+						node_edge.ns = "rrt_collision_vis";
+						node_edge.id = 2 * _node_points.markers.size() + 1;
+						node_edge.action = visualization_msgs::Marker::ADD;
+						node_edge.type = visualization_msgs::Marker::CUBE;
+						node_edge.scale.x = edge_length;
+						node_edge.scale.y = _robot_width;
+						node_edge.scale.z = 0.01;
+						node_edge.color.g = 1.0f;
+						node_edge.color.a = 0.5f;
+						node_edge.pose.position.x = edge_center.x;
+						node_edge.pose.position.y = edge_center.y;
+						node_edge.pose.position.z = 0.005;
+						tf2::Quaternion quaternion;
+						quaternion.setRPY(0, 0, edge_yaw);
+						quaternion.normalize();
+						node_edge.pose.orientation = tf2::toMsg(quaternion);
+						new_edge_markers.push_back(node_edge);
+					}
+				}
+
+			}
+		}
+		if (connected) {
+			double shortest_distance = std::numeric_limits<double>::infinity();
+			int node_with_shortest_distance = -1;
+			int edge_to_shortest_distance = -1;
+			for (auto &edge : new_edges) {
+				edge.index = rrg.edge_counter++;
+				new_node.edges.push_back(edge.index);
+				new_node.edge_counter++;
+				rrg.edges.push_back(edge);
+				rrg.nodes[edge.first_node].edges.push_back(edge.index);
+				rrg.nodes[edge.first_node].edge_counter++;
+				//find shortest distance to new node
+				double distance_to_robot =
+						rrg.nodes[edge.first_node].distance_to_robot
+								+ edge.length;
+				if (distance_to_robot < shortest_distance) {
+					shortest_distance = distance_to_robot;
+					node_with_shortest_distance = edge.first_node;
+					edge_to_shortest_distance = edge.index;
+				}
+			}
+
+			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+			new_node.gain = -1;
+			new_node.reward_function = 0;
+			new_node.index = rrg.node_counter++;
+			new_node.position.z = height / nodes.size();
+			new_node.distance_to_robot = shortest_distance;
+			rrg.longest_distance_to_robot = std::max(
+					rrg.longest_distance_to_robot, shortest_distance);
+			new_node.path_to_robot =
+					rrg.nodes[node_with_shortest_distance].path_to_robot;
+			new_node.path_to_robot.push_back(new_node.index);
+			int heading_out = rrg.edges[edge_to_shortest_distance].yaw; //first node is always root
+			new_node.heading_in = heading_out;
+			new_node.heading_change_to_robot =
+					rrg.nodes[node_with_shortest_distance].heading_change_to_robot
+							+ _graph_path_calculator->getAbsoluteAngleDiff(
+									heading_out,
+									rrg.nodes[node_with_shortest_distance].heading_in); //calculate heading cost from current to neighbor node
+			new_node.heading_change_to_robot_best_view = 0.0;
+			new_node.traversability_cost = ((double) node_cost
+					/ (double) node_tiles) / (double) (_grid_map_occupied - 1); //average cost/tile normalized to [0,1]
+			new_node.traversability_cost_to_robot =
+					rrg.nodes[node_with_shortest_distance].traversability_cost_to_robot
+							+ new_node.traversability_cost
+							+ rrg.edges[edge_to_shortest_distance].traversability_cost;
+			rrg.nodes.push_back(new_node);
+			if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+				visualization_msgs::Marker node_point;
+				node_point.header.frame_id = "/map";
+				node_point.header.stamp = ros::Time();
+				node_point.ns = "rrt_collision_vis";
+				node_point.id = 2 * _node_points.markers.size();
+				node_point.action = visualization_msgs::Marker::ADD;
+				node_point.pose.orientation.w = 1.0;
+				node_point.type = visualization_msgs::Marker::CYLINDER;
+				node_point.scale.x = 2 * new_node.radius;
+				node_point.scale.y = 2 * new_node.radius;
+				node_point.scale.z = 0.01;
+				node_point.color.g = 1.0f;
+				node_point.color.a = 0.5f;
+				node_point.pose.position.x = rand_sample.x;
+				node_point.pose.position.y = rand_sample.y;
+				node_point.pose.position.z = 0.005;
+				_node_points.markers.push_back(node_point);
+				_rrt_collision_visualization_pub.publish(_node_points);
+
+				for (auto edge_marker : new_edge_markers) {
+					_node_edges.markers.push_back(edge_marker);
+				}
+				_rrt_collision_visualization_pub.publish(_node_edges);
+			}
+			_vis_map.data = tmp_vis_map_data;
+			_visualization_pub.publish(_vis_map);
+			return true;
+		}
+	}
+	return false;
 }
 
 void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
@@ -246,9 +498,8 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 }
 
 double CollisionChecker::inflateCircle(double &x, double &y,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
-		int &tiles) {
-//	ROS_INFO_STREAM("Inflate Circle at: " << x << ", " << y);
+		int direction_from_nearest_node, nav_msgs::OccupancyGrid &map,
+		std::vector<int8_t> &vis_map, int &cost, int &tiles) {
 	std::vector<int8_t> tmp_vis_map = vis_map;
 	if (_inflated_ring_lines_offsets.empty())
 		calculateNextInflatedCircleLinesOffset();
@@ -262,17 +513,34 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 				cost, tiles);
 		if (direction == Directions::none) {
 			return current_radius;
-		} else if (direction == Directions::center) {
-			current_radius = it->first;
-			if (it == --_inflated_ring_lines_offsets.end()) { //calculate next inflation ring if not reached sensor range
-				calculateNextInflatedCircleLinesOffset();
-			}
-			index++;
-			it = _inflated_ring_lines_offsets.begin() + index; //increasing vector size invalidates iterator
 		} else {
-			if (!moveCircle(x, y, direction, index, previous_positions, map,
-					tmp_vis_map, cost, tiles)) { //don't increment iterator, repeat this inflation for new position next iteration
-				return current_radius;
+			if (_move_nodes) {
+				if (direction == Directions::center) {
+					moveCircle(x, y, direction_from_nearest_node, index + 1,
+							previous_positions, map, tmp_vis_map, cost, tiles);	//move circle with same inflation away from nearest node
+					current_radius = it->first;
+					if (it == --_inflated_ring_lines_offsets.end()) { //calculate next inflation ring if not reached sensor range
+						calculateNextInflatedCircleLinesOffset();
+					}
+					index++;
+					it = _inflated_ring_lines_offsets.begin() + index; //increasing vector size invalidates iterator
+				} else {
+					if (!moveCircle(x, y, direction, index, previous_positions,
+							map, tmp_vis_map, cost, tiles)) { //don't increment iterator, repeat this inflation for new position next iteration
+						return current_radius;
+					}
+				}
+			} else {
+				if (direction == Directions::center) {
+					current_radius = it->first;
+					if (it == --_inflated_ring_lines_offsets.end()) { //calculate next inflation ring if not reached sensor range
+						calculateNextInflatedCircleLinesOffset();
+					}
+					index++;
+					it = _inflated_ring_lines_offsets.begin() + index; //increasing vector size invalidates iterator
+				} else {
+					return current_radius;
+				}
 			}
 		}
 		vis_map = tmp_vis_map;
@@ -300,6 +568,7 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 		new_point.y += _grid_map_resolution;
 	}
 	//check distance to other nodes
+//TODO: check if went too far away (regard edge length) and regard radius in min distance
 	double min_distance;
 	int nearest_node;
 	_graph_searcher->findNearestNeighbour(new_point, min_distance,
@@ -318,6 +587,8 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 			return false;
 		}
 	}
+//	ROS_INFO_STREAM(
+//			"Inflated rings size " << _inflated_ring_lines_offsets.size() << " access ring " << (ring - 1));
 	if (isSetInCollision(new_point.x, new_point.y, map, vis_map,
 			ring == 0 ?
 					_circle_lines_offset :
@@ -485,95 +756,93 @@ bool CollisionChecker::isLineInCollision(int x_start, int x_end, int y,
 	return false;
 }
 
-bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
-		rrg_nbv_exploration_msgs::Edge &new_edge,
-		rrg_nbv_exploration_msgs::Node &nearest_node,
-		geometry_msgs::Point rand_sample, double distance, double check_node) {
-//	ROS_INFO_STREAM(
-//			"Steer to new node at " << rand_sample.x << ", " << rand_sample.y);
-	nav_msgs::OccupancyGrid map = _occupancy_grid;
-	bool no_collision = false;
-	_vis_map.header.stamp = ros::Time::now();
-	_vis_map.info.map_load_time = ros::Time::now();
-	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
-	double yaw = atan2(rand_sample.y - nearest_node.position.y,
-			rand_sample.x - nearest_node.position.x);
-	int edge_cost = 0, edge_tiles = 0;
-	//TODO: regard changed edge position, length, tiles and cost due to moving circle
-	bool edge_free = (
-			distance > _path_box_distance_thres ?
-					fmod(yaw, M_PI / 2) == 0 ?
-							!isAlignedRectangleInCollision(
-									(nearest_node.position.x + rand_sample.x)
-											/ 2,
-									(nearest_node.position.y + rand_sample.y)
-											/ 2, yaw,
-									(distance - _path_box_distance_thres) / 2,
-									_robot_width / 2, map, tmp_vis_map_data,
-									edge_cost, edge_tiles) :
-							!isRectangleInCollision(
-									(nearest_node.position.x + rand_sample.x)
-											/ 2,
-									(nearest_node.position.y + rand_sample.y)
-											/ 2, yaw,
-									(distance - _path_box_distance_thres) / 2,
-									_robot_width / 2, map, tmp_vis_map_data,
-									edge_cost, edge_tiles)
-					:
-					true);
-	int node_cost = 0, node_tiles = 0;
-	bool node_free =
-			check_node ?
-					!isCircleInCollision(rand_sample.x, rand_sample.y, map,
-							tmp_vis_map_data, node_cost, node_tiles) :
-					true;
-	if (edge_free && node_free) {
-		if (check_node) {
-			if (_inflation_active) {
-				new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
-						map, tmp_vis_map_data, node_cost, node_tiles);
-				new_node.squared_radius = pow(new_node.radius, 2);
-			} else {
-				new_node.radius = _robot_radius;
-				new_node.squared_radius = pow(_robot_radius, 2);
-			}
-			new_node.position.x = rand_sample.x;
-			new_node.position.y = rand_sample.y;
-			new_node.position.z = rand_sample.z;
-			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-			new_node.traversability_cost = ((double) node_cost
-					/ (double) node_tiles) / (double) (_grid_map_occupied - 1); //average cost/tile normalized to [0,1]
-		}
-		new_edge.yaw = (int) (yaw * 180.0 / M_PI);
-		if (new_edge.yaw < 0)
-			new_edge.yaw += 360;
-		new_edge.traversability_cost =
-				distance > _path_box_distance_thres ?
-						((double) edge_cost / (double) edge_tiles)
-								/ (double) (_grid_map_occupied - 1) :
-						0.0; //average cost/tile normalized to [0,1]
-		_vis_map.data = tmp_vis_map_data;
-		_visualization_pub.publish(_vis_map);
-		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
-			visualization_msgs::Marker node_point;
+void CollisionChecker::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
+	rand_sample.x = (round(rand_sample.x / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+	rand_sample.y = (round(rand_sample.y / _grid_map_resolution) + 0.5)
+			* _grid_map_resolution;
+}
 
-			node_point.header.frame_id = "/map";
-			node_point.header.stamp = ros::Time();
-			node_point.ns = "rrt_collision_vis";
-			node_point.id = 2 * _node_points.markers.size();
-			node_point.action = visualization_msgs::Marker::ADD;
-			node_point.pose.orientation.w = 1.0;
-			node_point.type = visualization_msgs::Marker::CYLINDER;
-			node_point.scale.x = 2 * new_node.radius;
-			node_point.scale.y = 2 * new_node.radius;
-			node_point.scale.z = 0.01;
-			node_point.color.g = 1.0f;
-			node_point.color.a = 0.5f;
-			node_point.pose.position.x = rand_sample.x;
-			node_point.pose.position.y = rand_sample.y;
-			node_point.pose.position.z = 0.005;
-			_node_points.markers.push_back(node_point);
-			_rrt_collision_visualization_pub.publish(_node_points);
+bool CollisionChecker::calculate_edge(int nearest_node, double &edge_length,
+		double distance, geometry_msgs::Point &edge_center,
+		rrg_nbv_exploration_msgs::Node &new_node,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (_inflation_active) {
+		double new_node_path_box_distance = sqrt(
+				new_node.squared_radius - pow(_robot_width / 2, 2));
+		double nearest_node_path_box_distance = sqrt(
+				rrg.nodes[nearest_node].squared_radius
+						- pow(_robot_width / 2, 2));
+		edge_length = distance - new_node_path_box_distance
+				- nearest_node_path_box_distance;
+//		ROS_INFO_STREAM(
+//				"NN radius: " << rrg.nodes[nearest_node].radius << " d1: " << nearest_node_path_box_distance << " new node radius: " << new_node.radius << " d2: " << new_node_path_box_distance << " edge length: " << edge_length);
+		if (edge_length <= 0) {
+			edge_length = 0;
+			return false;
+		}
+		double center_factor =
+				(nearest_node_path_box_distance + edge_length / 2) / distance;
+		edge_center.x = rrg.nodes[nearest_node].position.x
+				+ center_factor
+						* (new_node.position.x
+								- rrg.nodes[nearest_node].position.x);
+		edge_center.y = rrg.nodes[nearest_node].position.y
+				+ center_factor
+						* (new_node.position.y
+								- rrg.nodes[nearest_node].position.y);
+	} else {
+		edge_length = distance - _path_box_distance_thres;
+		if (edge_length <= 0) {
+			return false;
+		}
+		edge_center.x = (rrg.nodes[nearest_node].position.x
+				+ new_node.position.x) / 2;
+		edge_center.y = (rrg.nodes[nearest_node].position.y
+				+ new_node.position.y) / 2;
+	}
+	return true;
+}
+
+bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
+		int &nearest_node, double &min_distance,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	min_distance = -1;
+	nearest_node = -1;
+	std::vector<std::pair<int, double>> nearby_nodes =
+			_graph_searcher->searchInRadius(point, pow(_largest_radius, 2));
+	for (auto it : nearby_nodes) {
+		if (rrg.nodes[it.first].squared_radius > it.second) {
+			return false;
+		} else {
+			double distance = sqrt(it.second) - rrg.nodes[it.first].radius;
+			if (distance < min_distance) {
+				nearest_node = it.first;
+				min_distance = distance;
+			}
+		}
+	}
+	return true;
+}
+
+bool CollisionChecker::checkDistance(geometry_msgs::Point &point,
+		int &nearest_node, double &min_distance,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	min_distance = -1;
+	nearest_node = -1;
+	_graph_searcher->findNearestNeighbour(point, min_distance, nearest_node);
+	if (min_distance >= _min_edge_distance_squared) {
+		if (min_distance >= _max_edge_distance_squared) {
+			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
+			double distance = sqrt(min_distance);
+			point.x = rrg.nodes[nearest_node].position.x
+					- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+							* (rrg.nodes[nearest_node].position.x - point.x)
+							/ distance);
+			point.y = rrg.nodes[nearest_node].position.y
+					- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+							* (rrg.nodes[nearest_node].position.y - point.y)
+							/ distance);
 		}
 		return true;
 	}
@@ -582,11 +851,11 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Node &new_node,
 
 void CollisionChecker::occupancyGridCallback(
 		const nav_msgs::OccupancyGrid::ConstPtr &map_msg) {
-	_occupancy_grid = *map_msg;
+	_occupancy_grid = std::make_shared<nav_msgs::OccupancyGrid>(*map_msg);
 }
 
 int CollisionChecker::getIndex(int x, int y) {
-	int sx = _occupancy_grid.info.width;
+	int sx = _occupancy_grid->info.width;
 	return y * sx + x;
 }
 
@@ -599,7 +868,7 @@ void CollisionChecker::occupancyGridUpdatesCallback(
 	int index = 0;
 	for (int y = map_msg->y; y < map_msg->y + map_msg->height; y++) {
 		for (int x = map_msg->x; x < map_msg->x + map_msg->width; x++) {
-			_occupancy_grid.data[getIndex(x, y)] = map_msg->data[index++];
+			_occupancy_grid->data[getIndex(x, y)] = map_msg->data[index++];
 		}
 	}
 }

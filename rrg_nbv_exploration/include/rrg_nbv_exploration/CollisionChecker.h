@@ -12,7 +12,9 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 #include <rrg_nbv_exploration/GraphSearcher.h>
+#include <rrg_nbv_exploration/GraphPathCalculator.h>
 
 #define PI_HALF (M_PI / 2)
 
@@ -75,28 +77,26 @@ public:
 	 */
 	CollisionChecker();
 	/**
-	 * @brief Checks if a feasible path from the nearest neighbour to the randomly sampled point exists for the particular robot by checking for collisions
-	 * with fcl in the octomap
+	 * @brief Checks if a feasible path from the nearest neighbors to the randomly sampled point exists
+	 * for the particular robot by checking for collisions in the subscribed occupancy grid map
+	 * @param Reference to the RRG
 	 * @param Reference to a possible new node in the RRT
-	 * @param Reference to a possible new edge in the RRT
-	 * @param Reference to the node that would be the nearest neighbour for a node with the given random position
 	 * @param Randomly sampled position serving as a base for a new node's position
 	 * @return Returns true if a path between the nodes was found and false otherwise
 	 */
-	bool steer(rrg_nbv_exploration_msgs::Node &new_node,
-			rrg_nbv_exploration_msgs::Edge &new_edge,
-			rrg_nbv_exploration_msgs::Node &nearest_node,
-			geometry_msgs::Point rand_sample, double min_distance,
-			double check_node);
+	bool steer(rrg_nbv_exploration_msgs::Graph &rrg,
+			rrg_nbv_exploration_msgs::Node &new_node,
+			geometry_msgs::Point rand_sample);
 
 	/**
-	 * @brief Initialize collision checking visualization if active and checks circle around robot if activated
-	 * @param Robot's position where RRT root is placed
+	 * @brief Initialize collision checking visualization if active and tries to inflate root node if active
+	 * @param Root node at robot position
 	 * @param Helper class for nearest neighbor search in the RRG
-	 * @return If initialization succeeded
+	 * @param Helper class for path calculation in the RRG
 	 */
-	bool initialize(geometry_msgs::Point position,
-			std::shared_ptr<GraphSearcher> graph_searcher);
+	void initialize(rrg_nbv_exploration_msgs::Node &root,
+			std::shared_ptr<GraphSearcher> graph_searcher,
+			std::shared_ptr<GraphPathCalculator> graph_path_calculator);
 
 private:
 	ros::NodeHandle _nh;
@@ -109,8 +109,13 @@ private:
 	 * @brief Helper class for kd-tree GraphConstructor and nearest neighbor search
 	 */
 	std::shared_ptr<GraphSearcher> _graph_searcher;
+	/**
+	 * @brief Helper class for calculating path, heading and traversability between any two nodes in
+	 * the graph
+	 */
+	std::shared_ptr<GraphPathCalculator> _graph_path_calculator;
 
-	nav_msgs::OccupancyGrid _occupancy_grid;
+	std::shared_ptr<nav_msgs::OccupancyGrid> _occupancy_grid;
 
 	/**
 	 * Radius that includes robot's footprint in m
@@ -145,11 +150,6 @@ private:
 	 */
 	double _grid_map_resolution;
 	/**
-	 * @brief X and y offsets from the circle's center that form the edge of the circle with the
-	 * robot's radius, only contains positive y-offsets, negative ones are symmetrical
-	 */
-	std::vector<CircleLine> _circle_lines_offset;
-	/**
 	 * @brief Grid map value that indicates a cell is occupied (or inscribed)
 	 */
 	int _grid_map_occupied;
@@ -158,13 +158,34 @@ private:
 	 */
 	int _grid_map_unknown;
 	/**
-	 * brief If the inflation of nodes (wavefront) is active
+	 * @brief If the inflation of nodes (wavefront) is active
 	 */
 	bool _inflation_active;
+	/**
+	 * @brief If nodes can be moved away from obstacles during inflation
+	 */
+	bool _move_nodes;
 	/**
 	 * @brief Squared min distance between two nodes in the graph
 	 */
 	double _min_edge_distance_squared;
+	/**
+	 * @brief Max distance between two nodes in the graph
+	 */
+	double _max_edge_distance;
+	/**
+	 * @brief Squared max distance between two nodes in the graph
+	 */
+	double _max_edge_distance_squared;
+	/**
+	 * @brief Stores the radius of the largest node that was already placed
+	 */
+	double _largest_radius;
+	/**
+	 * @brief X and y offsets from the circle's center that form the edge of the circle with the
+	 * robot's radius, only contains positive y-offsets, negative ones are symmetrical
+	 */
+	std::vector<CircleLine> _circle_lines_offset;
 	/**
 	 * @brief List of pairs of radius and and respective x and y offsets from the circle's center that
 	 * form a ring around the edge of the circle with the next smaller radius, only contains positive
@@ -296,14 +317,16 @@ private:
 	 * @brief Check how far a circle with the given center can be inflated until a collision is detected
 	 * @param Reference to x-coordinate of the circle's center
 	 * @param Reference to y-coordinate of the circle's center
+	 * @param Direction to evade nearest node
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
 	 * @return Maximum radius of the inflated circle
 	 */
-	double inflateCircle(double &x, double &y, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map, int &cost, int &tiles);
+	double inflateCircle(double &x, double &y, int direction_from_nearest_node,
+			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
+			int &cost, int &tiles);
 
 	/**
 	 * @brief Compares the current direction with the new direction from a collision and
@@ -315,6 +338,51 @@ private:
 	 * @return False if a contradictory direction was found, true otherwise
 	 */
 	bool checkDirection(int &current_direction, bool &fixed, int new_direction);
+
+	/**
+	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
+	 * @param Reference to a point which position is aligned
+	 */
+	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
+
+	/**
+	 * @brief Calculate the size of the path box edge and returns if it must be checked for collision
+	 * @param Index of the nearest node to the new node
+	 * @param Reference to the path box's length which will be calculated here
+	 * @param Distance between the nearest node and the new node in m
+	 * @param Reference to the path box edge's center position which will be calculated here
+	 * @param Reference to the new node
+	 * @param Reference to the RRG
+	 * @return If the path box edge must be checked or if it is entirely inside both node areas
+	 */
+	bool calculate_edge(int nearest_node, double &edge_length, double distance,
+			geometry_msgs::Point &edge_center,
+			rrg_nbv_exploration_msgs::Node &new_node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Check if a point at the given position would be engulfed by other nodes' radii
+	 * @param Reference to a point for which the check will be done
+	 * @param Reference to the nearest node to the point regarding the radius which will be set
+	 * @param Reference to the distance to the nearest node which will be calculated
+	 * @param Reference to the RRG
+	 * @return If the point is not engulfed by other nodes' radii
+	 */
+	bool checkEngulfing(geometry_msgs::Point &point,
+			int &nearest_node, double &min_distance,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Check if a point at the given position meets the required minimum distance between nodes
+	 * and if it is not further away than the maximum distance (replaces the point at max distance otherwise)
+	 * @param Reference to a point for which the check will be done
+	 * @param Reference to the nearest node to the point which will be set
+	 * @param Reference to the distance to the nearest node which will be calculated
+	 * @param Reference to the RRG
+	 * @return If the point is further away than the minimum required distance between nodes
+	 */
+	bool checkDistance(geometry_msgs::Point &point, int &nearest_node,
+			double &min_distance, rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Returns the absolute angle difference in degrees between two given angles in degrees

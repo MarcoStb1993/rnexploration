@@ -243,6 +243,7 @@
 		<arg name="heading_factor" default="0.5" />
 		<arg name="traversability_factor" default="0.5" />
 		<arg name="inflation_active" default="true" />
+		<arg name="move_base" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->

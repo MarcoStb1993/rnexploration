@@ -20,7 +20,6 @@
 #include "math.h"
 
 #include <rrg_nbv_exploration/CollisionChecker.h>
-#include <rrg_nbv_exploration/GraphPathCalculator.h>
 #include <rrg_nbv_exploration/NodeComparator.h>
 
 namespace rrg_nbv_exploration {
@@ -134,9 +133,9 @@ private:
 	 */
 	double _sensor_height;
 	/**
-	 * @brief Squared min distance between two nodes in the graph
+	 * @brief Min distance between two nodes in the graph
 	 */
-	double _min_edge_distance_squared;
+	double _min_edge_distance;
 	/**
 	 * @brief Max distance between two nodes in the graph
 	 */
@@ -201,9 +200,8 @@ private:
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
 	 * @param Seed position for RRG at which the root node is placed
-	 * @return If initialization was successful
 	 */
-	bool initRrg(const geometry_msgs::Point &seed);
+	void initRrg(const geometry_msgs::Point &seed);
 	/**
 	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
@@ -224,21 +222,7 @@ private:
 	 */
 	bool samplePointLocally(geometry_msgs::Point &rand_sample,
 			geometry_msgs::Point center);
-	/**
-	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
-	 * @param Reference to a point which position is aligned
-	 */
-	void alignPointToGridMap(geometry_msgs::Point &rand_sample);
-	/**
-	 * @brief Tries to connect a randomly sampled point to the nearest neighbors inside the max radius in the existing graph
-	 * @param Randomly sampled point
-	 * @param List of nodes to connect point with and their respective squared distances
-	 * @param If the paths of possibly connected nodes should be updated
-	 * @param Current robot pose
-	 */
-	void connectNewNode(geometry_msgs::Point rand_sample,
-			std::vector<std::pair<int, double>> nodes, bool updatePaths,
-			geometry_msgs::Pose robot_pos);
+
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
 	 */

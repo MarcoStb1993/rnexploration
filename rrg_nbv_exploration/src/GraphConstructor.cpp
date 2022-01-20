@@ -13,9 +13,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	double min_edge_distance;
-	private_nh.param("min_edge_distance", min_edge_distance, 1.0);
+	private_nh.param("min_edge_distance", _min_edge_distance, 1.0);
 	private_nh.param("max_edge_distance", _max_edge_distance, 2.0);
-	_min_edge_distance_squared = pow(min_edge_distance, 2);
 	_max_edge_distance_squared = pow(_max_edge_distance, 2);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
@@ -69,7 +68,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_running = false;
 }
 
-bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
+void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_rrg.nodes.clear();
 	_rrg.edges.clear();
 	_nodes_to_update.clear();
@@ -84,6 +83,8 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	root.gain = -1;
 	root.reward_function = 0;
 	root.index = 0;
+	root.radius = _robot_radius;
+	root.squared_radius = pow(_robot_radius, 2);
 	root.distance_to_robot = 0;
 	root.path_to_robot.push_back(0);
 	root.traversability_cost = 0;
@@ -107,16 +108,13 @@ bool GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
-	return _collision_checker->initialize(seed, _graph_searcher);
+	_collision_checker->initialize(_rrg.nodes[0], _graph_searcher,
+			_graph_path_calculator);
 }
 
 void GraphConstructor::startRrgConstruction() {
-	if (initRrg(_graph_path_calculator->getRobotPose().position)) {
-		_running = true;
-	} else {
-		ROS_WARN_STREAM(
-				"Unable to start RNE because of obstacles too close to the robot!");
-	}
+	initRrg(_graph_path_calculator->getRobotPose().position);
+	_running = true;
 }
 
 void GraphConstructor::stopRrgConstruction() {
@@ -159,28 +157,15 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths,
 		samplePointLocally(rand_sample, _last_robot_pos);
 	else
 		samplePoint(rand_sample);
-	double min_distance;
-	int nearest_node;
-	_graph_searcher->findNearestNeighbour(rand_sample, min_distance,
-			nearest_node);
-	if (min_distance >= _min_edge_distance_squared) {
-		//TODO: remove max distance if the connecting edge is short enough?
-		if (min_distance >= _max_edge_distance_squared) {
-			// if random sample is further away than max edge distance, replace it at max distance to the nearest node on a line with the sample
-			double distance = sqrt(min_distance);
-			rand_sample.x = _rrg.nodes[nearest_node].position.x
-					- (_max_edge_distance
-							* (_rrg.nodes[nearest_node].position.x
-									- rand_sample.x) / distance);
-			rand_sample.y = _rrg.nodes[nearest_node].position.y
-					- (_max_edge_distance
-							* (_rrg.nodes[nearest_node].position.y
-									- rand_sample.y) / distance);
-		}
-		std::vector<std::pair<int, double>> nodes =
-				_graph_searcher->searchInRadius(rand_sample,
-						_max_edge_distance_squared);
-		connectNewNode(rand_sample, nodes, updatePaths, robot_pos);
+	rrg_nbv_exploration_msgs::Node node;
+	if (_collision_checker->steer(_rrg, node, rand_sample)) {
+		if (updatePaths)
+			_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
+					robot_pos, false); //check if new connection could improve other distances
+		_nodes_to_update.push_back(node.index);
+		_sort_nodes_to_update = true;
+		_graph_searcher->rebuildIndex(_rrg);
+		_exploration_finished_timer.stop();
 	}
 }
 
@@ -205,88 +190,6 @@ bool GraphConstructor::samplePointLocally(geometry_msgs::Point &rand_sample,
 			&& rand_sample.x <= _map_max_bounding[0]
 			&& rand_sample.y >= _map_min_bounding[1]
 			&& rand_sample.y <= _map_max_bounding[1]);
-}
-
-void GraphConstructor::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
-	rand_sample.x = (round(rand_sample.x / _grid_map_resolution) + 0.5)
-			* _grid_map_resolution;
-	rand_sample.y = (round(rand_sample.y / _grid_map_resolution) + 0.5)
-			* _grid_map_resolution;
-}
-
-void GraphConstructor::connectNewNode(geometry_msgs::Point rand_sample,
-		std::vector<std::pair<int, double>> nodes, bool updatePaths,
-		geometry_msgs::Pose robot_pos) {
-	//TODO: regard inflation and handle engulfed nodes
-	alignPointToGridMap(rand_sample);
-	bool connected = false;
-	rrg_nbv_exploration_msgs::Node node;
-	double height = 0;
-	double shortest_distance = std::numeric_limits<double>::infinity();
-	int node_with_shortest_distance = -1;
-	int edge_to_shortest_distance = -1;
-	for (auto it : nodes) {
-		double distance = sqrt(it.second);
-		rrg_nbv_exploration_msgs::Edge edge;
-		if (_collision_checker->steer(node, edge, _rrg.nodes[it.first],
-				rand_sample, distance, !connected)) { //only check circle first time
-			connected = true;
-			node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-			node.gain = -1;
-			node.reward_function = 0;
-			node.index = _rrg.node_counter;
-			height += _rrg.nodes[it.first].position.z;
-			edge.index = _rrg.edge_counter++;
-			edge.first_node = it.first;
-			edge.second_node = node.index;
-			edge.length = distance;
-			_rrg.edges.push_back(edge);
-			node.edges.push_back(edge.index);
-			node.edge_counter++;
-			_rrg.nodes[it.first].edges.push_back(edge.index);
-			_rrg.nodes[it.first].edge_counter++;
-			//find shortest distance to new node
-			double distance_to_robot = _rrg.nodes[it.first].distance_to_robot
-					+ distance;
-			if (distance_to_robot < shortest_distance) {
-				shortest_distance = distance_to_robot;
-				node_with_shortest_distance = it.first;
-				edge_to_shortest_distance = edge.index;
-			}
-		}
-	}
-	if (connected) {
-		node.position.z = height / nodes.size();
-		node.distance_to_robot = shortest_distance;
-		if (shortest_distance > _rrg.longest_distance_to_robot)
-			_rrg.longest_distance_to_robot = shortest_distance;
-		node.path_to_robot =
-				_rrg.nodes[node_with_shortest_distance].path_to_robot;
-		node.path_to_robot.push_back(node.index);
-		int heading_out = _rrg.edges[edge_to_shortest_distance].yaw; //first node is always root
-		node.heading_in = heading_out;
-//		ROS_INFO_STREAM(
-//				"Init node " << node.index << " heading out of node "<< node_with_shortest_distance << ": " << heading_out << " heading in: " << _rrg.nodes[node_with_shortest_distance].heading_in << " absolute diff: " << _graph_path_calculator->getAbsoluteAngleDiff( heading_out, _rrg.nodes[node_with_shortest_distance].heading_in));
-		node.heading_change_to_robot =
-				_rrg.nodes[node_with_shortest_distance].heading_change_to_robot
-						+ _graph_path_calculator->getAbsoluteAngleDiff(
-								heading_out,
-								_rrg.nodes[node_with_shortest_distance].heading_in); //calculate heading cost from current to neighbor node
-		node.heading_change_to_robot_best_view = 0.0;
-		node.traversability_cost_to_robot =
-				_rrg.nodes[node_with_shortest_distance].traversability_cost_to_robot
-						+ node.traversability_cost
-						+ _rrg.edges[edge_to_shortest_distance].traversability_cost;
-		_rrg.node_counter++;
-		_rrg.nodes.push_back(node);
-		if (updatePaths)
-			_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
-					robot_pos, false); //check if new connection could improve other distances
-		_nodes_to_update.push_back(node.index);
-		_sort_nodes_to_update = true;
-		_graph_searcher->rebuildIndex(_rrg);
-		_exploration_finished_timer.stop();
-	}
 }
 
 void GraphConstructor::checkCurrentGoal() {
