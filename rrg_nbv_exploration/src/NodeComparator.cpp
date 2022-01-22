@@ -19,8 +19,7 @@ NodeComparator::~NodeComparator() {
 
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("robot_radius", _robot_radius, 1.0);
-	private_nh.param("radius_factor_active", _radius_factor_active, true);
+	private_nh.param("radius_factor", _radius_factor, 1.0);
 	private_nh.param("gain_factor", _gain_factor, 1.0);
 	private_nh.param("distance_factor", _distance_factor, 1.0);
 	private_nh.param("heading_factor", _heading_factor, 1.0);
@@ -87,22 +86,31 @@ void NodeComparator::sortByReward() {
 void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	double factor_sum = _gain_factor + _distance_factor + _traversability_factor
-			+ _heading_factor;
+			+ _heading_factor + _radius_factor;
 	for (auto &node : _nodes_ordered_by_reward) {
 		if (node.reward_function == 0 || _robot_moved) {
 			node.reward_function =
-					(_gain_factor * rrg.nodes[node.node].gain
+					(_gain_factor
+							* (rrg.nodes[node.node].gain / rrg.highest_node_gain)
 							+ _distance_factor
 									* (1.0
 											- (rrg.nodes[node.node].distance_to_robot
 													/ rrg.longest_distance_to_robot))
 							+ (_traversability_factor
 									* (1.0
-											- rrg.nodes[node.node].traversability_cost_to_robot))
-							+ (_heading_factor
-									* (1.0
-											- rrg.nodes[node.node].heading_change_to_robot_best_view)))
-							/ factor_sum;
+											- ((rrg.nodes[node.node].traversability_cost_to_robot
+													/ rrg.nodes[node.node].traversability_weight_to_robot)
+													/ rrg.highest_traversability_cost_to_robot)))
+							+ (rrg.largest_heading_change_to_robot_best_view
+									> 0 ?
+									(_heading_factor
+											* (1.0
+													- (((double) rrg.nodes[node.node].heading_change_to_robot_best_view
+															/ rrg.nodes[node.node].path_to_robot.size())
+															/ rrg.largest_heading_change_to_robot_best_view))) :
+									0)
+							+ (_radius_factor * rrg.nodes[node.node].radius
+									/ rrg.largest_node_radius)) / factor_sum;
 			rrg.nodes[node.node].reward_function = node.reward_function;
 		}
 	}

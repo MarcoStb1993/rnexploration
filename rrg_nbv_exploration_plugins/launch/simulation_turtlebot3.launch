@@ -25,7 +25,8 @@
 	<arg name="robot_radius" default="0.18" />
 	<arg name="min_view_score" default="0.1" />
 	<arg name="local_sampling_radius" default="3" />
-	<arg name="radius_factor_active" default="false" />
+	<arg name="inflation_active" default="true" />
+	<arg name="move_nodes" default="true" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="-2.0" />
 	<arg name="y" default="0.0" />
@@ -232,6 +233,9 @@
 		<arg name="distance_factor" default="1.0" />
 		<arg name="heading_factor" default="1.0" />
 		<arg name="traversability_factor" default="1.0" />
+		<arg name="radius_factor" default="0.5" />
+		<arg name="inflation_active" default="$(arg inflation_active)" />
+		<arg name="move_nodes" default="$(arg move_nodes)" />
 	</include>
 
 	<!-- RViz für Exploration -->

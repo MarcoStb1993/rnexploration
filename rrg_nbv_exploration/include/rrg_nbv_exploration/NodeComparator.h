@@ -126,10 +126,9 @@ private:
 	 */
 	double _robot_radius;
 	/**
-	 * @brief If a factor that increases the gain based on the size of the node's radius compared to
-	 * the robot radius is used
+	 * @brief Weighting factor for the radius of a node (only active when inflation is active)
 	 */
-	bool _radius_factor_active;
+	double _radius_factor;
 	/**
 	 * @brief Weighting factor for the information gain of a node
 	 */

@@ -1,6 +1,7 @@
 #include <rrg_nbv_exploration/CollisionChecker.h>
 
 namespace rrg_nbv_exploration {
+
 CollisionChecker::CollisionChecker() {
 	ros::NodeHandle private_nh("~");
 	private_nh.param("robot_radius", _robot_radius, 1.0);
@@ -33,11 +34,10 @@ CollisionChecker::CollisionChecker() {
 	_path_box_distance_thres = 2
 			* sqrt(pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 	_init_vis_map = false;
-	_largest_radius = 0;
 	precalculateCircleLinesOffset();
 }
 
-void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
+void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Graph &rrg,
 		std::shared_ptr<GraphSearcher> graph_searcher,
 		std::shared_ptr<GraphPathCalculator> graph_path_calculator) {
 	_graph_searcher = std::move(graph_searcher);
@@ -46,7 +46,6 @@ void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
 	initVisMap(map);
-	_largest_radius = _robot_radius;
 	if (!_node_edges.markers.empty()) { //remove all visualized markers
 		visualization_msgs::Marker node_point;
 		node_point.header.frame_id = "/map";
@@ -61,44 +60,7 @@ void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Node &root,
 	_node_points.markers.clear();
 	_marker_id = 0;
 
-	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
-	int node_cost = 0, node_tiles = 0;
-	if (_inflation_active
-			&& !isCircleInCollision(root.position.x, root.position.y, map,
-					tmp_vis_map_data, node_cost, node_tiles)) {
-		bool move_nodes = _move_nodes;
-		_move_nodes = false;
-		root.radius = inflateCircle(root.position.x, root.position.y,
-				Directions::none, map, tmp_vis_map_data, node_cost, node_tiles);
-		root.squared_radius = pow(root.radius, 2);
-		_largest_radius = std::max(root.radius, _largest_radius);
-		root.traversability_cost = ((double) node_cost / (double) node_tiles)
-				/ (double) (_grid_map_occupied - 1);
-		_move_nodes = move_nodes;
-		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
-			visualization_msgs::Marker node_point;
-			node_point.header.frame_id = "/map";
-			node_point.header.stamp = ros::Time();
-			node_point.ns = "rrt_collision_vis";
-			node_point.id = _marker_id++;
-			node_point.action = visualization_msgs::Marker::ADD;
-			node_point.pose.orientation.w = 1.0;
-			node_point.type = visualization_msgs::Marker::CYLINDER;
-			node_point.scale.x = 2 * root.radius;
-			node_point.scale.y = 2 * root.radius;
-			node_point.scale.z = 0.01;
-			node_point.color.g = 1.0f;
-			node_point.color.a = 0.5f;
-			node_point.pose.position.x = root.position.x;
-			node_point.pose.position.y = root.position.y;
-			node_point.pose.position.z = 0.005;
-			_node_points.markers.push_back(node_point);
-
-			_rrt_collision_visualization_pub.publish(_node_points);
-		}
-	}
-	_vis_map.data = tmp_vis_map_data;
-	_visualization_pub.publish(_vis_map);
+	initRootNodeAndGraph(map, rrg);
 }
 
 void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
@@ -109,6 +71,75 @@ void CollisionChecker::initVisMap(const nav_msgs::OccupancyGrid &map) {
 	_vis_map.info.origin = map.info.origin;
 	_vis_map.data = std::vector<int8_t>(map.info.width * map.info.height, -1);
 	_init_vis_map = true;
+}
+
+void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	int node_cost = 0, node_tiles = 0;
+	if (_inflation_active
+			&& !isCircleInCollision(rrg.nodes[0].position.x,
+					rrg.nodes[0].position.y, map, tmp_vis_map_data, node_cost,
+					node_tiles)) {
+		bool move_nodes = _move_nodes; //deactivate movement for inflation of root
+		_move_nodes = false;
+		rrg.nodes[0].radius = inflateCircle(rrg.nodes[0].position.x,
+				rrg.nodes[0].position.y, Directions::none, map,
+				tmp_vis_map_data, node_cost, node_tiles);
+		rrg.nodes[0].squared_radius = pow(rrg.nodes[0].radius, 2);
+		rrg.nodes[0].traversability_cost = node_cost;
+		rrg.nodes[0].traversability_weight = node_tiles;
+		rrg.nodes[0].traversability_cost_to_robot =
+				rrg.nodes[0].traversability_cost;
+		rrg.nodes[0].traversability_weight_to_robot =
+				rrg.nodes[0].traversability_weight;
+		rrg.largest_node_radius = std::max(rrg.nodes[0].radius,
+				rrg.largest_node_radius);
+		rrg.highest_traversability_cost_to_robot =
+				(double) rrg.nodes[0].traversability_cost
+						/ (double) rrg.nodes[0].traversability_weight;
+		_move_nodes = move_nodes; //set movement back to given parameter value
+		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+			visualization_msgs::Marker node_point;
+			node_point.header.frame_id = "/map";
+			node_point.header.stamp = ros::Time();
+			node_point.ns = "rrt_collision_vis";
+			node_point.id = _marker_id++;
+			node_point.action = visualization_msgs::Marker::ADD;
+			node_point.pose.orientation.w = 1.0;
+			node_point.type = visualization_msgs::Marker::CYLINDER;
+			node_point.scale.x = 2 * rrg.nodes[0].radius;
+			node_point.scale.y = 2 * rrg.nodes[0].radius;
+			node_point.scale.z = 0.01;
+			node_point.color.g = 1.0f;
+			node_point.color.a = 0.5f;
+			node_point.pose.position.x = rrg.nodes[0].position.x;
+			node_point.pose.position.y = rrg.nodes[0].position.y;
+			node_point.pose.position.z = 0.005;
+			_node_points.markers.push_back(node_point);
+			_rrt_collision_visualization_pub.publish(_node_points);
+		}
+	} else { // no inflation active, do not check collision for root
+		rrg.nodes[0].radius = _robot_radius;
+		rrg.nodes[0].squared_radius = pow(_robot_radius, 2);
+		rrg.largest_node_radius = _robot_radius;
+		rrg.nodes[0].traversability_cost = 0;
+		rrg.nodes[0].traversability_weight = 0;
+		rrg.nodes[0].traversability_cost_to_robot = 0;
+		rrg.nodes[0].traversability_weight_to_robot = 0;
+		rrg.highest_traversability_cost_to_robot = 0;
+	}
+	rrg.nodes[0].distance_to_robot = 0;
+	rrg.nodes[0].path_to_robot.push_back(0);
+	rrg.nodes[0].heading_in = 0;
+	rrg.nodes[0].heading_change_to_robot = 0;
+	rrg.nodes[0].heading_change_to_robot_best_view = 0;
+	rrg.longest_distance_to_robot = 0;
+	rrg.largest_heading_change_to_robot_best_view = 0;
+	rrg.highest_node_gain = 0;
+
+	_vis_map.data = tmp_vis_map_data;
+	_visualization_pub.publish(_vis_map);
 }
 
 std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
@@ -155,11 +186,10 @@ void CollisionChecker::precalculateCircleLinesOffset() {
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::Node &new_node,
 		geometry_msgs::Point rand_sample) {
-	double min_distance;
 	int nearest_node;
 	if (!(_inflation_active ?
-			checkEngulfing(rand_sample, nearest_node, min_distance, rrg) :
-			checkDistance(rand_sample, nearest_node, min_distance, rrg))) {
+			checkEngulfing(rand_sample, nearest_node, rrg) :
+			checkDistance(rand_sample, nearest_node, rrg))) {
 		return false; //node is engulfed by other node's radius (inflation active) or too close (inactive)
 	}
 	alignPointToGridMap(rand_sample);
@@ -185,7 +215,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 					direction_from_nearest_node, map, tmp_vis_map_data,
 					node_cost, node_tiles);
 			new_node.squared_radius = pow(new_node.radius, 2);
-			_largest_radius = std::max(new_node.radius, _largest_radius);
+			rrg.largest_node_radius = std::max(new_node.radius,
+					rrg.largest_node_radius);
 		} else {
 			new_node.radius = _robot_radius;
 			new_node.squared_radius = pow(_robot_radius, 2);
@@ -198,7 +229,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(new_node.position,
 						_inflation_active ?
-								pow(_sensor_range + _largest_radius, 2) :
+								pow(_sensor_range + rrg.largest_node_radius,
+										2) :
 								_max_edge_distance_squared); //search for neighbors in largest existing radius + max radius possible (which could be reached by this node) if inflation is active
 		bool connected = false;
 		double height = 0;
@@ -243,10 +275,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 				if (new_edge.yaw < 0)
 					new_edge.yaw += 360;
 				new_edge.traversability_cost =
-						edge_length > 0 ?
-								((double) edge_cost / (double) edge_tiles)
-										/ (double) (_grid_map_occupied - 1) :
-								0.0; //average cost/tile normalized to [0,1]
+						edge_length > 0 ? edge_cost : 0.0;
+				new_edge.traversability_weight =
+						edge_length > 0 ? edge_tiles : 0.0;
 				new_edge.first_node = it.first;
 				new_edge.second_node = rrg.node_counter;
 				new_edge.length = distance;
@@ -319,13 +350,22 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 									heading_out,
 									rrg.nodes[node_with_shortest_distance].heading_in); //calculate heading cost from current to neighbor node
 			new_node.heading_change_to_robot_best_view = 0.0;
-			new_node.traversability_cost = ((double) node_cost
-					/ (double) node_tiles) / (double) (_grid_map_occupied - 1); //average cost/tile normalized to [0,1]
+			new_node.traversability_cost = node_cost;
+			new_node.traversability_weight = node_tiles;
 			new_node.traversability_cost_to_robot =
 					rrg.nodes[node_with_shortest_distance].traversability_cost_to_robot
 							+ new_node.traversability_cost
 							+ rrg.edges[edge_to_shortest_distance].traversability_cost;
+			new_node.traversability_weight_to_robot =
+					rrg.nodes[node_with_shortest_distance].traversability_weight_to_robot
+							+ new_node.traversability_weight
+							+ rrg.edges[edge_to_shortest_distance].traversability_weight;
+			rrg.highest_traversability_cost_to_robot = std::max(
+					rrg.highest_traversability_cost_to_robot,
+					(double) new_node.traversability_cost_to_robot
+							/ (double) new_node.traversability_weight_to_robot);
 			rrg.nodes.push_back(new_node);
+
 			if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
 				visualization_msgs::Marker node_point;
 				node_point.header.frame_id = "/map";
@@ -798,13 +838,12 @@ bool CollisionChecker::calculate_edge(int nearest_node, double &edge_length,
 }
 
 bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
-		int &nearest_node, double &min_distance,
-		rrg_nbv_exploration_msgs::Graph &rrg) {
-	min_distance = -1;
+		int &nearest_node, rrg_nbv_exploration_msgs::Graph &rrg) {
+	double min_distance = -1;
 	nearest_node = -1;
 	std::vector<std::pair<int, double>> nearby_nodes =
-			_graph_searcher->searchInRadius(point, pow(_largest_radius, 2));
-	//TODO: bring new node close enough to nearest node to allow connection
+			_graph_searcher->searchInRadius(point,
+					pow(rrg.largest_node_radius, 2));
 	for (auto it : nearby_nodes) {
 		if (rrg.nodes[it.first].squared_radius > it.second) {
 			return false;
@@ -816,13 +855,22 @@ bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
 			}
 		}
 	}
+	if (min_distance > _max_edge_distance) { //move sample point closer to nearest node to enable connection
+		point.x = rrg.nodes[nearest_node].position.x
+				- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+						* (rrg.nodes[nearest_node].position.x - point.x)
+						/ (min_distance + rrg.nodes[nearest_node].radius));
+		point.y = rrg.nodes[nearest_node].position.y
+				- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
+						* (rrg.nodes[nearest_node].position.y - point.y)
+						/ (min_distance + rrg.nodes[nearest_node].radius));
+	}
 	return true;
 }
 
 bool CollisionChecker::checkDistance(geometry_msgs::Point &point,
-		int &nearest_node, double &min_distance,
-		rrg_nbv_exploration_msgs::Graph &rrg) {
-	min_distance = -1;
+		int &nearest_node, rrg_nbv_exploration_msgs::Graph &rrg) {
+	double min_distance = -1;
 	nearest_node = -1;
 	_graph_searcher->findNearestNeighbour(point, min_distance, nearest_node);
 	if (min_distance >= _min_edge_distance_squared) {

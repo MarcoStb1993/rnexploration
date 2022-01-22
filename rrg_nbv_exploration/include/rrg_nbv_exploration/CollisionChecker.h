@@ -90,11 +90,11 @@ public:
 
 	/**
 	 * @brief Initialize collision checking visualization if active and tries to inflate root node if active
-	 * @param Root node at robot position
+	 * @param Reference to RRG
 	 * @param Helper class for nearest neighbor search in the RRG
 	 * @param Helper class for path calculation in the RRG
 	 */
-	void initialize(rrg_nbv_exploration_msgs::Node &root,
+	void initialize(rrg_nbv_exploration_msgs::Graph &rrg,
 			std::shared_ptr<GraphSearcher> graph_searcher,
 			std::shared_ptr<GraphPathCalculator> graph_path_calculator);
 
@@ -177,10 +177,6 @@ private:
 	 * @brief Squared max distance between two nodes in the graph
 	 */
 	double _max_edge_distance_squared;
-	/**
-	 * @brief Stores the radius of the largest node that was already placed
-	 */
-	double _largest_radius;
 	/**
 	 * @brief X and y offsets from the circle's center that form the edge of the circle with the
 	 * robot's radius, only contains positive y-offsets, negative ones are symmetrical
@@ -365,12 +361,10 @@ private:
 	 * @brief Check if a point at the given position would be engulfed by other nodes' radii
 	 * @param Reference to a point for which the check will be done
 	 * @param Reference to the nearest node to the point regarding the radius which will be set
-	 * @param Reference to the distance to the nearest node which will be calculated
 	 * @param Reference to the RRG
 	 * @return If the point is not engulfed by other nodes' radii
 	 */
-	bool checkEngulfing(geometry_msgs::Point &point,
-			int &nearest_node, double &min_distance,
+	bool checkEngulfing(geometry_msgs::Point &point, int &nearest_node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
@@ -378,12 +372,11 @@ private:
 	 * and if it is not further away than the maximum distance (replaces the point at max distance otherwise)
 	 * @param Reference to a point for which the check will be done
 	 * @param Reference to the nearest node to the point which will be set
-	 * @param Reference to the distance to the nearest node which will be calculated
 	 * @param Reference to the RRG
 	 * @return If the point is further away than the minimum required distance between nodes
 	 */
 	bool checkDistance(geometry_msgs::Point &point, int &nearest_node,
-			double &min_distance, rrg_nbv_exploration_msgs::Graph &rrg);
+			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Returns the absolute angle difference in degrees between two given angles in degrees
@@ -430,5 +423,13 @@ private:
 	 * @param Occupancy grid map that is checked during steering
 	 */
 	void initVisMap(const nav_msgs::OccupancyGrid &map);
+
+	/**
+	 * @brief Initialize the root node and all values to calculate the reward function
+	 * @param Occupancy grid map that is checked during steering
+	 * @param Reference to the RRG
+	 */
+	void initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
+			rrg_nbv_exploration_msgs::Graph &rrg);
 };
 }

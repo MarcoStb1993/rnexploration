@@ -83,19 +83,9 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	root.gain = -1;
 	root.reward_function = 0;
 	root.index = 0;
-	root.radius = _robot_radius;
-	root.squared_radius = pow(_robot_radius, 2);
-	root.distance_to_robot = 0;
-	root.path_to_robot.push_back(0);
-	root.traversability_cost = 0;
-	root.traversability_cost_to_robot = 0;
-	root.heading_in = 0;
-	root.heading_change_to_robot = 0;
-	root.heading_change_to_robot_best_view = 0;
 	_rrg.nodes.push_back(root);
 	_rrg.node_counter++;
 	_rrg.nearest_node = 0;
-	_rrg.longest_distance_to_robot = 0;
 	_current_goal_node = -1;
 	_last_goal_node = -1;
 	_last_updated_node = -1;
@@ -108,7 +98,7 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_nodes_to_update.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
-	_collision_checker->initialize(_rrg.nodes[0], _graph_searcher,
+	_collision_checker->initialize(_rrg, _graph_searcher,
 			_graph_path_calculator);
 }
 
@@ -329,7 +319,7 @@ void GraphConstructor::updateCurrentGoal() {
 		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view = 0;
 		_rrg.nodes[_current_goal_node].reward_function = 0;
 		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
-			ROS_INFO_STREAM("Exploration aborted, robot stuck");
+			ROS_WARN_STREAM("Exploration aborted, robot stuck");
 			_rrg.node_counter = -1; //for evaluation purposes
 			stopRrgConstruction();
 		}
@@ -369,6 +359,12 @@ void GraphConstructor::updatedNodeCallback(
 									_rrg.nodes[updated_node->index].best_yaw))
 							/ (180.0
 									* (double) _rrg.nodes[updated_node->index].path_to_robot.size());
+			_rrg.largest_heading_change_to_robot_best_view =
+					std::max(_rrg.largest_heading_change_to_robot_best_view,
+							(double)_rrg.nodes[updated_node->index].heading_change_to_robot_best_view
+									/ _rrg.nodes[updated_node->index].path_to_robot.size());
+			_rrg.highest_node_gain = std::max(_rrg.highest_node_gain,
+					_rrg.nodes[updated_node->index].gain);
 			_node_comparator->addNode(updated_node->index);
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
