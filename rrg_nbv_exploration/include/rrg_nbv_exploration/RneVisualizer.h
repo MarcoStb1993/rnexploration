@@ -6,6 +6,8 @@
 #include "rrg_nbv_exploration_msgs/Node.h"
 #include "stdlib.h"
 #include "sstream"
+#include <rrg_nbv_exploration/RneVisualizerConfig.h>
+
 
 namespace rrg_nbv_exploration {
 /**
@@ -18,6 +20,10 @@ public:
 	 */
 	RneVisualizer();
 	~RneVisualizer();
+
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::RneVisualizerConfig &config,
+			uint32_t level);
 
 private:
 	ros::NodeHandle _nh;
@@ -37,6 +43,12 @@ private:
 	 */
 	int _last_rrg_node_count;
 
+	bool _show_gain_info;
+	bool _show_distance_info;
+	bool _show_traversability_info;
+	bool _show_heading_info;
+	bool _show_radius_info;
+
 	/**
 	 * @brief Visualization function that publishes the RRG-visualization in the topic "rrg_vis" and is called when receiving new input from topic "rrg"
 	 * @param Received message from topic "rrg"
@@ -55,13 +67,12 @@ private:
 	/**
 	 * @brief Adds info text for each node to the visualization consisting of it's number and gain
 	 * @param Reference to message to populate with info text
-	 * @param Position of the particular node
-	 * @param Number of the node
-	 * @param Gain of the node
+	 * @param Index of the node in the RRG
+	 * @param Reference to RRG
 	 */
 	void addInfoTextVisualization(
 			visualization_msgs::MarkerArray &_node_info_texts,
-			const geometry_msgs::Point node_position, int node, double reward_function);
+			int node, const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg);
 
 	/**
 	 * @brief Clear the info text markers if the graph is being rebuilt

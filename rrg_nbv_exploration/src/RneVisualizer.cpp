@@ -2,6 +2,13 @@
 
 namespace rrg_nbv_exploration {
 RneVisualizer::RneVisualizer() {
+	ros::NodeHandle private_nh("~");
+	private_nh.param("show_gain_info", _show_gain_info, false);
+	private_nh.param("show_distance_info", _show_distance_info, false);
+	private_nh.param("show_distance_info", _show_traversability_info, false);
+	private_nh.param("show_heading_info", _show_heading_info, false);
+	private_nh.param("show_radius_info", _show_radius_info, false);
+
 	ros::NodeHandle nh("rne");
 	_rrg_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
 			this);
@@ -63,9 +70,7 @@ void RneVisualizer::visualizeRrgGraph(
 			_node_points.points.push_back(rrg->nodes[i].position);
 			_node_points.colors.push_back(getColor(rrg->nodes[i]));
 			if (publishInfo)
-				addInfoTextVisualization(_node_info_texts,
-						rrg->nodes[i].position, i,
-						rrg->nodes[i].reward_function);
+				addInfoTextVisualization(_node_info_texts, i, rrg);
 		}
 		for (int j = 0; j < rrg->edges.size(); j++) {
 			_edge_line_list.points.push_back(
@@ -91,9 +96,8 @@ void RneVisualizer::visualizeRrgGraph(
 }
 
 void RneVisualizer::addInfoTextVisualization(
-		visualization_msgs::MarkerArray &_node_info_texts,
-		const geometry_msgs::Point node_position, int node,
-		double reward_function) {
+		visualization_msgs::MarkerArray &_node_info_texts, int node,
+		const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	visualization_msgs::Marker node_info_text;
 	node_info_text.header.frame_id = "/map";
 	node_info_text.ns = "rrt_tree";
@@ -106,14 +110,38 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.color.g = 1.0f;
 	node_info_text.color.b = 1.0f;
 	node_info_text.color.a = 1.0f;
-	node_info_text.pose.position.x = node_position.x;
-	node_info_text.pose.position.y = node_position.y;
-	node_info_text.pose.position.z = node_position.z + 0.5;
+	node_info_text.pose.position.x = rrg->nodes[node].position.x;
+	node_info_text.pose.position.y = rrg->nodes[node].position.y;
+	node_info_text.pose.position.z = rrg->nodes[node].position.z + 0.5;
 	std::ostringstream oss;
-	if (reward_function > 0)
-		oss << "(" << node << ")" << std::fixed << std::setprecision(3)
-				<< reward_function;
-	else
+	if (rrg->nodes[node].reward_function > 0) {
+		oss << "(" << node << ") " << std::fixed << std::setprecision(3)
+				<< rrg->nodes[node].reward_function;
+		if (_show_gain_info)
+			oss << " g: " << (rrg->nodes[node].gain / rrg->highest_node_gain);
+		if (_show_distance_info)
+			oss << " d: "
+					<< (1.0
+							- (rrg->nodes[node].distance_to_robot
+									/ rrg->longest_distance_to_robot));
+		if (_show_traversability_info)
+			oss << " t: "
+					<< (1.0
+							- ((rrg->nodes[node].traversability_cost_to_robot
+									/ rrg->nodes[node].traversability_weight_to_robot)
+									/ rrg->highest_traversability_cost_to_robot));
+		if (_show_heading_info)
+			oss << " h: "
+					<< (rrg->largest_heading_change_to_robot_best_view > 0 ?
+							(1.0
+									- (((double) rrg->nodes[node].heading_change_to_robot_best_view
+											/ rrg->nodes[node].path_to_robot.size())
+											/ rrg->largest_heading_change_to_robot_best_view)) :
+							0);
+		if (_show_radius_info)
+			oss << " r: "
+					<< (rrg->nodes[node].radius / rrg->largest_node_radius);
+	} else
 		oss << "(" << node << ")";
 	node_info_text.text = oss.str();
 	_node_info_texts.markers.push_back(node_info_text);
@@ -165,4 +193,14 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 	}
 	return color;
 }
+
+void RneVisualizer::dynamicReconfigureCallback(
+		rrg_nbv_exploration::RneVisualizerConfig &config, uint32_t level) {
+	_show_gain_info = config.show_gain_info;
+	_show_distance_info = config.show_distance_info;
+	_show_heading_info = config.show_heading_info;
+	_show_traversability_info = config.show_traversability_info;
+	_show_radius_info = config.show_radius_info;
+}
+
 }

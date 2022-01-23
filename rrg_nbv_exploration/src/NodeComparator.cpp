@@ -138,6 +138,7 @@ void NodeComparator::dynamicReconfigureCallback(
 	_distance_factor = config.distance_factor;
 	_traversability_factor = config.traversability_factor;
 	_heading_factor = config.heading_factor;
+	_radius_factor = config.radius_factor;
 }
 
 } /* namespace rrg_nbv_exploration */

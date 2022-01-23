@@ -28,6 +28,7 @@ find_package(octomap REQUIRED)
 generate_dynamic_reconfigure_options(
   cfg/GainCalculator.cfg
   cfg/GraphConstructor.cfg
+  cfg/RneVisualizer.cfg
 )
 
 catkin_package(
@@ -66,4 +67,4 @@ target_link_libraries(rneVisualizationNode
 
 add_dependencies(rneNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 add_dependencies(gainCalcNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
-add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(rneVisualizationNode ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
