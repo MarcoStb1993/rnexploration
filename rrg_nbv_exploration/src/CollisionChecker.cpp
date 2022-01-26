@@ -81,10 +81,8 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 			&& !isCircleInCollision(rrg.nodes[0].position.x,
 					rrg.nodes[0].position.y, map, tmp_vis_map_data, node_cost,
 					node_tiles)) {
-		bool move_nodes = _move_nodes; //deactivate movement for inflation of root
-		_move_nodes = false;
 		rrg.nodes[0].radius = inflateCircle(rrg.nodes[0].position.x,
-				rrg.nodes[0].position.y, Directions::none, map,
+				rrg.nodes[0].position.y, Directions::none, false, map,
 				tmp_vis_map_data, node_cost, node_tiles);
 		rrg.nodes[0].squared_radius = pow(rrg.nodes[0].radius, 2);
 		rrg.nodes[0].traversability_cost = node_cost;
@@ -98,25 +96,8 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 		rrg.highest_traversability_cost_to_robot =
 				(double) rrg.nodes[0].traversability_cost
 						/ (double) rrg.nodes[0].traversability_weight;
-		_move_nodes = move_nodes; //set movement back to given parameter value
 		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
-			visualization_msgs::Marker node_point;
-			node_point.header.frame_id = "/map";
-			node_point.header.stamp = ros::Time();
-			node_point.ns = "rrt_collision_vis";
-			node_point.id = _marker_id++;
-			node_point.action = visualization_msgs::Marker::ADD;
-			node_point.pose.orientation.w = 1.0;
-			node_point.type = visualization_msgs::Marker::CYLINDER;
-			node_point.scale.x = 2 * rrg.nodes[0].radius;
-			node_point.scale.y = 2 * rrg.nodes[0].radius;
-			node_point.scale.z = 0.01;
-			node_point.color.g = 1.0f;
-			node_point.color.a = 0.5f;
-			node_point.pose.position.x = rrg.nodes[0].position.x;
-			node_point.pose.position.y = rrg.nodes[0].position.y;
-			node_point.pose.position.z = 0.005;
-			_node_points.markers.push_back(node_point);
+			visualizeNode(rrg.nodes[0]);
 			_rrt_collision_visualization_pub.publish(_node_points);
 		}
 	} else { // no inflation active, do not check collision for root
@@ -212,8 +193,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			if (direction_from_nearest_node == 360)
 				direction_from_nearest_node = 0;
 			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
-					direction_from_nearest_node, map, tmp_vis_map_data,
-					node_cost, node_tiles);
+					direction_from_nearest_node, _move_nodes, map,
+					tmp_vis_map_data, node_cost, node_tiles);
 			new_node.squared_radius = pow(new_node.radius, 2);
 			rrg.largest_node_radius = std::max(new_node.radius,
 					rrg.largest_node_radius);
@@ -244,7 +225,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Point edge_center;
 			double edge_length;
 			int edge_cost = 0, edge_tiles = 0;
-			bool check_required = calculate_edge(it.first, edge_length,
+			bool check_required = calculateEdge(it.first, edge_length,
 					distance, edge_center, new_node, rrg);
 			if (edge_length > _max_edge_distance) //path box only allowed up to a given length
 				continue;
@@ -282,30 +263,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 				new_edge.second_node = rrg.node_counter;
 				new_edge.length = distance;
 				new_edges.push_back(new_edge);
-				if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
-					visualization_msgs::Marker node_edge;
-					if (edge_length > 0) {
-						node_edge.header.frame_id = "/map";
-						node_edge.header.stamp = ros::Time();
-						node_edge.ns = "rrt_collision_vis";
-						node_edge.id = _marker_id++;
-						node_edge.action = visualization_msgs::Marker::ADD;
-						node_edge.type = visualization_msgs::Marker::CUBE;
-						node_edge.scale.x = edge_length;
-						node_edge.scale.y = _robot_width;
-						node_edge.scale.z = 0.01;
-						node_edge.color.g = 1.0f;
-						node_edge.color.a = 0.5f;
-						node_edge.pose.position.x = edge_center.x;
-						node_edge.pose.position.y = edge_center.y;
-						node_edge.pose.position.z = 0.005;
-						tf2::Quaternion quaternion;
-						quaternion.setRPY(0, 0, edge_yaw);
-						quaternion.normalize();
-						node_edge.pose.orientation = tf2::toMsg(quaternion);
-						new_edge_markers.push_back(node_edge);
-					}
-				}
+				visualizeEdge(edge_length, edge_center, edge_yaw,
+						new_edge_markers);
 
 			}
 		}
@@ -365,27 +324,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 					(double) new_node.traversability_cost_to_robot
 							/ (double) new_node.traversability_weight_to_robot);
 			rrg.nodes.push_back(new_node);
-
 			if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
-				visualization_msgs::Marker node_point;
-				node_point.header.frame_id = "/map";
-				node_point.header.stamp = ros::Time();
-				node_point.ns = "rrt_collision_vis";
-				node_point.id = _marker_id++;
-				node_point.action = visualization_msgs::Marker::ADD;
-				node_point.pose.orientation.w = 1.0;
-				node_point.type = visualization_msgs::Marker::CYLINDER;
-				node_point.scale.x = 2 * new_node.radius;
-				node_point.scale.y = 2 * new_node.radius;
-				node_point.scale.z = 0.01;
-				node_point.color.g = 1.0f;
-				node_point.color.a = 0.5f;
-				node_point.pose.position.x = rand_sample.x;
-				node_point.pose.position.y = rand_sample.y;
-				node_point.pose.position.z = 0.005;
-				_node_points.markers.push_back(node_point);
+				visualizeNode(new_node);
 				_rrt_collision_visualization_pub.publish(_node_points);
-
 				for (auto edge_marker : new_edge_markers) {
 					_node_edges.markers.push_back(edge_marker);
 				}
@@ -535,8 +476,9 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 }
 
 double CollisionChecker::inflateCircle(double &x, double &y,
-		int direction_from_nearest_node, nav_msgs::OccupancyGrid &map,
-		std::vector<int8_t> &vis_map, int &cost, int &tiles) {
+		int direction_from_nearest_node, bool move_node,
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
 	std::vector<int8_t> tmp_vis_map = vis_map;
 	if (_inflated_ring_lines_offsets.empty())
 		calculateNextInflatedCircleLinesOffset();
@@ -551,7 +493,7 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 		if (direction == Directions::none) {
 			return current_radius;
 		} else {
-			if (_move_nodes) {
+			if (move_node) {
 				if (direction == Directions::center) {
 					moveCircle(x, y, direction_from_nearest_node, index + 1,
 							previous_positions, map, tmp_vis_map, cost, tiles);	//move circle with same inflation away from nearest node
@@ -602,7 +544,7 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 	} else if (direction <= Directions::southwest && direction >= northwest) {
 		new_point.y += _grid_map_resolution;
 	}
-	//check distance to other nodes
+//check distance to other nodes
 //TODO: check if went too far away (regard edge length) and regard radius in min distance
 	double min_distance;
 	int nearest_node;
@@ -613,7 +555,7 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 //				"Point ("<< new_point.x << ", " << new_point.y<<") too close to node " << nearest_node << " (" << sqrt(min_distance) << "m)");
 		return false;
 	}
-	//check previous positions
+//check previous positions
 	for (auto it = previous_positions.rbegin(); it != previous_positions.rend();
 			++it) {
 		if (it->first == new_point.x && it->second == new_point.y) {
@@ -798,7 +740,7 @@ void CollisionChecker::alignPointToGridMap(geometry_msgs::Point &rand_sample) {
 			* _grid_map_resolution;
 }
 
-bool CollisionChecker::calculate_edge(int nearest_node, double &edge_length,
+bool CollisionChecker::calculateEdge(int nearest_node, double &edge_length,
 		double distance, geometry_msgs::Point &edge_center,
 		rrg_nbv_exploration_msgs::Node &new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
@@ -896,15 +838,6 @@ void CollisionChecker::occupancyGridCallback(
 	_occupancy_grid = std::make_shared<nav_msgs::OccupancyGrid>(*map_msg);
 }
 
-int CollisionChecker::getIndex(int x, int y) {
-	int sx = _occupancy_grid->info.width;
-	return y * sx + x;
-}
-
-int CollisionChecker::getAbsoluteAngleDiff(int x, int y) {
-	return 180 - abs(abs(x - y) - 180);
-}
-
 void CollisionChecker::occupancyGridUpdatesCallback(
 		const map_msgs::OccupancyGridUpdate::ConstPtr &map_msg) {
 	int index = 0;
@@ -913,6 +846,15 @@ void CollisionChecker::occupancyGridUpdatesCallback(
 			_occupancy_grid->data[getIndex(x, y)] = map_msg->data[index++];
 		}
 	}
+}
+
+int CollisionChecker::getIndex(int x, int y) {
+	int sx = _occupancy_grid->info.width;
+	return y * sx + x;
+}
+
+int CollisionChecker::getAbsoluteAngleDiff(int x, int y) {
+	return 180 - abs(abs(x - y) - 180);
 }
 
 bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,
@@ -924,6 +866,55 @@ bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,
 	if (mx < map.info.height && my < map.info.width)
 		return true;
 	return false;
+}
+
+void CollisionChecker::visualizeNode(rrg_nbv_exploration_msgs::Node &node) {
+	visualization_msgs::Marker node_point;
+	node_point.header.frame_id = "/map";
+	node_point.header.stamp = ros::Time();
+	node_point.ns = "rrt_collision_vis";
+	node_point.id = _marker_id++;
+	node_point.action = visualization_msgs::Marker::ADD;
+	node_point.pose.orientation.w = 1.0;
+	node_point.type = visualization_msgs::Marker::CYLINDER;
+	node_point.scale.x = 2 * node.radius;
+	node_point.scale.y = 2 * node.radius;
+	node_point.scale.z = 0.01;
+	node_point.color.g = 1.0f;
+	node_point.color.a = 0.5f;
+	node_point.pose.position.x = node.position.x;
+	node_point.pose.position.y = node.position.y;
+	node_point.pose.position.z = 0.005;
+	_node_points.markers.push_back(node_point);
+}
+
+void CollisionChecker::visualizeEdge(double edge_length,
+		const geometry_msgs::Point &edge_center, double edge_yaw,
+		std::vector<visualization_msgs::Marker> &new_edge_markers) {
+	if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+		visualization_msgs::Marker node_edge;
+		if (edge_length > 0) {
+			node_edge.header.frame_id = "/map";
+			node_edge.header.stamp = ros::Time();
+			node_edge.ns = "rrt_collision_vis";
+			node_edge.id = _marker_id++;
+			node_edge.action = visualization_msgs::Marker::ADD;
+			node_edge.type = visualization_msgs::Marker::CUBE;
+			node_edge.scale.x = edge_length;
+			node_edge.scale.y = _robot_width;
+			node_edge.scale.z = 0.01;
+			node_edge.color.g = 1.0f;
+			node_edge.color.a = 0.5f;
+			node_edge.pose.position.x = edge_center.x;
+			node_edge.pose.position.y = edge_center.y;
+			node_edge.pose.position.z = 0.005;
+			tf2::Quaternion quaternion;
+			quaternion.setRPY(0, 0, edge_yaw);
+			quaternion.normalize();
+			node_edge.pose.orientation = tf2::toMsg(quaternion);
+			new_edge_markers.push_back(node_edge);
+		}
+	}
 }
 
 }

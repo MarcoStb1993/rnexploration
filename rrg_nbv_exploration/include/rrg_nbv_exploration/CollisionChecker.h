@@ -315,13 +315,14 @@ private:
 	 * @param Reference to x-coordinate of the circle's center
 	 * @param Reference to y-coordinate of the circle's center
 	 * @param Direction to evade nearest node
+	 * @param If the node should be moved during inflation
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
 	 * @return Maximum radius of the inflated circle
 	 */
-	double inflateCircle(double &x, double &y, int direction_from_nearest_node,
+	double inflateCircle(double &x, double &y, int direction_from_nearest_node, bool move_node,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
 			int &cost, int &tiles);
 
@@ -352,7 +353,7 @@ private:
 	 * @param Reference to the RRG
 	 * @return If the path box edge must be checked or if it is entirely inside both node areas
 	 */
-	bool calculate_edge(int nearest_node, double &edge_length, double distance,
+	bool calculateEdge(int nearest_node, double &edge_length, double distance,
 			geometry_msgs::Point &edge_center,
 			rrg_nbv_exploration_msgs::Node &new_node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
@@ -431,5 +432,22 @@ private:
 	 */
 	void initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Add a visualization marker for the given edge to the list of edge markers
+	 * @param Length of the edge marker
+	 * @param Center coordinates of the edge
+	 * @param Yaw of the edge
+	 * @param Reference to the list of edge markers
+	 */
+	void visualizeEdge(double edge_length,
+			const geometry_msgs::Point &edge_center, double edge_yaw,
+			std::vector<visualization_msgs::Marker> &new_edge_markers);
+
+	/**
+	 * @brief Add a visualization marker for the given node
+	 * @param Node object to be visualized
+	 */
+	void visualizeNode(rrg_nbv_exploration_msgs::Node &node);
 };
 }

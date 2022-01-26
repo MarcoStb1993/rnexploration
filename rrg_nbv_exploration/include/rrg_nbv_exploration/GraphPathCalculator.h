@@ -118,5 +118,21 @@ private:
 	void addInterNodes(std::vector<geometry_msgs::PoseStamped> &path,
 			geometry_msgs::Point start, geometry_msgs::Point end,
 			geometry_msgs::Quaternion orientation, double yaw);
+
+	/**
+	 * @brief Update the given node's heading change to best view from robot and update the largest change
+	 * @brief Node index
+	 * @brief Reference to RRG
+	 */
+	void setHeadingChangeToBestView(int node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Update the largest distance and traversability cost to robot from the given node's values
+	 * @brief Node index
+	 * @brief Reference to RRG
+	 */
+	void updateLargestDistanceAndTraversabilityCost(int node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
 };
 }
