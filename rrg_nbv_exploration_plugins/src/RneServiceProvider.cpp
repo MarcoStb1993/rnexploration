@@ -47,7 +47,7 @@ void RneServiceProvider::publishGoalObsolete() {
 }
 
 bool RneServiceProvider::newGoal(geometry_msgs::Pose goal) {
-	if(_reset_current_goal){
+	if (_reset_current_goal) {
 		geometry_msgs::Pose newGoal;
 		_current_goal = newGoal;
 		_reset_current_goal = false;
@@ -109,7 +109,7 @@ void RneServiceProvider::bestGoalCallback(
 	if (_exploration_mode && best_goal->current_goal != best_goal->best_node) {
 		if (!_goal_obsolete)
 			ROS_INFO_STREAM(
-					"goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
+					"Goal obsolete, best goal: " << best_goal->best_node << " current goal: " << best_goal->current_goal);
 		_goal_obsolete = true;
 	} else {
 		_goal_obsolete = false;

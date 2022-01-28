@@ -236,7 +236,7 @@ private:
 	/**
 	 * @brief Publish the node that currently has the best gain-cost-ratio
 	 */
-	void publishNodeWithBestGain();
+	void publishBestAndCurrentNode();
 	/**
 	 * @brief Sorts the nodes which gain needs to be (re)calculated by their distance to the robot (closest first)
 	 */
@@ -276,7 +276,7 @@ private:
 	/**
 	 * @brief Updates the current goal and the goals around it depending on the status navigation returned
 	 */
-	void updateCurrentGoal();
+	void handleCurrentGoalFinished();
 	/**
 	 * Timer callback for setting exploration to finished
 	 * @param event

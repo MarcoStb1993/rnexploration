@@ -225,11 +225,13 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Point edge_center;
 			double edge_length;
 			int edge_cost = 0, edge_tiles = 0;
-			bool check_required = calculateEdge(it.first, edge_length,
-					distance, edge_center, new_node, rrg);
+			bool check_required = calculateEdge(it.first, edge_length, distance,
+					edge_center, new_node, rrg);
 			if (edge_length > _max_edge_distance) //path box only allowed up to a given length
 				continue;
-			else if (_inflation_active && edge_length <= 0
+			else if (_inflation_active && edge_length > 0) { //only connect nodes with enough radius overlap
+				continue;
+			} else if (_inflation_active
 					&& it.second < rrg.nodes[it.first].squared_radius) {
 				return false; //new node position engulfed by this node's radius
 			}
@@ -782,6 +784,7 @@ bool CollisionChecker::calculateEdge(int nearest_node, double &edge_length,
 bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
 		int &nearest_node, rrg_nbv_exploration_msgs::Graph &rrg) {
 	double min_distance = -1;
+	double min_distance_to_radius = -1;
 	nearest_node = -1;
 	std::vector<std::pair<int, double>> nearby_nodes =
 			_graph_searcher->searchInRadius(point,
@@ -791,21 +794,28 @@ bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
 			return false;
 		} else {
 			double distance = sqrt(it.second) - rrg.nodes[it.first].radius;
-			if (distance < min_distance) {
+			if (distance < min_distance_to_radius) {
 				nearest_node = it.first;
-				min_distance = distance;
+				min_distance_to_radius = distance;
+				min_distance = sqrt(it.second);
 			}
 		}
 	}
-	if (min_distance > _max_edge_distance) { //move sample point closer to nearest node to enable connection
-		point.x = rrg.nodes[nearest_node].position.x
-				- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
-						* (rrg.nodes[nearest_node].position.x - point.x)
-						/ (min_distance + rrg.nodes[nearest_node].radius));
-		point.y = rrg.nodes[nearest_node].position.y
-				- ((_max_edge_distance + rrg.nodes[nearest_node].radius)
-						* (rrg.nodes[nearest_node].position.y - point.y)
-						/ (min_distance + rrg.nodes[nearest_node].radius));
+	if (min_distance_to_radius > _robot_radius) { //move sample point closer to nearest node to enable connection
+		double distance_threshold = _path_box_distance_thres / 2
+				+ sqrt(
+						rrg.nodes[nearest_node].squared_radius
+								- pow(_robot_width / 2, 2));
+		if (min_distance_to_radius > distance_threshold) {
+			point.x = rrg.nodes[nearest_node].position.x
+					- ((distance_threshold + rrg.nodes[nearest_node].radius)
+							* (rrg.nodes[nearest_node].position.x - point.x)
+							/ min_distance);
+			point.y = rrg.nodes[nearest_node].position.y
+					- ((distance_threshold + rrg.nodes[nearest_node].radius)
+							* (rrg.nodes[nearest_node].position.y - point.y)
+							/ min_distance);
+		}
 	}
 	return true;
 }

@@ -131,7 +131,7 @@ void GraphConstructor::runRrgConstruction() {
 		}
 		_node_comparator->maintainList(_rrg);
 		checkCurrentGoal();
-		publishNodeWithBestGain();
+		publishBestAndCurrentNode();
 		publishNodeToUpdate();
 		if (_nodes_to_update.empty() && _current_goal_node == -1) {
 			_exploration_finished_timer.start();
@@ -223,7 +223,7 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 	return false;
 }
 
-void GraphConstructor::publishNodeWithBestGain() {
+void GraphConstructor::publishBestAndCurrentNode() {
 	rrg_nbv_exploration_msgs::BestAndCurrentNode msg;
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
@@ -242,12 +242,12 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrg.nodes[iterator.first].status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-			_node_comparator->removeNode(iterator.first);
+//			_node_comparator->removeNode(iterator.first);
 			_nodes_to_update.push_back(iterator.first);
-			_sort_nodes_to_update = true;
-			_rrg.nodes[iterator.first].gain = -1;
-			_rrg.nodes[iterator.first].heading_change_to_robot_best_view = 0.0;
-			_rrg.nodes[iterator.first].reward_function = 0.0;
+//			_sort_nodes_to_update = true;
+//			_rrg.nodes[iterator.first].gain = -1;
+//			_rrg.nodes[iterator.first].heading_change_to_robot_best_view = 0.0;
+//			_rrg.nodes[iterator.first].reward_function = 0.0;
 		}
 	}
 }
@@ -277,20 +277,20 @@ void GraphConstructor::publishNodeToUpdate() {
 	}
 }
 
-void GraphConstructor::updateCurrentGoal() {
+void GraphConstructor::handleCurrentGoalFinished() {
 //	ROS_INFO_STREAM(
 //			"Update current goal " << _current_goal_node << " with status " << (int)_rrg.nodes[_current_goal_node].status);
 	geometry_msgs::Point update_center;
 	switch (_rrg.nodes[_current_goal_node].status) {
 	case rrg_nbv_exploration_msgs::Node::EXPLORED:
-		ROS_INFO("RNE goal explored");
+		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " explored");
 		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
 		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::VISITED:
-		ROS_INFO("RNE goal visited");
+		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " visited");
 		_node_comparator->removeNode(_current_goal_node);
 		_sort_nodes_to_update = true;
 		_rrg.nodes[_current_goal_node].gain = 0;
@@ -301,9 +301,11 @@ void GraphConstructor::updateCurrentGoal() {
 		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::ABORTED:
-		ROS_INFO("RNE goal aborted");
+		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " aborted");
 		_rrg.nodes[_current_goal_node].status =
-				rrg_nbv_exploration_msgs::Node::INITIAL;
+				_rrg.nodes[_current_goal_node].gain > 0 ?
+						rrg_nbv_exploration_msgs::Node::INITIAL :
+						rrg_nbv_exploration_msgs::Node::EXPLORED;
 		if (_moved_to_current_goal) {
 			ROS_INFO("update nodes");
 			_node_comparator->removeNode(_current_goal_node);
@@ -313,7 +315,7 @@ void GraphConstructor::updateCurrentGoal() {
 		}
 		break;
 	case rrg_nbv_exploration_msgs::Node::FAILED:
-		ROS_INFO("RNE goal failed");
+		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " failed");
 		_node_comparator->removeNode(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
 		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view = 0;
@@ -330,7 +332,8 @@ void GraphConstructor::updateCurrentGoal() {
 		break;
 	default:
 		//active or waiting (should not occur)
-		ROS_INFO("RNE goal active or waiting");
+		ROS_INFO_STREAM(
+				"RNE goal " << _current_goal_node << " active or waiting");
 		return;
 	}
 	_last_goal_node = _current_goal_node;
@@ -349,6 +352,7 @@ void GraphConstructor::updatedNodeCallback(
 		_rrg.nodes[updated_node->index].position.z = updated_node->position.z;
 		_last_updated_node = updated_node->index;
 		_nodes_to_update.remove(updated_node->index);
+		_node_comparator->removeNode(updated_node->index);
 		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
@@ -361,11 +365,17 @@ void GraphConstructor::updatedNodeCallback(
 									* (double) _rrg.nodes[updated_node->index].path_to_robot.size());
 			_rrg.largest_heading_change_to_robot_best_view =
 					std::max(_rrg.largest_heading_change_to_robot_best_view,
-							(double)_rrg.nodes[updated_node->index].heading_change_to_robot_best_view
+							(double) _rrg.nodes[updated_node->index].heading_change_to_robot_best_view
 									/ _rrg.nodes[updated_node->index].path_to_robot.size());
 			_rrg.highest_node_gain = std::max(_rrg.highest_node_gain,
 					_rrg.nodes[updated_node->index].gain);
 			_node_comparator->addNode(updated_node->index);
+			_sort_nodes_to_update = true;
+		} else {
+			_rrg.nodes[updated_node->index].gain = 0;
+			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
+					0.0;
+			_rrg.nodes[updated_node->index].reward_function = 0.0;
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
@@ -439,7 +449,7 @@ bool GraphConstructor::updateCurrentGoal(
 	if (_current_goal_node != -1 && !_updating) {
 		_updating = true;
 		_rrg.nodes[_current_goal_node].status = req.status;
-		updateCurrentGoal();
+		handleCurrentGoalFinished();
 	}
 	res.success = true;
 	res.message = "Changed current goal's status";
