@@ -93,6 +93,7 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 				rrg.nodes[0].traversability_weight;
 		rrg.largest_node_radius = std::max(rrg.nodes[0].radius,
 				rrg.largest_node_radius);
+		rrg.nodes[0].radii_to_robot = rrg.nodes[0].radius;
 		rrg.highest_traversability_cost_to_robot =
 				(double) rrg.nodes[0].traversability_cost
 						/ (double) rrg.nodes[0].traversability_weight;
@@ -108,6 +109,7 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 		rrg.nodes[0].traversability_weight = 0;
 		rrg.nodes[0].traversability_cost_to_robot = 0;
 		rrg.nodes[0].traversability_weight_to_robot = 0;
+		rrg.nodes[0].radii_to_robot = _robot_radius;
 		rrg.highest_traversability_cost_to_robot = 0;
 	}
 	rrg.nodes[0].distance_to_robot = 0;
@@ -311,6 +313,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 									heading_out,
 									rrg.nodes[node_with_shortest_distance].heading_in); //calculate heading cost from current to neighbor node
 			new_node.heading_change_to_robot_best_view = 0.0;
+			new_node.radii_to_robot =
+					rrg.nodes[node_with_shortest_distance].radii_to_robot
+							+ new_node.radius;
 			new_node.traversability_cost = node_cost;
 			new_node.traversability_weight = node_tiles;
 			new_node.traversability_cost_to_robot =

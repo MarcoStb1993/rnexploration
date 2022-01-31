@@ -54,6 +54,7 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 			node.heading_in = 0;
 			node.heading_change_to_robot = 0;
 			node.heading_change_to_robot_best_view = 0;
+			node.radii_to_robot = 0;
 		}
 		rrg.longest_distance_to_robot = 0;
 		rrg.largest_heading_change_to_robot_best_view = 0;
@@ -67,6 +68,7 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 		rrg.nodes[startNode].traversability_weight_to_robot =
 				rrg.nodes[startNode].traversability_weight;
 		rrg.nodes[startNode].heading_in = robot_yaw;
+		rrg.nodes[startNode].radii_to_robot = rrg.nodes[startNode].radius;
 		setHeadingChangeToBestView(startNode, rrg);
 		updateLargestDistanceAndTraversabilityCost(startNode, rrg);
 	}
@@ -101,6 +103,7 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 				} else {
 					current_heading_out = rrg.edges[edge].yaw;
 				}
+				rrg.nodes[neighbor_node].radii_to_robot = rrg.nodes[current_node].radii_to_robot + rrg.nodes[neighbor_node].radius;
 				rrg.nodes[neighbor_node].heading_in = current_heading_out;
 				rrg.nodes[neighbor_node].heading_change_to_robot =
 						rrg.nodes[current_node].heading_change_to_robot
@@ -116,7 +119,6 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 						rrg.nodes[current_node].traversability_weight_to_robot
 								+ rrg.nodes[neighbor_node].traversability_weight
 								+ rrg.edges[edge].traversability_weight;
-
 				updateLargestDistanceAndTraversabilityCost(neighbor_node, rrg);
 				node_queue.insert(
 						std::make_pair(

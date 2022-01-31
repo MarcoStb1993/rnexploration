@@ -24,6 +24,7 @@ void NodeComparator::initialization() {
 	private_nh.param("distance_factor", _distance_factor, 1.0);
 	private_nh.param("heading_factor", _heading_factor, 1.0);
 	private_nh.param("traversability_factor", _traversability_factor, 1.0);
+	private_nh.param("inflation_active", _inflation_active, true);
 
 	_sort_list = false;
 	_robot_moved = false;
@@ -85,45 +86,57 @@ void NodeComparator::sortByReward() {
 
 void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	double factor_sum = _gain_factor + _distance_factor + _traversability_factor
-			+ _heading_factor + _radius_factor;
+	if (rrg.highest_node_gain <= 0
+			|| rrg.highest_traversability_cost_to_robot <= 0
+			|| rrg.largest_heading_change_to_robot_best_view <= 0
+			|| rrg.longest_distance_to_robot <= 0
+			|| (_inflation_active && rrg.largest_node_radius <= 0))
+		return; //initialization or recalculation happening, keep previous reward functions until finished
+	double cost_sum =
+			_distance_factor + _traversability_factor + _heading_factor
+					+ _inflation_active ? _radius_factor : 0;
+	if (cost_sum == 0)
+		cost_sum = std::numeric_limits<double>::infinity();
 //	ROS_INFO_STREAM(
 //			"g: " << rrg.highest_node_gain << " d: " << rrg.longest_distance_to_robot << " t: " << rrg.highest_traversability_cost_to_robot << " h: " << rrg.largest_heading_change_to_robot_best_view << " r: " << rrg.largest_node_radius);
 	for (auto &node : _nodes_ordered_by_reward) {
-		if (node.reward_function == 0 || _robot_moved) {
-			double gain =
-					rrg.highest_node_gain > 0 ?
-							rrg.nodes[node.node].gain / rrg.highest_node_gain :
-							0;
+		if (rrg.nodes[node.node].path_to_robot.size()
+				&& (node.reward_function == 0 || _robot_moved)) {
+			double gain = rrg.nodes[node.node].gain / rrg.highest_node_gain;
 			double traversability =
-					(rrg.nodes[node.node].traversability_weight_to_robot > 0
-							&& rrg.highest_traversability_cost_to_robot > 0) ?
-							(1.0
-									- (rrg.nodes[node.node].traversability_cost_to_robot
-											/ rrg.nodes[node.node].traversability_weight_to_robot)
-											/ rrg.highest_traversability_cost_to_robot) :
-							0;
-			double distance =
-					rrg.longest_distance_to_robot > 0 ?
-							(1.0
-									- (rrg.nodes[node.node].distance_to_robot
-											/ rrg.longest_distance_to_robot)) :
-							0;
+					rrg.nodes[node.node].traversability_cost_to_robot
+							/ rrg.nodes[node.node].traversability_weight_to_robot
+							/ rrg.highest_traversability_cost_to_robot;
+			double distance = rrg.nodes[node.node].distance_to_robot
+					/ rrg.longest_distance_to_robot;
 			double heading =
-					(rrg.nodes[node.node].path_to_robot.size() > 0
-							&& rrg.largest_heading_change_to_robot_best_view > 0) ?
-							(1.0
-									- (((double) rrg.nodes[node.node].heading_change_to_robot_best_view
-											/ rrg.nodes[node.node].path_to_robot.size())
-											/ rrg.largest_heading_change_to_robot_best_view)) :
-							0;
-			double radius = rrg.nodes[node.node].radius
-					/ rrg.largest_node_radius;
-			node.reward_function = (_gain_factor * gain
-					+ _distance_factor * distance
-					+ _traversability_factor * traversability
-					+ _heading_factor * heading + _radius_factor * radius)
-					/ factor_sum;
+					((double) rrg.nodes[node.node].heading_change_to_robot_best_view
+							/ rrg.nodes[node.node].path_to_robot.size())
+							/ rrg.largest_heading_change_to_robot_best_view;
+			if (_inflation_active) {
+				double radius = 1
+						- (rrg.nodes[node.node].radii_to_robot
+								/ rrg.nodes[node.node].path_to_robot.size()
+								/ rrg.largest_node_radius);
+				node.reward_function = _gain_factor * gain
+						* exp(
+								-1
+										* (_distance_factor * distance
+												+ _traversability_factor
+														* traversability
+												+ _heading_factor * heading
+												+ _radius_factor * radius)
+										/ cost_sum);
+			} else {
+				node.reward_function = _gain_factor * gain
+						* exp(
+								-1
+										* (_distance_factor * distance
+												+ _traversability_factor
+														* traversability
+												+ _heading_factor * heading)
+										/ cost_sum);
+			}
 			rrg.nodes[node.node].reward_function = node.reward_function;
 		}
 	}

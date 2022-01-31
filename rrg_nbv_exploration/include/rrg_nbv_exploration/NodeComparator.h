@@ -145,6 +145,10 @@ private:
 	 * @brief Weighting factor for the traversability cost along the path to a node
 	 */
 	double _traversability_factor;
+	/**
+	 * @brief If the inflation of nodes (wavefront) is active
+	 */
+	bool _inflation_active;
 
 	/**
 	 * @brief Sorts list of nodes with a reward function, the node with the highest reward function comes first

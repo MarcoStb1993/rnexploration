@@ -114,31 +114,29 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = rrg->nodes[node].position.y;
 	node_info_text.pose.position.z = rrg->nodes[node].position.z + 0.5;
 	std::ostringstream oss;
-	if (rrg->nodes[node].reward_function > 0) {
+	if (rrg->nodes[node].reward_function > 0
+			&& rrg->nodes[node].path_to_robot.size() > 0) {
 		oss << "(" << node << ") " << std::fixed << std::setprecision(3)
 				<< rrg->nodes[node].reward_function;
-		if (_show_gain_info)
+		if (_show_gain_info && rrg->highest_node_gain > 0)
 			oss << " g: " << (rrg->nodes[node].gain / rrg->highest_node_gain);
-		if (_show_distance_info)
+		if (_show_distance_info && rrg->longest_distance_to_robot > 0)
 			oss << " d: "
-					<< (1.0
-							- (rrg->nodes[node].distance_to_robot
-									/ rrg->longest_distance_to_robot));
-		if (_show_traversability_info)
+					<< rrg->nodes[node].distance_to_robot
+							/ rrg->longest_distance_to_robot;
+		if (_show_traversability_info
+				&& rrg->highest_traversability_cost_to_robot > 0)
 			oss << " t: "
-					<< (1.0
-							- ((rrg->nodes[node].traversability_cost_to_robot
-									/ rrg->nodes[node].traversability_weight_to_robot)
-									/ rrg->highest_traversability_cost_to_robot));
-		if (_show_heading_info)
+					<< rrg->nodes[node].traversability_cost_to_robot
+							/ rrg->nodes[node].traversability_weight_to_robot
+							/ rrg->highest_traversability_cost_to_robot;
+		if (_show_heading_info
+				&& rrg->largest_heading_change_to_robot_best_view > 0)
 			oss << " h: "
-					<< (rrg->largest_heading_change_to_robot_best_view > 0 ?
-							(1.0
-									- (((double) rrg->nodes[node].heading_change_to_robot_best_view
-											/ rrg->nodes[node].path_to_robot.size())
-											/ rrg->largest_heading_change_to_robot_best_view)) :
-							0);
-		if (_show_radius_info)
+					<< (double) rrg->nodes[node].heading_change_to_robot_best_view
+							/ rrg->nodes[node].path_to_robot.size()
+							/ rrg->largest_heading_change_to_robot_best_view;
+		if (_show_radius_info && rrg->largest_node_radius > 0)
 			oss << " r: "
 					<< (rrg->nodes[node].radius / rrg->largest_node_radius);
 	} else
