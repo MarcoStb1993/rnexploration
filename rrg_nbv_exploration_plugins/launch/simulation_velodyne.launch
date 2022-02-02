@@ -251,9 +251,9 @@
 		<arg name="add_start_node" default="true" />
 		<arg name="gain_factor" default="1.0" />
 		<arg name="distance_factor" default="1.0" />
-		<arg name="heading_factor" default="0.5" />
-		<arg name="traversability_factor" default="0.3" />
-		<arg name="radius_factor" default="0.7" />
+		<arg name="heading_factor" default="1.0" />
+		<arg name="traversability_factor" default="1.0" />
+		<arg name="radius_factor" default="1.0" />
 		<arg name="inflation_active" default="$(arg inflation_active)" />
 		<arg name="move_nodes" default="$(arg move_nodes)" />
 	</include>

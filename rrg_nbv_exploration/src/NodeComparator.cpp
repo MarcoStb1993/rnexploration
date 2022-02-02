@@ -98,18 +98,18 @@ void NodeComparator::calculateRewardFunctions(
 			double heading =
 					(double) rrg.nodes[node.node].heading_change_to_robot_best_view
 							/ 180.0 * M_PI;
-			if (_inflation_active) {
+			if (_inflation_active && _radius_factor > 0) {
 				double radius = rrg.nodes[node.node].radii_to_robot
 						/ rrg.nodes[node.node].path_to_robot.size()
 						/ _robot_radius;
-				node.reward_function = _gain_factor * gain * _radius_factor
-						* radius
+				node.reward_function = _gain_factor * gain
 						* exp(
 								-1
-										* (_distance_factor * distance
+										* ((_distance_factor * distance
 												+ _traversability_factor
 														* traversability
-												+ _heading_factor * heading));
+												+ _heading_factor * heading)
+												/ (_radius_factor * radius)));
 			} else {
 				node.reward_function = _gain_factor * gain
 						* exp(

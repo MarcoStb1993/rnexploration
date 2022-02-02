@@ -41,7 +41,6 @@ GainCalculator::GainCalculator() :
 		_sensor_vertical_fov_top = tmp;
 	}
 	_best_gain_per_view = 0;
-	_max_gain_points = 0;
 	_last_updated_node.index = -1;
 	_sensor_min_range_squared = pow(_sensor_min_range, 2);
 }
@@ -90,7 +89,6 @@ void GainCalculator::precalculateGainPollPoints() {
 			/ _delta_radius);
 	_best_gain_per_view = phi_steps.size() * range_steps
 			* (_sensor_horizontal_fov / _delta_theta + 1);
-	_max_gain_points = theta_steps.size() * phi_steps.size() * range_steps;
 }
 
 void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
