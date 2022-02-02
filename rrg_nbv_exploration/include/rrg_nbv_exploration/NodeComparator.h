@@ -122,7 +122,7 @@ private:
 	 */
 	bool _robot_moved;
 	/**
-	 * @brief Radius that includes robot's footprint in m
+	 * Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
 	/**

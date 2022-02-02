@@ -42,6 +42,10 @@ private:
 	 * Node count in the RRG
 	 */
 	int _last_rrg_node_count;
+	/**
+	 * Radius that includes robot's footprint in m
+	 */
+	double _robot_radius;
 
 	bool _show_gain_info;
 	bool _show_distance_info;

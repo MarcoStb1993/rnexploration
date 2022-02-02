@@ -94,9 +94,6 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 		rrg.largest_node_radius = std::max(rrg.nodes[0].radius,
 				rrg.largest_node_radius);
 		rrg.nodes[0].radii_to_robot = rrg.nodes[0].radius;
-		rrg.highest_traversability_cost_to_robot =
-				(double) rrg.nodes[0].traversability_cost
-						/ (double) rrg.nodes[0].traversability_weight;
 		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
 			visualizeNode(rrg.nodes[0]);
 			_rrt_collision_visualization_pub.publish(_node_points);
@@ -110,16 +107,12 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 		rrg.nodes[0].traversability_cost_to_robot = 0;
 		rrg.nodes[0].traversability_weight_to_robot = 0;
 		rrg.nodes[0].radii_to_robot = _robot_radius;
-		rrg.highest_traversability_cost_to_robot = 0;
 	}
 	rrg.nodes[0].distance_to_robot = 0;
 	rrg.nodes[0].path_to_robot.push_back(0);
 	rrg.nodes[0].heading_in = 0;
 	rrg.nodes[0].heading_change_to_robot = 0;
 	rrg.nodes[0].heading_change_to_robot_best_view = 0;
-	rrg.longest_distance_to_robot = 0;
-	rrg.largest_heading_change_to_robot_best_view = 0;
-	rrg.highest_node_gain = 0;
 
 	_vis_map.data = tmp_vis_map_data;
 	_visualization_pub.publish(_vis_map);
@@ -300,8 +293,6 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			new_node.index = rrg.node_counter++;
 			new_node.position.z = height / nodes.size();
 			new_node.distance_to_robot = shortest_distance;
-			rrg.longest_distance_to_robot = std::max(
-					rrg.longest_distance_to_robot, shortest_distance);
 			new_node.path_to_robot =
 					rrg.nodes[node_with_shortest_distance].path_to_robot;
 			new_node.path_to_robot.push_back(new_node.index);
@@ -326,10 +317,6 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 					rrg.nodes[node_with_shortest_distance].traversability_weight_to_robot
 							+ new_node.traversability_weight
 							+ rrg.edges[edge_to_shortest_distance].traversability_weight;
-			rrg.highest_traversability_cost_to_robot = std::max(
-					rrg.highest_traversability_cost_to_robot,
-					(double) new_node.traversability_cost_to_robot
-							/ (double) new_node.traversability_weight_to_robot);
 			rrg.nodes.push_back(new_node);
 			if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
 				visualizeNode(new_node);

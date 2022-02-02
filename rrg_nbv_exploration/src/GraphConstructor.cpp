@@ -363,12 +363,6 @@ void GraphConstructor::updatedNodeCallback(
 									_rrg.nodes[updated_node->index].best_yaw))
 							/ (180.0
 									* (double) _rrg.nodes[updated_node->index].path_to_robot.size());
-			_rrg.largest_heading_change_to_robot_best_view =
-					std::max(_rrg.largest_heading_change_to_robot_best_view,
-							(double) _rrg.nodes[updated_node->index].heading_change_to_robot_best_view
-									/ _rrg.nodes[updated_node->index].path_to_robot.size());
-			_rrg.highest_node_gain = std::max(_rrg.highest_node_gain,
-					_rrg.nodes[updated_node->index].gain);
 			_node_comparator->addNode(updated_node->index);
 			_sort_nodes_to_update = true;
 		} else {

@@ -3,6 +3,7 @@
 namespace rrg_nbv_exploration {
 RneVisualizer::RneVisualizer() {
 	ros::NodeHandle private_nh("~");
+	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("show_gain_info", _show_gain_info, false);
 	private_nh.param("show_distance_info", _show_distance_info, false);
 	private_nh.param("show_distance_info", _show_traversability_info, false);
@@ -116,29 +117,26 @@ void RneVisualizer::addInfoTextVisualization(
 	std::ostringstream oss;
 	if (rrg->nodes[node].reward_function > 0
 			&& rrg->nodes[node].path_to_robot.size() > 0) {
-		oss << "(" << node << ") " << std::fixed << std::setprecision(3)
-				<< rrg->nodes[node].reward_function;
-		if (_show_gain_info && rrg->highest_node_gain > 0)
-			oss << " g: " << (rrg->nodes[node].gain / rrg->highest_node_gain);
-		if (_show_distance_info && rrg->longest_distance_to_robot > 0)
-			oss << " d: "
-					<< rrg->nodes[node].distance_to_robot
-							/ rrg->longest_distance_to_robot;
-		if (_show_traversability_info
-				&& rrg->highest_traversability_cost_to_robot > 0)
+		oss << "(" << node << ") " << std::fixed << std::setprecision(6)
+				<< rrg->nodes[node].reward_function << std::fixed << std::setprecision(3);
+		if (_show_gain_info)
+			oss << std::fixed << std::setprecision(3) << " g: "
+					<< rrg->nodes[node].gain;
+		if (_show_distance_info)
+			oss << " d: " << rrg->nodes[node].distance_to_robot;
+		if (_show_traversability_info)
 			oss << " t: "
 					<< rrg->nodes[node].traversability_cost_to_robot
-							/ rrg->nodes[node].traversability_weight_to_robot
-							/ rrg->highest_traversability_cost_to_robot;
-		if (_show_heading_info
-				&& rrg->largest_heading_change_to_robot_best_view > 0)
+							/ rrg->nodes[node].traversability_weight_to_robot;
+		if (_show_heading_info)
 			oss << " h: "
-					<< (double) rrg->nodes[node].heading_change_to_robot_best_view
-							/ rrg->nodes[node].path_to_robot.size()
-							/ rrg->largest_heading_change_to_robot_best_view;
-		if (_show_radius_info && rrg->largest_node_radius > 0)
+					<< ((double) rrg->nodes[node].heading_change_to_robot_best_view
+							/ 180.0 * M_PI);
+		if (_show_radius_info)
 			oss << " r: "
-					<< (rrg->nodes[node].radius / rrg->largest_node_radius);
+					<< (rrg->nodes[node].radii_to_robot
+							/ rrg->nodes[node].path_to_robot.size()
+							/ _robot_radius);
 	} else
 		oss << "(" << node << ")";
 	node_info_text.text = oss.str();
