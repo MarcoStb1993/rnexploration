@@ -188,6 +188,10 @@ private:
 	 * y-offsets, negative ones are symmetrical
 	 */
 	std::vector<std::pair<double, std::vector<CircleLine>>> _inflated_ring_lines_offsets;
+	/**
+	 * @brief List of radius and respective path box distance threshold that matches the particular radius
+	 */
+	std::vector<std::pair<double, double>> _path_box_distance_thresholds;
 
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
@@ -249,6 +253,7 @@ private:
 	 * @brief Check if a set of offsets with the given center is in collision
 	 * @param X-coordinate of the set's center
 	 * @param Y-coordinate of the set's center
+	 * @param Reference to if the direction can be merged
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Set of offsets to check
@@ -258,9 +263,9 @@ private:
 	 * @return Return the direction if a collision was detected, 0 otherwise
 	 */
 	int isSetInCollision(double center_x, double center_y,
-			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			std::vector<CircleLine> offsets, int &cost, int &tiles,
-			bool recalculate = false);
+			bool &fixed_direction, nav_msgs::OccupancyGrid &map,
+			std::vector<int8_t> &vis_map, std::vector<CircleLine> offsets,
+			int &cost, int &tiles, bool recalculate = false);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -314,15 +319,16 @@ private:
 	 * @brief Check how far a circle with the given center can be inflated until a collision is detected
 	 * @param Reference to x-coordinate of the circle's center
 	 * @param Reference to y-coordinate of the circle's center
-	 * @param Direction to evade nearest node
 	 * @param If the node should be moved during inflation
+	 * @param Reference nearest node to the new node
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
 	 * @return Maximum radius of the inflated circle
 	 */
-	double inflateCircle(double &x, double &y, int direction_from_nearest_node, bool move_node,
+	double inflateCircle(double &x, double &y, bool move_node,
+			rrg_nbv_exploration_msgs::Node &nearest_node,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
 			int &cost, int &tiles);
 
@@ -406,6 +412,20 @@ private:
 			int &cost, int &tiles);
 
 	/**
+	 * @brief Validate that movement in the given direction has the new node remain in nearest node's
+	 * connectable zone (between engulfing and inside the path box threshold)
+	 * @param Reference to x-coordinate of the new node's center
+	 * @param Reference to y-coordinate of the new node's center
+	 * @param Direction in which the new node will be moved
+	 * @param Reference to the nearest node
+	 * @param Reference to if the direction can be merged
+	 * @return If the movement in the given direction is acceptable or moves the new node out of connection
+	 */
+	bool checkMovementWithNearestNode(double &x, double &y, int &direction,
+			rrg_nbv_exploration_msgs::Node &nearest_node,
+			bool &fixed_direction);
+
+	/**
 	 * @brief Check if a line from one x-coordinate to another with consistent y-coordinate is in collision
 	 * @param Starting x-coordinate
 	 * @param Ending x-coordinate
@@ -448,6 +468,7 @@ private:
 	 * @brief Add a visualization marker for the given node
 	 * @param Node object to be visualized
 	 */
-	void visualizeNode(rrg_nbv_exploration_msgs::Node &node);
+	void visualizeNode(rrg_nbv_exploration_msgs::Node &node, int failed = 0);
+	geometry_msgs::Point movePoint(int direction, double &x, double &y);
 };
 }

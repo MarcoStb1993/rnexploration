@@ -82,7 +82,7 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 					rrg.nodes[0].position.y, map, tmp_vis_map_data, node_cost,
 					node_tiles)) {
 		rrg.nodes[0].radius = inflateCircle(rrg.nodes[0].position.x,
-				rrg.nodes[0].position.y, Directions::none, false, map,
+				rrg.nodes[0].position.y, false, rrg.nodes[0], map,
 				tmp_vis_map_data, node_cost, node_tiles);
 		rrg.nodes[0].squared_radius = pow(rrg.nodes[0].radius, 2);
 		rrg.nodes[0].traversability_cost = node_cost;
@@ -163,6 +163,12 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::Node &new_node,
 		geometry_msgs::Point rand_sample) {
 	int nearest_node;
+
+	new_node.position.x = rand_sample.x;
+	new_node.position.y = rand_sample.y;
+	new_node.position.z = rand_sample.z;
+	new_node.radius = 0.05;
+
 	if (!(_inflation_active ?
 			checkEngulfing(rand_sample, nearest_node, rrg) :
 			checkDistance(rand_sample, nearest_node, rrg))) {
@@ -177,19 +183,10 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 	int node_cost = 0, node_tiles = 0;
 	if (!isCircleInCollision(rand_sample.x, rand_sample.y, map,
 			tmp_vis_map_data, node_cost, node_tiles)) {
-		double yaw = atan2(rand_sample.y - rrg.nodes[nearest_node].position.y,
-				rand_sample.x - rrg.nodes[nearest_node].position.x);
 		if (_inflation_active) {
-			double direction = yaw * 180.0 / M_PI;
-			if (direction < 0)
-				direction += 360;
-			int direction_from_nearest_node = ((int) round(direction / 45))
-					* 45;
-			if (direction_from_nearest_node == 360)
-				direction_from_nearest_node = 0;
 			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
-					direction_from_nearest_node, _move_nodes, map,
-					tmp_vis_map_data, node_cost, node_tiles);
+					_move_nodes, rrg.nodes[nearest_node], map, tmp_vis_map_data,
+					node_cost, node_tiles);
 			new_node.squared_radius = pow(new_node.radius, 2);
 			rrg.largest_node_radius = std::max(new_node.radius,
 					rrg.largest_node_radius);
@@ -356,13 +353,15 @@ void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
 	}
 	_inflated_ring_lines_offsets.push_back(
 			std::make_pair(new_radius, newOffsetSet));
-
+	_path_box_distance_thresholds.push_back(
+			std::make_pair(new_radius,
+					sqrt(pow(new_radius, 2) - pow(_robot_width / 2, 2))));
 }
 
 int CollisionChecker::isSetInCollision(double center_x, double center_y,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-		std::vector<CircleLine> offsets, int &cost, int &tiles,
-		bool recalculate) {
+		bool &fixed_direction, nav_msgs::OccupancyGrid &map,
+		std::vector<int8_t> &vis_map, std::vector<CircleLine> offsets,
+		int &cost, int &tiles, bool recalculate) {
 	unsigned int map_x, map_y;
 	if (!worldToMap(center_x, center_y, map_x, map_y, map))
 		return Directions::none;
@@ -370,7 +369,6 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 	int new_tiles = tiles;
 	std::vector<int8_t> tmp_vis_map = vis_map;
 	int direction = Directions::center;
-	bool fixed_direction = false; //if a direction becomes fixed, it cannot be merged anymore
 	for (auto it : offsets) { //always starts at highest x offset and ends at highest y offset
 		if (recalculate || it.x_start == 0) { //circle
 			if (isLineInCollision(map_x - it.x_offset, map_x + it.x_offset,
@@ -433,7 +431,8 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
-	return isSetInCollision(center_x, center_y, map, vis_map,
+	bool fixed_direction = false;
+	return isSetInCollision(center_x, center_y, fixed_direction, map, vis_map,
 			_circle_lines_offset, cost, tiles) != Directions::center;
 }
 
@@ -469,8 +468,66 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 	return true;
 }
 
-double CollisionChecker::inflateCircle(double &x, double &y,
-		int direction_from_nearest_node, bool move_node,
+bool CollisionChecker::checkMovementWithNearestNode(double &x, double &y,
+		int &direction, rrg_nbv_exploration_msgs::Node &nearest_node,
+		bool &fixed_direction) {
+	geometry_msgs::Point new_point = movePoint(direction, x, y);
+	double distance_squared = sqrt(
+			pow(new_point.x - nearest_node.position.x, 2)
+					+ pow(new_point.y - nearest_node.position.y, 2));
+	double distance = sqrt(distance_squared);
+	double distance_to_radius = distance - nearest_node.radius;
+	bool move_towards_node = false;
+	bool move_from_node = false;
+	double distance_threshold = 0;
+	if (distance_to_radius < 0) {
+		move_from_node = true;
+	} else {
+		distance_threshold = _path_box_distance_thres / 2
+				+ _path_box_distance_thresholds.at(
+						(nearest_node.radius - _robot_radius)
+								/ _grid_map_resolution).second;
+		if (distance > distance_threshold) {
+			move_towards_node = true;
+		}
+	}
+	if (move_from_node || move_towards_node) {
+		double yaw = atan2(y - nearest_node.position.y,
+				x - nearest_node.position.x);
+		double node_direction = yaw * 180.0 / M_PI;
+		if (node_direction < 0)
+			node_direction += 360;
+		int direction_from_nearest_node = ((int) round(node_direction / 45))
+				* 45;
+		if (direction_from_nearest_node == 360)
+			direction_from_nearest_node = 0;
+		if (move_towards_node) { //opposite direction
+			direction_from_nearest_node =
+					direction_from_nearest_node + direction_from_nearest_node
+							> 180 ? (-180) : 180;
+		}
+		if (!checkDirection(direction, fixed_direction,
+				direction_from_nearest_node)) { //merge directions, if it fails, abort inflation
+			return false;
+		} else { //check if merged direction is acceptable
+			geometry_msgs::Point merged_point = movePoint(direction, x, y);
+			double distance_merged_squared = sqrt(
+					pow(merged_point.x - nearest_node.position.x, 2)
+							+ pow(merged_point.y - nearest_node.position.y, 2));
+			double distance_merged = sqrt(distance_merged_squared);
+			double distance_merged_to_radius = distance_merged
+					- nearest_node.radius;
+			if (distance_merged_to_radius < 0
+					|| distance_merged > distance_threshold) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+double CollisionChecker::inflateCircle(double &x, double &y, bool move_node,
+		rrg_nbv_exploration_msgs::Node &nearest_node,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
 		int &tiles) {
 	std::vector<int8_t> tmp_vis_map = vis_map;
@@ -482,15 +539,14 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 	std::vector<std::pair<double, double>> previous_positions;
 	previous_positions.push_back(std::make_pair(x, y));
 	while (it != _inflated_ring_lines_offsets.end()) {
-		int direction = isSetInCollision(x, y, map, tmp_vis_map, it->second,
-				cost, tiles);
+		bool fixed_direction = false;
+		int direction = isSetInCollision(x, y, fixed_direction, map,
+				tmp_vis_map, it->second, cost, tiles);
 		if (direction == Directions::none) {
 			return current_radius;
 		} else {
 			if (move_node) {
 				if (direction == Directions::center) {
-					moveCircle(x, y, direction_from_nearest_node, index + 1,
-							previous_positions, map, tmp_vis_map, cost, tiles);	//move circle with same inflation away from nearest node
 					current_radius = it->first;
 					if (it == --_inflated_ring_lines_offsets.end()) { //calculate next inflation ring if not reached sensor range
 						calculateNextInflatedCircleLinesOffset();
@@ -498,8 +554,11 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 					index++;
 					it = _inflated_ring_lines_offsets.begin() + index; //increasing vector size invalidates iterator
 				} else {
-					if (!moveCircle(x, y, direction, index, previous_positions,
-							map, tmp_vis_map, cost, tiles)) { //don't increment iterator, repeat this inflation for new position next iteration
+					if (!checkMovementWithNearestNode(x, y, direction,
+							nearest_node, fixed_direction)
+							|| !moveCircle(x, y, direction, index,
+									previous_positions, map, tmp_vis_map, cost,
+									tiles)) { //don't increment iterator, repeat this inflation for new position next iteration
 						return current_radius;
 					}
 				}
@@ -521,10 +580,8 @@ double CollisionChecker::inflateCircle(double &x, double &y,
 	return current_radius;
 }
 
-bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
-		std::vector<std::pair<double, double>> &previous_positions,
-		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
-		int &tiles) {
+geometry_msgs::Point CollisionChecker::movePoint(int direction, double &x,
+		double &y) {
 	geometry_msgs::Point new_point;
 	new_point.x = x;
 	new_point.y = y;
@@ -533,45 +590,39 @@ bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
 	} else if (direction <= southeast && direction >= southwest) {
 		new_point.x -= _grid_map_resolution;
 	}
+
 	if (direction <= Directions::northeast && direction >= southeast) {
 		new_point.y -= _grid_map_resolution;
 	} else if (direction <= Directions::southwest && direction >= northwest) {
 		new_point.y += _grid_map_resolution;
 	}
-//check distance to other nodes
-//TODO: check if went too far away (regard edge length) and regard radius in min distance
-	double min_distance;
-	int nearest_node;
-	_graph_searcher->findNearestNeighbour(new_point, min_distance,
-			nearest_node);
-	if (min_distance < _min_edge_distance_squared) {
-//		ROS_INFO_STREAM(
-//				"Point ("<< new_point.x << ", " << new_point.y<<") too close to node " << nearest_node << " (" << sqrt(min_distance) << "m)");
-		return false;
-	}
-//check previous positions
+
+	return new_point;
+}
+
+bool CollisionChecker::moveCircle(double &x, double &y, int direction, int ring,
+		std::vector<std::pair<double, double>> &previous_positions,
+		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
+		int &tiles) {
+	geometry_msgs::Point new_point = movePoint(direction, x, y);
 	for (auto it = previous_positions.rbegin(); it != previous_positions.rend();
-			++it) {
+			++it) { //check previous positions
 		if (it->first == new_point.x && it->second == new_point.y) {
-//			ROS_INFO_STREAM(
-//					"Point ("<< new_point.x << ", " << new_point.y<<") was already tried");
 			return false;
 		}
 	}
-//	ROS_INFO_STREAM(
-//			"Inflated rings size " << _inflated_ring_lines_offsets.size() << " access ring " << (ring - 1));
-	if (isSetInCollision(new_point.x, new_point.y, map, vis_map,
+	bool fixed_direction = false;
+	if (isSetInCollision(new_point.x, new_point.y, fixed_direction, map,
+			vis_map,
 			ring == 0 ?
 					_circle_lines_offset :
 					_inflated_ring_lines_offsets.at(ring - 1).second, cost,
 			tiles, true) == Directions::center) {
-//		ROS_INFO_STREAM("Moved to position: " << x << ", " << y);
 		x = new_point.x;
 		y = new_point.y;
 		previous_positions.push_back(std::make_pair(x, y));
 		return true;
 	} else {
-//		ROS_INFO_STREAM("Moving failed due to collision");
 		return false;
 	}
 }
@@ -793,21 +844,28 @@ bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,
 			}
 		}
 	}
-	if (min_distance_to_radius > _robot_radius) { //move sample point closer to nearest node to enable connection
-		double distance_threshold = _path_box_distance_thres / 2
-				+ sqrt(
-						rrg.nodes[nearest_node].squared_radius
-								- pow(_robot_width / 2, 2));
-		if (min_distance_to_radius > distance_threshold) {
-			point.x = rrg.nodes[nearest_node].position.x
-					- ((distance_threshold + rrg.nodes[nearest_node].radius)
-							* (rrg.nodes[nearest_node].position.x - point.x)
-							/ min_distance);
-			point.y = rrg.nodes[nearest_node].position.y
-					- ((distance_threshold + rrg.nodes[nearest_node].radius)
-							* (rrg.nodes[nearest_node].position.y - point.y)
-							/ min_distance);
-		}
+	if (nearest_node == -1) { //if no nearby nodes found, find nearest neighbor to move sample closer
+		_graph_searcher->findNearestNeighbour(point, min_distance,
+				nearest_node);
+		min_distance = sqrt(min_distance);
+	}
+	int index = ((rrg.nodes[nearest_node].radius - _robot_radius)
+			/ _grid_map_resolution) - 1;
+	double distance_threshold;
+	distance_threshold =
+			index >= 0 ?
+					_path_box_distance_thres / 2
+							+ _path_box_distance_thresholds.at(index).second :
+					_path_box_distance_thres;
+	if (min_distance > distance_threshold) { //move sample point closer to nearest node to enable connection
+		point.x = rrg.nodes[nearest_node].position.x
+				- (distance_threshold
+						* (rrg.nodes[nearest_node].position.x - point.x)
+						/ min_distance);
+		point.y = rrg.nodes[nearest_node].position.y
+				- (distance_threshold
+						* (rrg.nodes[nearest_node].position.y - point.y)
+						/ min_distance);
 	}
 	return true;
 }
@@ -870,19 +928,25 @@ bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,
 	return false;
 }
 
-void CollisionChecker::visualizeNode(rrg_nbv_exploration_msgs::Node &node) {
+void CollisionChecker::visualizeNode(rrg_nbv_exploration_msgs::Node &node,
+		int failed) {
 	visualization_msgs::Marker node_point;
 	node_point.header.frame_id = "/map";
 	node_point.header.stamp = ros::Time();
 	node_point.ns = "rrt_collision_vis";
-	node_point.id = _marker_id++;
+	node_point.id = _inflation_active ? node.index : _marker_id++;
 	node_point.action = visualization_msgs::Marker::ADD;
 	node_point.pose.orientation.w = 1.0;
 	node_point.type = visualization_msgs::Marker::CYLINDER;
 	node_point.scale.x = 2 * node.radius;
 	node_point.scale.y = 2 * node.radius;
 	node_point.scale.z = 0.01;
-	node_point.color.g = 1.0f;
+	if (failed > 0)
+		node_point.color.r = 1.0f;
+	if (failed == 0 || failed == 3)
+		node_point.color.g = 1.0f;
+	if (failed == 2)
+		node_point.color.g = 0.5f;
 	node_point.color.a = 0.5f;
 	node_point.pose.position.x = node.position.x;
 	node_point.pose.position.y = node.position.y;
