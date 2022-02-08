@@ -196,6 +196,10 @@ private:
 	 * @brief Actual number of consecutive failed goals
 	 */
 	int _consecutive_failed_goals;
+	/**
+	 * @brief Current pose of the robot
+	 */
+	geometry_msgs::Pose robot_pose;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

@@ -115,18 +115,18 @@ void GraphConstructor::runRrgConstruction() {
 	_rrg.header.stamp = ros::Time::now();
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
-		geometry_msgs::Pose robot_pos = _graph_path_calculator->getRobotPose();
+		robot_pose = _graph_path_calculator->getRobotPose();
 		bool updatePathsWithReset = determineNearestNodeToRobot(
-				robot_pos.position); //check if nearest node to robot changed which means robot moved
-		expandGraph(false, !updatePathsWithReset, robot_pos); //global expansion
+				robot_pose.position); //check if nearest node to robot changed which means robot moved
+		expandGraph(false, !updatePathsWithReset, robot_pose); //global expansion
 		if (_local_sampling_radius > 0) //local sampling expansion
-			expandGraph(true, !updatePathsWithReset, robot_pos);
+			expandGraph(true, !updatePathsWithReset, robot_pose);
 		if (updatePathsWithReset) //robot moved, update paths
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
-					robot_pos);
+					robot_pose);
 		else { //check if robot heading changed and update heading
 			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
-					_rrg, robot_pos))
+					_rrg, robot_pose))
 				_node_comparator->robotMoved();
 		}
 		_node_comparator->maintainList(_rrg);
@@ -249,6 +249,9 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 //			_rrg.nodes[iterator.first].heading_change_to_robot_best_view = 0.0;
 //			_rrg.nodes[iterator.first].reward_function = 0.0;
 		}
+		if (_rrg.nodes[iterator.first].retry_inflation)
+			_collision_checker->inflateExistingNode(_rrg, iterator.first,
+					robot_pose);
 	}
 }
 
@@ -418,6 +421,7 @@ bool GraphConstructor::requestGoal(
 					rrg_nbv_exploration_msgs::Node::ACTIVE;
 		}
 		res.goal = _rrg.nodes[_current_goal_node].position;
+		//TODO: if 360 hor FoV use yaw from former node to goal
 		res.best_yaw = _rrg.nodes[_current_goal_node].best_yaw;
 		_goal_updated = false;
 	}

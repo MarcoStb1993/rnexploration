@@ -19,7 +19,7 @@
 #define PI_HALF (M_PI / 2)
 
 /**
- * @brief directions for evasive inflation
+ * @brief Directions for evasive inflation
  */
 enum Directions {
 	none = -1,
@@ -32,6 +32,13 @@ enum Directions {
 	northwest = 45,
 	southeast = 225,
 	southwest = 135
+};
+
+/**
+ * @brief Different collision detections
+ */
+enum Collisions {
+	empty = 0, unknown = 1, occupied = 2
 };
 
 /**
@@ -76,6 +83,17 @@ public:
 	 * @brief Constructor that initializes the node handle, parameters and a publishers and subscribers
 	 */
 	CollisionChecker();
+
+	/**
+	 * @brief Initialize collision checking visualization if active and tries to inflate root node if active
+	 * @param Reference to RRG
+	 * @param Helper class for nearest neighbor search in the RRG
+	 * @param Helper class for path calculation in the RRG
+	 */
+	void initialize(rrg_nbv_exploration_msgs::Graph &rrg,
+			std::shared_ptr<GraphSearcher> graph_searcher,
+			std::shared_ptr<GraphPathCalculator> graph_path_calculator);
+
 	/**
 	 * @brief Checks if a feasible path from the nearest neighbors to the randomly sampled point exists
 	 * for the particular robot by checking for collisions in the subscribed occupancy grid map
@@ -89,14 +107,14 @@ public:
 			geometry_msgs::Point rand_sample);
 
 	/**
-	 * @brief Initialize collision checking visualization if active and tries to inflate root node if active
-	 * @param Reference to RRG
-	 * @param Helper class for nearest neighbor search in the RRG
-	 * @param Helper class for path calculation in the RRG
+	 * @brief Try to inflate an existing node which inflation was previously stopped because of
+	 * unknown tiles
+	 * @param Reference to the RRG
+	 * @param Index of the node to be inflated
+	 * @param Pose of the robot
 	 */
-	void initialize(rrg_nbv_exploration_msgs::Graph &rrg,
-			std::shared_ptr<GraphSearcher> graph_searcher,
-			std::shared_ptr<GraphPathCalculator> graph_path_calculator);
+	void inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
+			geometry_msgs::Pose robot_pos);
 
 private:
 	ros::NodeHandle _nh;
@@ -260,12 +278,13 @@ private:
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
 	 * @param If this is true, recheck and calculate traversability and tiles for whole inflated circle
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return Return the direction if a collision was detected, 0 otherwise
 	 */
 	int isSetInCollision(double center_x, double center_y,
 			bool &fixed_direction, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map, std::vector<CircleLine> offsets,
-			int &cost, int &tiles, bool recalculate = false);
+			int &cost, int &tiles, int &collision, bool recalculate = false);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -275,11 +294,12 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isCircleInCollision(double center_x, double center_y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles);
+			int &cost, int &tiles, int &collision);
 
 	/**
 	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
@@ -292,11 +312,13 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map, int &cost, int &tiles);
+			std::vector<int8_t> &vis_map, int &cost, int &tiles,
+			int &collision);
 
 	/**
 	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
@@ -309,11 +331,13 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isAlignedRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
-			std::vector<int8_t> &vis_map, int &cost, int &tiles);
+			std::vector<int8_t> &vis_map, int &cost, int &tiles,
+			int &collision);
 
 	/**
 	 * @brief Check how far a circle with the given center can be inflated until a collision is detected
@@ -325,12 +349,13 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return Maximum radius of the inflated circle
 	 */
 	double inflateCircle(double &x, double &y, bool move_node,
 			rrg_nbv_exploration_msgs::Node &nearest_node,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles);
+			int &cost, int &tiles, int &collision);
 
 	/**
 	 * @brief Compares the current direction with the new direction from a collision and
@@ -404,12 +429,13 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if moving circle was successful, false otherwise
 	 */
 	bool moveCircle(double &x, double &y, int direction, int ring,
 			std::vector<std::pair<double, double>> &previous_positions,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles);
+			int &cost, int &tiles, int &collision);
 
 	/**
 	 * @brief Validate that movement in the given direction has the new node remain in nearest node's
@@ -434,11 +460,12 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
-	 * @return True if a collision was registered, false otherwise
+	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
+	 * @return If a collision was detected
 	 */
 	bool isLineInCollision(int x_start, int x_end, int y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles);
+			int &cost, int &tiles, int &collision);
 	/**
 	 * @brief Initialize collision visualization map
 	 * @param Occupancy grid map that is checked during steering
@@ -469,6 +496,23 @@ private:
 	 * @param Node object to be visualized
 	 */
 	void visualizeNode(rrg_nbv_exploration_msgs::Node &node, int failed = 0);
+
+	/**
+	 * @brief Returns a point with coordinates of moving given x and y in the provided direction
+	 * @param Direction in which the point should move to the next tile center in degrees
+	 * @param Starting x-coordinate
+	 * @param Starting y-coordinate
+	 * @return Moved point
+	 */
 	geometry_msgs::Point movePoint(int direction, double &x, double &y);
+
+	/**
+	 * @brief Checks if an edge to the given neighbor node from the provided node already exists
+	 * @param Reference to the RRG
+	 * @param Index of the node
+	 * @param Index of the neighbor node
+	 * @return If an edge already exists between the two nodes
+	 */
+	bool isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg, int node, int neighbor_node);
 };
 }

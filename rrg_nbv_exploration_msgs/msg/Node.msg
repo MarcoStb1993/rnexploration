@@ -7,6 +7,7 @@ int32 best_yaw							# Yaw in degrees [0,360) with best gain
 float64 reward_function					# Reward function that combines distance to robot, heading, traversability, gain and radius
 float64 radius							# Radius of the cleared area around the node
 float64 squared_radius					# Squared Radius of the cleared area around the node
+bool retry_inflation					# If the inflation can be retried because it previously failed due to unknown map tiles
 uint8 status    						# Nodes current status regarding the exploration
 
 uint8 INITIAL = 0       				# Node is waiting to be explored
