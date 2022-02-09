@@ -405,24 +405,18 @@ bool GraphConstructor::requestGoal(
 	res.goal_available = _goal_updated && _current_goal_node != -1;
 	res.exploration_finished = !_running;
 	if (res.goal_available) {
-//		ROS_INFO_STREAM(
-//				"Current goal status " << (int)_prm.nodes[_current_goal_node].status);
 		if (_rrg.nodes[_current_goal_node].status
 				== rrg_nbv_exploration_msgs::Node::VISITED) {
-//			ROS_INFO_STREAM(
-//					"Current goal " << _current_goal_node << " from visited to active visited");
 			_rrg.nodes[_current_goal_node].status =
 					rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED;
 		} else if (_rrg.nodes[_current_goal_node].status
 				== rrg_nbv_exploration_msgs::Node::INITIAL) {
-//			ROS_INFO_STREAM(
-//					"Current goal " << _current_goal_node << " from initial to active");
 			_rrg.nodes[_current_goal_node].status =
 					rrg_nbv_exploration_msgs::Node::ACTIVE;
 		}
 		res.goal = _rrg.nodes[_current_goal_node].position;
-		//TODO: if 360 hor FoV use yaw from former node to goal
-		res.best_yaw = _rrg.nodes[_current_goal_node].best_yaw;
+		res.best_yaw = _graph_path_calculator->determineGoalYaw(
+				_current_goal_node, _rrg, _last_robot_pos);
 		_goal_updated = false;
 	}
 	return true;

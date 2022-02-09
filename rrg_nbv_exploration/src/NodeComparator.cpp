@@ -92,8 +92,10 @@ void NodeComparator::calculateRewardFunctions(
 				&& (node.reward_function == 0 || _robot_moved)) {
 			double gain = rrg.nodes[node.node].gain;
 			double traversability =
-					rrg.nodes[node.node].traversability_cost_to_robot
-							/ rrg.nodes[node.node].traversability_weight_to_robot;
+					rrg.nodes[node.node].traversability_weight_to_robot > 0 ?
+							rrg.nodes[node.node].traversability_cost_to_robot
+									/ rrg.nodes[node.node].traversability_weight_to_robot :
+							0;
 			double distance = rrg.nodes[node.node].distance_to_robot;
 			double heading =
 					(double) rrg.nodes[node.node].heading_change_to_robot_best_view

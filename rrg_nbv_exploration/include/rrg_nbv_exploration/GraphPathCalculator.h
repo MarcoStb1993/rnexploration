@@ -60,7 +60,8 @@ public:
 	 * @param Robot pose
 	 * @return True if node headings were updated
 	 */
-	bool updateHeadingToRobot(int startNode, rrg_nbv_exploration_msgs::Graph &rrg,
+	bool updateHeadingToRobot(int startNode,
+			rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Pose robot_pos);
 
 	/**
@@ -92,6 +93,16 @@ public:
 	 */
 	int getAbsoluteAngleDiff(int x, int y);
 
+	/**
+	 * @brief Determines the yaw for the current goal depending on the horizontal FoV and the path to it
+	 * @param Index of the current goal node
+	 * @param Reference to the RRG
+	 * @param Actual position of the robot
+	 * @return Heading in degrees for the current goal
+	 */
+	int determineGoalYaw(int current_goal, rrg_nbv_exploration_msgs::Graph &rrg,
+			geometry_msgs::Point robot_pose);
+
 private:
 	ros::NodeHandle _nh;
 
@@ -103,9 +114,25 @@ private:
 	 */
 	std::string _robot_frame;
 	/**
+	 * Sensor's horizontal FoV that is considered for gain calculation in degrees
+	 */
+	int _sensor_horizontal_fov;
+	/**
 	 * @brief Previous yaw of the robot in degrees
 	 */
 	int _last_robot_yaw;
+
+	/**
+	 * @brief Find the yaw in deg and distance in m from the start node to the end node and return true if it was found
+	 * @param Index of the start node
+	 * @param Index of the end node
+	 * @param Reference to the yaw to be set in deg
+	 * @param Reference to the distance to be set in m
+	 * @param Reference to the RRG
+	 * @return If an edge between both nodes was found
+	 */
+	bool getHeadingBetweenNodes(int start_node, int end_node, int &yaw,
+			double &distance, rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Add a path node every 10cm in between the start and end point along the given path
@@ -113,11 +140,12 @@ private:
 	 * @param Starting position
 	 * @param End position
 	 * @param Orientation between the nodes
-	 * @param Yaw between the nodes
+	 * @param Yaw between the nodes in rad
+	 * @param Distance between the nodes in m
 	 */
 	void addInterNodes(std::vector<geometry_msgs::PoseStamped> &path,
 			geometry_msgs::Point start, geometry_msgs::Point end,
-			geometry_msgs::Quaternion orientation, double yaw);
+			geometry_msgs::Quaternion orientation, double yaw, double distance);
 
 	/**
 	 * @brief Update the given node's heading change to best view from robot and update the largest change

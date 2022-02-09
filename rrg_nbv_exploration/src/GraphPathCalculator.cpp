@@ -6,6 +6,7 @@ GraphPathCalculator::GraphPathCalculator() :
 	ros::NodeHandle private_nh("~");
 	private_nh.param<std::string>("robot_frame", _robot_frame,
 			"base_footprint");
+	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
 	_last_robot_yaw = 0;
 }
 
@@ -186,25 +187,7 @@ void GraphPathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrg_nbv_exploration_msgs::Graph &rrg, int goal_node,
 		geometry_msgs::Point robot_pose) {
-//	ROS_INFO_STREAM("get nav path from " << rrg.nearest_node << " to " << goal_node);
 	ros::Time timestamp = ros::Time::now();
-//add robot position with orientation towards nearest node as first path node
-//	geometry_msgs::PoseStamped path_pose;
-//	path_pose.header.frame_id = "map";
-//	path_pose.header.stamp = timestamp;
-//	path_pose.pose.position = robot_pose;
-//	path_pose.pose.position.z =
-//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.z;
-//	double yaw = atan2(
-//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.y
-//					- robot_pose.y,
-//			rrg.nodes[rrg.nodes[goal_node].path_to_robot[0]].position.x
-//					- robot_pose.x);
-//	tf2::Quaternion quaternion_robot;
-//	quaternion_robot.setRPY(0, 0, yaw);
-//	quaternion_robot.normalize();
-//	path_pose.pose.orientation = tf2::toMsg(quaternion_robot);
-//	path.push_back(path_pose);
 	if (rrg.nearest_node == goal_node) { //nearest node to robot and goal node are the same
 		//add poses between robot and node
 		geometry_msgs::PoseStamped path_pose;
@@ -213,21 +196,28 @@ void GraphPathCalculator::getNavigationPath(
 		robot_pose.z = rrg.nodes[goal_node].position.z;
 		double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
 				rrg.nodes[goal_node].position.x - robot_pose.x);
+		double distance = sqrt(
+				pow(rrg.nodes[goal_node].position.x - robot_pose.x, 2)
+						+ pow(rrg.nodes[goal_node].position.y - robot_pose.y,
+								2));
 		tf2::Quaternion quaternion;
 		quaternion.setRPY(0, 0, yaw);
 		quaternion.normalize();
 		addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
-				tf2::toMsg(quaternion), yaw);
-		//use best yaw for orientation at goal node
+				tf2::toMsg(quaternion), yaw, distance);
+		//use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
 		path_pose.pose.position = rrg.nodes[goal_node].position;
-		tf2::Quaternion quaternion_goal;
-		quaternion_goal.setRPY(0, 0,
-		M_PI * rrg.nodes[goal_node].best_yaw / 180.0);
-		quaternion_goal.normalize();
-		path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
+		if (_sensor_horizontal_fov == 360) {
+			path_pose.pose.orientation = tf2::toMsg(quaternion);
+		} else {
+			tf2::Quaternion quaternion_goal;
+			quaternion_goal.setRPY(0, 0,
+			M_PI * rrg.nodes[goal_node].best_yaw / 180.0);
+			quaternion_goal.normalize();
+			path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
+		}
 		path.push_back(path_pose);
 	} else { //build a path from start to root and from goal to root until they meet
-
 		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
 		std::vector<int> path_to_robot = rrg.nodes[goal_node].path_to_robot;
 		if (path_to_robot.size() >= 2) {
@@ -255,48 +245,76 @@ void GraphPathCalculator::getNavigationPath(
 			path_pose.header.stamp = timestamp;
 			path_pose.pose.position = rrg.nodes[i].position;
 			tf2::Quaternion quaternion;
-			double yaw;
-			if (&i == &path_to_robot.front()) { //if node is first element in list, add poses between robot and node
-				geometry_msgs::Pose robot_pose = getRobotPose();
-				robot_pose.position.z = rrg.nodes[i].position.z;
-				yaw = atan2(rrg.nodes[i].position.y - robot_pose.position.y,
-						rrg.nodes[i].position.x - robot_pose.position.x);
+			double yaw, distance;
+			if (i == path_to_robot.front()) { //if node is first element in list, add poses between robot and node
+				robot_pose.z = rrg.nodes[i].position.z;
+				yaw = atan2(rrg.nodes[i].position.y - robot_pose.y,
+						rrg.nodes[i].position.x - robot_pose.x);
+				distance = sqrt(
+						pow(rrg.nodes[i].position.x - robot_pose.x, 2)
+								+ pow(rrg.nodes[i].position.y - robot_pose.y,
+										2));
 				quaternion.setRPY(0, 0, yaw);
 				quaternion.normalize();
-				addInterNodes(path, robot_pose.position, rrg.nodes[i].position,
-						tf2::toMsg(quaternion), yaw);
+				addInterNodes(path, robot_pose, rrg.nodes[i].position,
+						tf2::toMsg(quaternion), yaw, distance);
 			}
-			if (&i != &path_to_robot.back()) //if node is not last element in list, get orientation between this node and the next
-				yaw = atan2(
-						rrg.nodes[*(&i + 1)].position.y
-								- rrg.nodes[i].position.y,
-						rrg.nodes[*(&i + 1)].position.x
-								- rrg.nodes[i].position.x);
-			else
-				//last node in list, use best yaw for orientation
-				yaw = M_PI * rrg.nodes[i].best_yaw / 180.0;
+			if (i != path_to_robot.back()) { //if node is not last element in list, get orientation between this node and the next
+				int heading;
+				getHeadingBetweenNodes(i, *(&i + 1), heading, distance, rrg);
+				yaw = M_PI * heading / 180;
+			} else {
+				if (_sensor_horizontal_fov == 360) { //use yaw from incoming edge for 360 degrees FoV
+					int heading;
+					getHeadingBetweenNodes(*(&i - 1), i, heading, distance,
+							rrg);
+					yaw = M_PI * heading / 180;
+				} else
+					//last node in list, use best yaw for orientation
+					yaw = M_PI * rrg.nodes[i].best_yaw / 180.0;
+			}
 			quaternion.setRPY(0, 0, yaw);
 			quaternion.normalize();
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
 			//add in between nodes
-			if (&i != &path_to_robot.back()) { //add in between node
+			if (i != path_to_robot.back()) { //add in between node
 				addInterNodes(path, rrg.nodes[i].position,
 						rrg.nodes[*(&i + 1)].position, tf2::toMsg(quaternion),
-						yaw);
+						yaw, distance);
 			}
 		}
 	}
 }
 
+bool GraphPathCalculator::getHeadingBetweenNodes(int start_node, int end_node,
+		int &yaw, double &distance, rrg_nbv_exploration_msgs::Graph &rrg) {
+	for (int edge : rrg.nodes[start_node].edges) {
+		if (rrg.edges[edge].first_node == end_node
+				&& rrg.edges[edge].second_node == start_node) { //edge yaw is from first to second node
+			yaw = rrg.edges[edge].yaw >= 180 ?
+					rrg.edges[edge].yaw - 180 : rrg.edges[edge].yaw + 180;
+			distance = rrg.edges[edge].length;
+			return true;
+		} else if (rrg.edges[edge].first_node == start_node
+				&& rrg.edges[edge].second_node == end_node) {
+			yaw = rrg.edges[edge].yaw;
+			distance = rrg.edges[edge].length;
+			return true;
+		}
+	}
+	ROS_WARN_STREAM(
+			"Get Heading failed for start node " << start_node << " and end node " << end_node);
+	return false;
+}
+
 void GraphPathCalculator::addInterNodes(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		geometry_msgs::Point start, geometry_msgs::Point end,
-		geometry_msgs::Quaternion orientation, double yaw) {
+		geometry_msgs::Quaternion orientation, double yaw, double distance) {
 	geometry_msgs::PoseStamped path_pose;
 	path_pose.header.frame_id = "map";
 	path_pose.header.stamp = ros::Time::now();
-	double distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2));
 	for (double i = 0.1; i < distance - 0.1; i = i + 0.1) {
 		geometry_msgs::Point position;
 		position.x = start.x + i * cos(yaw);
@@ -307,6 +325,26 @@ void GraphPathCalculator::addInterNodes(
 		path.push_back(path_pose);
 	}
 
+}
+
+int GraphPathCalculator::determineGoalYaw(int current_goal,
+		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Point robot_pose) {
+	if (_sensor_horizontal_fov == 360) { //use yaw from incoming edge for 360 degrees FoV
+		int yaw = 0;
+		double distance;
+		if (rrg.nodes[current_goal].path_to_robot.size() > 1
+				&& !getHeadingBetweenNodes(
+						rrg.nodes[current_goal].path_to_robot[rrg.nodes[current_goal].path_to_robot.size()
+								- 2], current_goal, yaw, distance, rrg)) { //check if current goal is goal nearest to robot
+			double yaw = atan2(
+					rrg.nodes[current_goal].position.y - robot_pose.y,
+					rrg.nodes[current_goal].position.x - robot_pose.x);
+			yaw *= 180 / M_PI;
+		}
+		return yaw;
+	}
+	//use best yaw for orientation
+	return rrg.nodes[current_goal].best_yaw;
 }
 
 bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
