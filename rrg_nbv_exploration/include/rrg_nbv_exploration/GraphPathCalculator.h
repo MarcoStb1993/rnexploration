@@ -149,10 +149,21 @@ private:
 
 	/**
 	 * @brief Update the given node's heading change to best view from robot and update the largest change
-	 * @brief Node index
-	 * @brief Reference to RRG
+	 * @param Node index
+	 * @param Reference to RRG
 	 */
 	void setHeadingChangeToBestView(int node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Calculate a straight path from the robot to the given node
+	 * @param Current robot position
+	 * @param Goal node for the path
+	 * @param Reference to the RRG
+	 * @param Reference to the path to be calculated
+	 */
+	void getPathFromRobotToNode(geometry_msgs::Point robot_pose, int goal_node,
+			rrg_nbv_exploration_msgs::Graph &rrg,
+			std::vector<geometry_msgs::PoseStamped> &path);
 };
 }

@@ -187,38 +187,11 @@ void GraphPathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrg_nbv_exploration_msgs::Graph &rrg, int goal_node,
 		geometry_msgs::Point robot_pose) {
-	ros::Time timestamp = ros::Time::now();
 	if (rrg.nearest_node == goal_node) { //nearest node to robot and goal node are the same
-		//add poses between robot and node
-		geometry_msgs::PoseStamped path_pose;
-		path_pose.header.frame_id = "map";
-		path_pose.header.stamp = timestamp;
-		robot_pose.z = rrg.nodes[goal_node].position.z;
-		double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
-				rrg.nodes[goal_node].position.x - robot_pose.x);
-		double distance = sqrt(
-				pow(rrg.nodes[goal_node].position.x - robot_pose.x, 2)
-						+ pow(rrg.nodes[goal_node].position.y - robot_pose.y,
-								2));
-		tf2::Quaternion quaternion;
-		quaternion.setRPY(0, 0, yaw);
-		quaternion.normalize();
-		addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
-				tf2::toMsg(quaternion), yaw, distance);
-		//use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
-		path_pose.pose.position = rrg.nodes[goal_node].position;
-		if (_sensor_horizontal_fov == 360) {
-			path_pose.pose.orientation = tf2::toMsg(quaternion);
-		} else {
-			tf2::Quaternion quaternion_goal;
-			quaternion_goal.setRPY(0, 0,
-			M_PI * rrg.nodes[goal_node].best_yaw / 180.0);
-			quaternion_goal.normalize();
-			path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
-		}
-		path.push_back(path_pose);
+		getPathFromRobotToNode(robot_pose, goal_node, rrg, path);
 	} else { //build a path from start to root and from goal to root until they meet
 		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
+		ros::Time timestamp = ros::Time::now();
 		std::vector<int> path_to_robot = rrg.nodes[goal_node].path_to_robot;
 		if (path_to_robot.size() >= 2) {
 			double distance_first_second_squared = pow(
@@ -235,9 +208,12 @@ void GraphPathCalculator::getNavigationPath(
 									- rrg.nodes[path_to_robot.at(1)].position.y,
 							2);
 			if (distance_first_second_squared > distance_second_squared) {
-				//remove first node from path since it leads backwards on the path
-				path_to_robot.erase(path_to_robot.begin());
+				path_to_robot.erase(path_to_robot.begin()); //remove first node from path since it leads backwards on the path
 			}
+		}
+		if (path_to_robot.size() < 2) { //only path from robot to goal node necessary
+			getPathFromRobotToNode(robot_pose, goal_node, rrg, path);
+			return;
 		}
 		for (auto &i : path_to_robot) { //iterate through nodes in path and add as waypoints for path
 			geometry_msgs::PoseStamped path_pose;
@@ -285,6 +261,38 @@ void GraphPathCalculator::getNavigationPath(
 			}
 		}
 	}
+}
+
+void GraphPathCalculator::getPathFromRobotToNode(
+		geometry_msgs::Point robot_pose, int goal_node,
+		rrg_nbv_exploration_msgs::Graph &rrg,
+		std::vector<geometry_msgs::PoseStamped> &path) {
+	ros::Time timestamp = ros::Time::now();
+	geometry_msgs::PoseStamped path_pose;
+	path_pose.header.frame_id = "map";
+	path_pose.header.stamp = timestamp;
+	robot_pose.z = rrg.nodes[goal_node].position.z;
+	double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
+			rrg.nodes[goal_node].position.x - robot_pose.x);
+	double distance = sqrt(
+			pow(rrg.nodes[goal_node].position.x - robot_pose.x, 2)
+					+ pow(rrg.nodes[goal_node].position.y - robot_pose.y, 2));
+	tf2::Quaternion quaternion;
+	quaternion.setRPY(0, 0, yaw);
+	quaternion.normalize();
+	addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
+			tf2::toMsg(quaternion), yaw, distance);	//add poses between robot and node
+	path_pose.pose.position = rrg.nodes[goal_node].position;
+	if (_sensor_horizontal_fov == 360) { //use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
+		path_pose.pose.orientation = tf2::toMsg(quaternion);
+	} else {
+		tf2::Quaternion quaternion_goal;
+		quaternion_goal.setRPY(0, 0,
+		M_PI * rrg.nodes[goal_node].best_yaw / 180.0);
+		quaternion_goal.normalize();
+		path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
+	}
+	path.push_back(path_pose);
 }
 
 bool GraphPathCalculator::getHeadingBetweenNodes(int start_node, int end_node,
