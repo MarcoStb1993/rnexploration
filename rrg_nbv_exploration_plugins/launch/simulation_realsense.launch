@@ -93,6 +93,7 @@
 		output="screen">
 		<param name="base_frame" value="base_footprint" />
 		<param name="delta" value="$(arg grid_map_resolution)" />
+		<param name="map_update_interval" value="1.0" />
 	</node>
 
 	<!-- Navigation -->
