@@ -446,7 +446,7 @@ bool GraphConstructor::requestGoal(
 		}
 		res.goal = _rrg.nodes[_current_goal_node].position;
 		res.best_yaw = _graph_path_calculator->determineGoalYaw(
-				_current_goal_node, _rrg, _last_robot_pos);
+				_current_goal_node, _rrg, _last_robot_pos, !_running);
 		_goal_updated = false;
 	}
 	return true;
