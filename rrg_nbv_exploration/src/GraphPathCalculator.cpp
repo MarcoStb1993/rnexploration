@@ -336,8 +336,9 @@ void GraphPathCalculator::addInterNodes(
 }
 
 int GraphPathCalculator::determineGoalYaw(int current_goal,
-		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Point robot_pose) {
-	if (_sensor_horizontal_fov == 360) { //use yaw from incoming edge for 360 degrees FoV
+		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Point robot_pose,
+		bool homing) {
+	if (_sensor_horizontal_fov == 360 || homing) { //use yaw from incoming edge for 360 degrees FoV
 		int yaw = 0;
 		double distance;
 		if (rrg.nodes[current_goal].path_to_robot.size() > 1

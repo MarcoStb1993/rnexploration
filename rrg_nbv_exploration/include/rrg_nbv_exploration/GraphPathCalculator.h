@@ -98,10 +98,11 @@ public:
 	 * @param Index of the current goal node
 	 * @param Reference to the RRG
 	 * @param Actual position of the robot
+	 * @param If the robot is currently going back to the root node because exploration finished (defaults to false)
 	 * @return Heading in degrees for the current goal
 	 */
 	int determineGoalYaw(int current_goal, rrg_nbv_exploration_msgs::Graph &rrg,
-			geometry_msgs::Point robot_pose);
+			geometry_msgs::Point robot_pose, bool homing = false);
 
 private:
 	ros::NodeHandle _nh;

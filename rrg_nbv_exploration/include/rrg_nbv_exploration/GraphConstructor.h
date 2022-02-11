@@ -204,6 +204,10 @@ private:
 	 * @brief List of nodes where navigation failed which will be tried to recover when the next goal (or movement to it) was successful
 	 */
 	std::list<int> _failed_nodes_to_recover;
+	/**
+	 * @brief Return to the root node if all nodes were either explored or failed
+	 */
+	bool _auto_homing;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

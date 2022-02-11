@@ -26,6 +26,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_nearest_node_tolerance_squared = pow(nearest_node_tolerance, 2);
 	private_nh.param("max_consecutive_failed_goals",
 			_max_consecutive_failed_goals, 5);
+	private_nh.param("auto_homing", _auto_homing, false);
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
@@ -420,13 +421,19 @@ void GraphConstructor::explorationFinishedTimerCallback(
 	ROS_INFO_STREAM("Exploration finished");
 	_running = false;
 	_exploration_finished_timer.stop();
+	if (_auto_homing) {
+		ROS_INFO_STREAM("Return to start");
+		_current_goal_node = 0; //go back to root node
+		_goal_updated = true;
+	}
 }
 
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
 	res.goal_available = _goal_updated && _current_goal_node != -1;
-	res.exploration_finished = !_running;
+	res.exploration_finished = !_running
+			&& (!_auto_homing || _rrg.nearest_node == 0);
 	if (res.goal_available) {
 		if (_rrg.nodes[_current_goal_node].status
 				== rrg_nbv_exploration_msgs::Node::VISITED) {
@@ -461,6 +468,8 @@ bool GraphConstructor::requestPath(
 bool GraphConstructor::updateCurrentGoal(
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
+	if (!_running)
+		_auto_homing = false; //end exploration when navigation to home node is finished (even if it failed)
 	if (_current_goal_node != -1 && !_updating) {
 		_updating = true;
 		_rrg.nodes[_current_goal_node].status = req.status;
