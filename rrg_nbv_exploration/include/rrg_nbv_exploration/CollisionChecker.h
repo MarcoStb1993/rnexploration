@@ -116,6 +116,15 @@ public:
 	void inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			geometry_msgs::Pose robot_pos);
 
+	/**
+	 * @brief Check if a previously failed node is in collision
+	 * @param Reference to the RRG
+	 * @param Index of the node to be checked
+	 * @return Type of detected collision (empty, unknown or occupied)
+	 */
+	int collisionCheckForFailedNode(rrg_nbv_exploration_msgs::Graph &rrg,
+			int node);
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
@@ -350,12 +359,15 @@ private:
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
+	 * @param Radius at which to start the inflation
+	 * @param Max radius at which inflation must stop
 	 * @return Maximum radius of the inflated circle
 	 */
 	double inflateCircle(double &x, double &y, bool move_node,
 			rrg_nbv_exploration_msgs::Node &nearest_node,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles, int &collision);
+			int &cost, int &tiles, int &collision, double current_radius,
+			double max_radius);
 
 	/**
 	 * @brief Compares the current direction with the new direction from a collision and
@@ -513,6 +525,7 @@ private:
 	 * @param Index of the neighbor node
 	 * @return If an edge already exists between the two nodes
 	 */
-	bool isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg, int node, int neighbor_node);
+	bool isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg, int node,
+			int neighbor_node);
 };
 }

@@ -83,7 +83,8 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 					node_tiles, node_collision)) {
 		rrg.nodes[0].radius = inflateCircle(rrg.nodes[0].position.x,
 				rrg.nodes[0].position.y, false, rrg.nodes[0], map,
-				tmp_vis_map_data, node_cost, node_tiles, node_collision);
+				tmp_vis_map_data, node_cost, node_tiles, node_collision,
+				_robot_radius, _sensor_range);
 		rrg.nodes[0].squared_radius = pow(rrg.nodes[0].radius, 2);
 		rrg.nodes[0].traversability_cost = node_cost;
 		rrg.nodes[0].traversability_weight = node_tiles;
@@ -187,7 +188,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		if (_inflation_active) {
 			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
 					_move_nodes, rrg.nodes[nearest_node], map, tmp_vis_map_data,
-					node_cost, node_tiles, node_collision);
+					node_cost, node_tiles, node_collision, _robot_radius,
+					_sensor_range);
 			new_node.squared_radius = pow(new_node.radius, 2);
 			rrg.largest_node_radius = std::max(new_node.radius,
 					rrg.largest_node_radius);
@@ -343,7 +345,8 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 	int node_cost = 0, node_tiles = 0, node_collision = Collisions::empty;
 	double new_radius = inflateCircle(rrg.nodes[node].position.x,
 			rrg.nodes[node].position.y, false, rrg.nodes[node], map,
-			tmp_vis_map_data, node_cost, node_tiles, node_collision);
+			tmp_vis_map_data, node_cost, node_tiles, node_collision,
+			rrg.nodes[node].radius, _sensor_range);
 	if (new_radius > rrg.nodes[node].radius) {
 		rrg.nodes[node].retry_inflation = node_collision == Collisions::unknown;
 		rrg.nodes[node].radius = new_radius;
@@ -405,6 +408,22 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 		_vis_map.data = tmp_vis_map_data;
 		_visualization_pub.publish(_vis_map);
 	}
+}
+
+int CollisionChecker::collisionCheckForFailedNode(
+		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
+	nav_msgs::OccupancyGrid map = *_occupancy_grid;
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	int node_cost = 0, node_tiles = 0, node_collision = Collisions::empty;
+	if (!isCircleInCollision(rrg.nodes[node].position.x,
+			rrg.nodes[node].position.y, map, tmp_vis_map_data, node_cost,
+			node_tiles, node_collision))
+		if (_inflation_active && rrg.nodes[node].radius > _robot_radius)
+			inflateCircle(rrg.nodes[node].position.x,
+					rrg.nodes[node].position.y, false, rrg.nodes[node], map,
+					tmp_vis_map_data, node_cost, node_tiles, node_collision,
+					_robot_radius, rrg.nodes[node].radius);
+	return node_collision;
 }
 
 bool CollisionChecker::isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg,
@@ -617,16 +636,23 @@ bool CollisionChecker::checkMovementWithNearestNode(double &x, double &y,
 double CollisionChecker::inflateCircle(double &x, double &y, bool move_node,
 		rrg_nbv_exploration_msgs::Node &nearest_node,
 		nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map, int &cost,
-		int &tiles, int &collision) {
+		int &tiles, int &collision, double current_radius, double max_radius) {
 	std::vector<int8_t> tmp_vis_map = vis_map;
 	if (_inflated_ring_lines_offsets.empty())
 		calculateNextInflatedCircleLinesOffset();
-	double current_radius = _inflated_ring_lines_offsets.front().first;
-	auto it = _inflated_ring_lines_offsets.begin();
 	int index = 0;
+	if (current_radius == _robot_radius)
+		current_radius = _inflated_ring_lines_offsets.front().first;
+	else {
+		index = (current_radius - _robot_radius) / _grid_map_resolution;
+	}
+	auto it = std::next(_inflated_ring_lines_offsets.begin(), index);
 	std::vector<std::pair<double, double>> previous_positions;
 	previous_positions.push_back(std::make_pair(x, y));
 	while (it != _inflated_ring_lines_offsets.end()) {
+		if (it->first >= max_radius) {
+			return current_radius;
+		}
 		bool fixed_direction = false;
 		int direction = isSetInCollision(x, y, fixed_direction, map,
 				tmp_vis_map, it->second, cost, tiles, collision);

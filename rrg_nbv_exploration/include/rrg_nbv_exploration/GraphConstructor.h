@@ -200,6 +200,10 @@ private:
 	 * @brief Current pose of the robot
 	 */
 	geometry_msgs::Pose robot_pose;
+	/**
+	 * @brief List of nodes where navigation failed which will be tried to recover when the next goal (or movement to it) was successful
+	 */
+	std::list<int> _failed_nodes_to_recover;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -281,6 +285,13 @@ private:
 	 * @brief Updates the current goal and the goals around it depending on the status navigation returned
 	 */
 	void handleCurrentGoalFinished();
+
+	/**
+	 * @brief Try to recover failed nodes by repeating the collision check and queue them up for gain
+	 * calculation if the former was successful, set them to initial if recovery succeeded
+	 */
+	void tryFailedNodesRecovery();
+
 	/**
 	 * Timer callback for setting exploration to finished
 	 * @param event

@@ -249,7 +249,9 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 //			_rrg.nodes[iterator.first].heading_change_to_robot_best_view = 0.0;
 //			_rrg.nodes[iterator.first].reward_function = 0.0;
 		}
-		if (_rrg.nodes[iterator.first].retry_inflation)
+		if (_rrg.nodes[iterator.first].status
+				!= rrg_nbv_exploration_msgs::Node::FAILED
+				&& _rrg.nodes[iterator.first].retry_inflation)
 			_collision_checker->inflateExistingNode(_rrg, iterator.first,
 					robot_pose);
 	}
@@ -281,8 +283,6 @@ void GraphConstructor::publishNodeToUpdate() {
 }
 
 void GraphConstructor::handleCurrentGoalFinished() {
-//	ROS_INFO_STREAM(
-//			"Update current goal " << _current_goal_node << " with status " << (int)_rrg.nodes[_current_goal_node].status);
 	geometry_msgs::Point update_center;
 	switch (_rrg.nodes[_current_goal_node].status) {
 	case rrg_nbv_exploration_msgs::Node::EXPLORED:
@@ -290,6 +290,7 @@ void GraphConstructor::handleCurrentGoalFinished() {
 		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		tryFailedNodesRecovery();
 		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::VISITED:
@@ -301,6 +302,7 @@ void GraphConstructor::handleCurrentGoalFinished() {
 		_rrg.nodes[_current_goal_node].reward_function = 0;
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		tryFailedNodesRecovery();
 		_consecutive_failed_goals = 0;
 		break;
 	case rrg_nbv_exploration_msgs::Node::ABORTED:
@@ -315,11 +317,13 @@ void GraphConstructor::handleCurrentGoalFinished() {
 			_sort_nodes_to_update = true;
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
+			tryFailedNodesRecovery();
 		}
 		break;
 	case rrg_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " failed");
 		_node_comparator->removeNode(_current_goal_node);
+		_failed_nodes_to_recover.push_back(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
 		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view = 0;
 		_rrg.nodes[_current_goal_node].reward_function = 0;
@@ -376,6 +380,25 @@ void GraphConstructor::updatedNodeCallback(
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
+}
+
+void GraphConstructor::tryFailedNodesRecovery() {
+	_failed_nodes_to_recover.erase(
+			std::remove_if(_failed_nodes_to_recover.begin(),
+					_failed_nodes_to_recover.end(),
+					[this](int node) {
+						int collision =
+								_collision_checker->collisionCheckForFailedNode(
+										_rrg, node);
+						if (collision == Collisions::unknown) {
+							return false; //keep node and try to recover again
+						} else if (collision == Collisions::empty) {
+							_rrg.nodes[node].status =
+									rrg_nbv_exploration_msgs::Node::INITIAL;
+							_nodes_to_update.push_back(node); //recalculate node gain
+						}
+						return true;
+					}),_failed_nodes_to_recover.end());
 }
 
 void GraphConstructor::convertOctomapMsgToOctree(
