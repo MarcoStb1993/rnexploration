@@ -125,6 +125,14 @@ public:
 	int collisionCheckForFailedNode(rrg_nbv_exploration_msgs::Graph &rrg,
 			int node);
 
+	/**
+	 * @brief Retry edges that previously failed the collision check due to unknown tiles
+	 * @param Reference to the RRG
+	 * @param Pose of the robot
+	 */
+	void retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
+			geometry_msgs::Pose robot_pos);
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
@@ -219,6 +227,11 @@ private:
 	 * @brief List of radius and respective path box distance threshold that matches the particular radius
 	 */
 	std::vector<std::pair<double, double>> _path_box_distance_thresholds;
+	/**
+	 * @brief List of edges that could not be placed due to unknown map tiles in their path box and
+	 * which could be retried
+	 */
+	std::vector<rrg_nbv_exploration_msgs::Edge> _retriable_edges;
 
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
@@ -527,5 +540,31 @@ private:
 	 */
 	bool isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			int neighbor_node);
+
+	/**
+	 * @brief Constructs a new edge from the given node to the new node being place
+	 * @param Yaw of the edge
+	 * @param Length of edge's path box
+	 * @param Traversability cost of the edge's path box
+	 * @param Number of tiles inside the edge's path box
+	 * @param First node of the edge
+	 * @param Distance between the two nodes
+	 * @param Reference to the RRG
+	 * @return The constructed edge
+	 */
+	rrg_nbv_exploration_msgs::Edge constructEdge(double edge_yaw,
+			double edge_length, int edge_cost, int edge_tiles, int node,
+			double distance, rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Check if the newly added edge shortens the path length to the robot for one of the nodes
+	 * of this edge
+	 * @param Robot pose
+	 * @param Reference to the RRG
+	 * @param the newly added edge
+	 */
+	void checkNewEdgePathLength(const geometry_msgs::Pose &robot_pos,
+			rrg_nbv_exploration_msgs::Graph &rrg,
+			rrg_nbv_exploration_msgs::Edge &edge);
 };
 }

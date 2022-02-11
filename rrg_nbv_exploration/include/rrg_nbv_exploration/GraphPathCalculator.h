@@ -44,7 +44,8 @@ public:
 			std::vector<int> parentPathtoRobot, double parentDistanceToRobot);
 
 	/**
-	 * @brief Updates paths and distances from the robot's current position to the respective nodes using Dijkstra's algorithm
+	 * @brief Updates paths and distances from the given start node to the respective nodes using
+	 * Dijkstra's algorithm
 	 * @param Index of the node from which Dijkstra's is started
 	 * @param Current graph
 	 * @param Robot pose

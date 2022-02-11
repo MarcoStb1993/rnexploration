@@ -211,6 +211,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		bool connected = false;
 		double height = 0;
 		std::vector<rrg_nbv_exploration_msgs::Edge> new_edges;
+		std::vector<rrg_nbv_exploration_msgs::Edge> new_retriable_edges;
 		std::vector<visualization_msgs::Marker> new_edge_markers;
 		for (auto it : nodes) {
 			double distance = sqrt(it.second);
@@ -247,23 +248,19 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 											edge_tiles, edge_collision)
 							: true;
 			if (edge_free) {
-				rrg_nbv_exploration_msgs::Edge new_edge;
 				connected = true;
 				height += rrg.nodes[it.first].position.z;
-				new_edge.yaw = (int) (edge_yaw * 180.0 / M_PI);
-				if (new_edge.yaw < 0)
-					new_edge.yaw += 360;
-				new_edge.traversability_cost =
-						edge_length > 0 ? edge_cost : 0.0;
-				new_edge.traversability_weight =
-						edge_length > 0 ? edge_tiles : 0.0;
-				new_edge.first_node = it.first;
-				new_edge.second_node = rrg.node_counter;
-				new_edge.length = distance;
+				rrg_nbv_exploration_msgs::Edge new_edge = constructEdge(
+						edge_yaw, edge_length, edge_cost, edge_tiles, it.first,
+						distance, rrg);
 				new_edges.push_back(new_edge);
 				visualizeEdge(edge_length, edge_center, edge_yaw,
 						new_edge_markers);
-
+			} else if (edge_collision == Collisions::unknown) { //store failed edge for later reassessment
+				rrg_nbv_exploration_msgs::Edge new_edge = constructEdge(
+						edge_yaw, edge_length, edge_cost, edge_tiles, it.first,
+						distance, rrg);
+				new_retriable_edges.push_back(new_edge);
 			}
 		}
 		if (connected) {
@@ -320,6 +317,10 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 							+ new_node.traversability_weight
 							+ rrg.edges[edge_to_shortest_distance].traversability_weight;
 			rrg.nodes.push_back(new_node);
+
+			for (auto edge : new_retriable_edges) { //add edges which failed because of unknown space
+				_retriable_edges.push_back(edge);
+			}
 			if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
 				visualizeNode(new_node);
 				_rrt_collision_visualization_pub.publish(_node_points);
@@ -388,16 +389,7 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 				rrg.edges.push_back(new_edge);
 				rrg.nodes[it.first].edges.push_back(new_edge.index);
 				rrg.nodes[it.first].edge_counter++;
-				if (rrg.nodes[node].distance_to_robot
-						< rrg.nodes[it.first].distance_to_robot + distance) {
-					_graph_path_calculator->updatePathsToRobot(it.first, rrg,
-							robot_pos, false);
-				}
-				if (rrg.nodes[it.first].distance_to_robot
-						< rrg.nodes[node].distance_to_robot + distance) {
-					_graph_path_calculator->updatePathsToRobot(node, rrg,
-							robot_pos, false);
-				}
+				checkNewEdgePathLength(robot_pos, rrg, new_edge);
 			}
 
 		}
@@ -424,6 +416,83 @@ int CollisionChecker::collisionCheckForFailedNode(
 					tmp_vis_map_data, node_cost, node_tiles, node_collision,
 					_robot_radius, rrg.nodes[node].radius);
 	return node_collision;
+}
+
+void CollisionChecker::checkNewEdgePathLength(
+		const geometry_msgs::Pose &robot_pos,
+		rrg_nbv_exploration_msgs::Graph &rrg,
+		rrg_nbv_exploration_msgs::Edge &edge) {
+	if (rrg.nodes[edge.first_node].distance_to_robot + edge.length
+			< rrg.nodes[edge.second_node].distance_to_robot) {
+		_graph_path_calculator->updatePathsToRobot(edge.first_node, rrg,
+				robot_pos, false);
+	} else if (rrg.nodes[edge.second_node].distance_to_robot + edge.length
+			< rrg.nodes[edge.first_node].distance_to_robot) {
+		_graph_path_calculator->updatePathsToRobot(edge.second_node, rrg,
+				robot_pos, false);
+	}
+}
+
+void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
+		geometry_msgs::Pose robot_pos) {
+	nav_msgs::OccupancyGrid map = *_occupancy_grid;
+	_vis_map.header.stamp = ros::Time::now();
+	_vis_map.info.map_load_time = ros::Time::now();
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	bool edge_added = false;
+	std::vector<visualization_msgs::Marker> new_edge_markers;
+	_retriable_edges.erase(
+			std::remove_if(_retriable_edges.begin(), _retriable_edges.end(),
+					[this, &rrg, &robot_pos, &map, &tmp_vis_map_data,
+							&edge_added, &new_edge_markers](
+							rrg_nbv_exploration_msgs::Edge &edge) {
+						int edge_cost = 0, edge_tiles = 0, edge_collision =
+								Collisions::empty;
+						geometry_msgs::Point edge_center;
+						edge_center.x = (rrg.nodes[edge.first_node].position.x
+								+ rrg.nodes[edge.second_node].position.x) / 2;
+						edge_center.y = (rrg.nodes[edge.first_node].position.y
+								+ rrg.nodes[edge.second_node].position.y) / 2;
+						double edge_length = edge.length
+								- _path_box_distance_thres;
+						fmod(edge.yaw, M_PI / 2) == 0 ?
+								isAlignedRectangleInCollision(edge_center.x,
+										edge_center.y, edge.yaw, edge_length,
+										_robot_width / 2, map, tmp_vis_map_data,
+										edge_cost, edge_tiles, edge_collision) :
+								isRectangleInCollision(edge_center.x,
+										edge_center.y, edge.yaw, edge_length,
+										_robot_width / 2, map, tmp_vis_map_data,
+										edge_cost, edge_tiles, edge_collision);
+						if (edge_collision == Collisions::empty) { //add edge to RRG
+							edge.index = rrg.edge_counter++;
+							rrg.edges.push_back(edge);
+							rrg.nodes[edge.first_node].edges.push_back(
+									edge.index);
+							rrg.nodes[edge.first_node].edge_counter++;
+							rrg.nodes[edge.second_node].edges.push_back(
+									edge.index);
+							rrg.nodes[edge.second_node].edge_counter++;
+							edge_added = true;
+							visualizeEdge(edge_length, edge_center, edge.yaw,
+									new_edge_markers);
+							checkNewEdgePathLength(robot_pos, rrg, edge);
+							return true;
+						} else if (edge_collision == Collisions::occupied) { //discard edge
+							return true;
+						}
+						return false; //edge stays in list if still unknown
+					}),_retriable_edges.end());
+	if (edge_added) {
+		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
+			for (auto edge_marker : new_edge_markers) {
+				_node_edges.markers.push_back(edge_marker);
+			}
+			_rrt_collision_visualization_pub.publish(_node_edges);
+		}
+		_vis_map.data = tmp_vis_map_data;
+		_visualization_pub.publish(_vis_map);
+	}
 }
 
 bool CollisionChecker::isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg,
@@ -929,6 +998,21 @@ bool CollisionChecker::calculateEdge(int nearest_node, double &edge_length,
 				+ new_node.position.y) / 2;
 	}
 	return true;
+}
+
+rrg_nbv_exploration_msgs::Edge CollisionChecker::constructEdge(double edge_yaw,
+		double edge_length, int edge_cost, int edge_tiles, int node,
+		double distance, rrg_nbv_exploration_msgs::Graph &rrg) {
+	rrg_nbv_exploration_msgs::Edge new_edge;
+	new_edge.yaw = (int) ((edge_yaw * 180.0 / M_PI));
+	if (new_edge.yaw < 0)
+		new_edge.yaw += 360;
+	new_edge.traversability_cost = edge_length > 0 ? edge_cost : 0.0;
+	new_edge.traversability_weight = edge_length > 0 ? edge_tiles : 0.0;
+	new_edge.first_node = node;
+	new_edge.second_node = rrg.node_counter;
+	new_edge.length = distance;
+	return new_edge;
 }
 
 bool CollisionChecker::checkEngulfing(geometry_msgs::Point &point,

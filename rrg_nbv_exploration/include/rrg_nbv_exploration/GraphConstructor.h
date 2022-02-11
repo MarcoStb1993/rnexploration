@@ -199,7 +199,7 @@ private:
 	/**
 	 * @brief Current pose of the robot
 	 */
-	geometry_msgs::Pose robot_pose;
+	geometry_msgs::Pose _robot_pose;
 	/**
 	 * @brief List of nodes where navigation failed which will be tried to recover when the next goal (or movement to it) was successful
 	 */
@@ -293,6 +293,7 @@ private:
 	/**
 	 * @brief Try to recover failed nodes by repeating the collision check and queue them up for gain
 	 * calculation if the former was successful, set them to initial if recovery succeeded
+	 * Also tries to recover failed edges if they had a collision with unknown tiles (non-inflation only)
 	 */
 	void tryFailedNodesRecovery();
 

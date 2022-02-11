@@ -116,18 +116,18 @@ void GraphConstructor::runRrgConstruction() {
 	_rrg.header.stamp = ros::Time::now();
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
-		robot_pose = _graph_path_calculator->getRobotPose();
+		_robot_pose = _graph_path_calculator->getRobotPose();
 		bool updatePathsWithReset = determineNearestNodeToRobot(
-				robot_pose.position); //check if nearest node to robot changed which means robot moved
-		expandGraph(false, !updatePathsWithReset, robot_pose); //global expansion
+				_robot_pose.position); //check if nearest node to robot changed which means robot moved
+		expandGraph(false, !updatePathsWithReset, _robot_pose); //global expansion
 		if (_local_sampling_radius > 0) //local sampling expansion
-			expandGraph(true, !updatePathsWithReset, robot_pose);
+			expandGraph(true, !updatePathsWithReset, _robot_pose);
 		if (updatePathsWithReset) //robot moved, update paths
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
-					robot_pose);
+					_robot_pose);
 		else { //check if robot heading changed and update heading
 			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
-					_rrg, robot_pose))
+					_rrg, _robot_pose))
 				_node_comparator->robotMoved();
 		}
 		_node_comparator->maintainList(_rrg);
@@ -254,7 +254,7 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrg_nbv_exploration_msgs::Node::FAILED
 				&& _rrg.nodes[iterator.first].retry_inflation)
 			_collision_checker->inflateExistingNode(_rrg, iterator.first,
-					robot_pose);
+					_robot_pose);
 	}
 }
 
@@ -400,6 +400,7 @@ void GraphConstructor::tryFailedNodesRecovery() {
 						}
 						return true;
 					}),_failed_nodes_to_recover.end());
+	_collision_checker->retryEdges(_rrg, _robot_pose); //try to rebuild failed edges
 }
 
 void GraphConstructor::convertOctomapMsgToOctree(
