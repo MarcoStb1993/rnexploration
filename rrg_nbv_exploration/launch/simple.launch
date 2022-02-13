@@ -40,8 +40,9 @@
 	<arg name="inflation_active" default="true" />	
 	<arg name="move_nodes" default="true" />		
 	<arg name="auto_homing" default="false" />	
+	<arg name="reupdate_nodes" default="true" />	
 
-	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode"
+	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" launch-prefix="gdb -ex run --args"
 		output="screen" >
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
@@ -70,7 +71,8 @@
 		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
 		<param name="inflation_active" type="bool" value="$(arg inflation_active)" />
 		<param name="move_nodes" type="bool" value="$(arg move_nodes)" />		
-		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />						
+		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />	
+		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />							
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

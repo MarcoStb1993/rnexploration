@@ -208,6 +208,18 @@ private:
 	 * @brief Return to the root node if all nodes were either explored or failed
 	 */
 	bool _auto_homing;
+	/**
+	 * @brief If active nodes' gain should be recalculated when the robot's nearest neighbors changes
+	 */
+	bool _reupdate_nodes;
+	/**
+	 * @brief Keep track of the last three unique nearest nodes on the path the robot took
+	 */
+	std::vector<int> _last_three_nodes_path;
+	/**
+	 * @brief List of nodes ordered ascending by distance to robot which gain can be recalculated because the robot moved
+	 */
+	std::vector<int> _nodes_to_reupdate;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -296,6 +308,14 @@ private:
 	 * Also tries to recover failed edges if they had a collision with unknown tiles (non-inflation only)
 	 */
 	void tryFailedNodesRecovery();
+
+	/**
+	 * @brief Adds the given node to the list of last three nodes in the path of the robot with removal
+	 * of duplicate nodes and the removal of the oldest node if the size limit (3) is reached which
+	 * also causes the list of nodes to re-update to be refreshed if a new node was added
+	 * @param Node index to add
+	 */
+	void addNodeToLastThreeNodesPath(int node);
 
 	/**
 	 * Timer callback for setting exploration to finished

@@ -142,6 +142,14 @@ bool NodeComparator::compareNodeByReward(const CompareStruct &node_one,
 	return node_one.reward_function >= node_two.reward_function;
 }
 
+std::vector<int> NodeComparator::getListOfNodes() {
+	std::vector<int> nodes;
+	for (auto it : _nodes_ordered_by_reward) {
+		nodes.push_back(it.node);
+	}
+	return nodes;
+}
+
 void NodeComparator::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_gain_factor = config.gain_factor;

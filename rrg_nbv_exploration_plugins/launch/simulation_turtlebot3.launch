@@ -238,6 +238,7 @@
 		<arg name="inflation_active" default="$(arg inflation_active)" />
 		<arg name="move_nodes" default="$(arg move_nodes)" />
 		<arg name="auto_homing" default="false" />	
+		<arg name="reupdate_nodes" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->

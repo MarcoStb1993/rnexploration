@@ -27,6 +27,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("max_consecutive_failed_goals",
 			_max_consecutive_failed_goals, 5);
 	private_nh.param("auto_homing", _auto_homing, false);
+	private_nh.param("reupdate_nodes", _reupdate_nodes, true);
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
@@ -97,6 +98,7 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_consecutive_failed_goals = 0;
 	_graph_searcher->initialize(_rrg);
 	_nodes_to_update.push_back(0);
+	_last_three_nodes_path.push_back(0);
 	_node_comparator->initialization();
 	_generator.seed(time(NULL));
 	_collision_checker->initialize(_rrg, _graph_searcher,
@@ -201,6 +203,7 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
+			addNodeToLastThreeNodesPath(nearest_node);
 			if (!_graph_path_calculator->neighbourNodes(_rrg, nearest_node,
 					_rrg.nearest_node)) {
 				//check if robot came off path and is close to a non-neighbor node
@@ -280,6 +283,17 @@ void GraphConstructor::publishNodeToUpdate() {
 		msg.node = _rrg.nodes[_nodes_to_update.front()];
 		msg.force_update = _nodes_to_update.front() == _last_goal_node;
 		_node_to_update_publisher.publish(msg);
+	} else if (_reupdate_nodes && !_nodes_to_reupdate.empty()) { //if list is empty, re-update nodes ordered ascending by their distance to the robot
+		rrg_nbv_exploration_msgs::NodeToUpdate msg;
+		int node = _nodes_to_reupdate.front();
+		_nodes_to_reupdate.erase(_nodes_to_reupdate.begin());
+		if (_rrg.nodes[node].distance_to_robot > _sensor_range) { //don't re-update nodes outside of sensor range
+			_nodes_to_reupdate.clear();
+			return;
+		}
+		msg.node = _rrg.nodes[node];
+		msg.force_update = false;
+		_node_to_update_publisher.publish(msg);
 	}
 }
 
@@ -312,12 +326,14 @@ void GraphConstructor::handleCurrentGoalFinished() {
 				_rrg.nodes[_current_goal_node].gain > 0 ?
 						rrg_nbv_exploration_msgs::Node::INITIAL :
 						rrg_nbv_exploration_msgs::Node::EXPLORED;
-		if (_moved_to_current_goal) {
-			ROS_INFO("update nodes");
-			_node_comparator->removeNode(_current_goal_node);
-			_sort_nodes_to_update = true;
-			update_center = _last_robot_pos;
-			updateNodes(update_center);
+		if (_moved_to_current_goal) { //do not update nodes because of constant re-updating
+			if(!_reupdate_nodes){
+				ROS_INFO("update nodes");
+				_node_comparator->removeNode(_current_goal_node);
+				_sort_nodes_to_update = true;
+				update_center = _last_robot_pos;
+				updateNodes(update_center);
+				}
 			tryFailedNodesRecovery();
 		}
 		break;
@@ -401,6 +417,27 @@ void GraphConstructor::tryFailedNodesRecovery() {
 						return true;
 					}),_failed_nodes_to_recover.end());
 	_collision_checker->retryEdges(_rrg, _robot_pose); //try to rebuild failed edges
+}
+
+void GraphConstructor::addNodeToLastThreeNodesPath(int node) {
+	if (!_reupdate_nodes)
+		return;
+	auto it = std::find(_last_three_nodes_path.begin(),
+			_last_three_nodes_path.end(), node);
+	if (it == _last_three_nodes_path.end()) {
+		if (_last_three_nodes_path.size() >= 3) {
+			_last_three_nodes_path.erase(_last_three_nodes_path.begin());
+		}
+		_last_three_nodes_path.push_back(node);
+		_nodes_to_reupdate.clear();
+		_nodes_to_reupdate = _node_comparator->getListOfNodes();
+		std::sort(_nodes_to_reupdate.begin(), _nodes_to_reupdate.end(),
+				[this](int node_one, int node_two) {
+					return compareNodeDistancesToRobot(node_one, node_two);
+				});
+	} else {
+		std::iter_swap(it, _last_three_nodes_path.rbegin());
+	}
 }
 
 void GraphConstructor::convertOctomapMsgToOctree(

@@ -104,6 +104,12 @@ public:
 	 */
 	void setSortList();
 
+	/**
+	 * @brief Retrieve a list of all nodes currently ordered by the reward function
+	 * @return List of all nodes managed by this class
+	 */
+	std::vector<int> getListOfNodes();
+
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
 			uint32_t level);
@@ -159,7 +165,7 @@ private:
 	 * @brief Calculates the reward function of each node in the list of nodes
 	 * @param Current graph
 	 */
-	void calculateRewardFunctions(rrg_nbv_exploration_msgs::Graph &rrh);
+	void calculateRewardFunctions(rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Returns the reward function of the given node index
@@ -176,7 +182,6 @@ private:
 	 */
 	bool compareNodeByReward(const CompareStruct &node_one,
 			const CompareStruct &node_two);
-
 };
 
 } /* namespace rrg_nbv_exploration */

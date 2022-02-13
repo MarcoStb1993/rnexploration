@@ -25,8 +25,8 @@
 	<arg name="navigation_global_planner"
 		default="rrg_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.7" />
-	<arg name="min_view_score" default="0.05" />
-	<arg name="local_sampling_radius" default="5" />
+	<arg name="min_view_score" default="0.03" />
+	<arg name="local_sampling_radius" default="10" />
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
 	<!-- Robot starting position in world -->
@@ -258,6 +258,7 @@
 		<arg name="inflation_active" default="$(arg inflation_active)" />
 		<arg name="move_nodes" default="$(arg move_nodes)" />	
 		<arg name="auto_homing" default="false" />	
+		<arg name="reupdate_nodes" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->
