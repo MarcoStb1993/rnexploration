@@ -9,6 +9,7 @@ RneVisualizer::RneVisualizer() {
 	private_nh.param("show_distance_info", _show_traversability_info, false);
 	private_nh.param("show_heading_info", _show_heading_info, false);
 	private_nh.param("show_radius_info", _show_radius_info, false);
+	private_nh.param("show_cost_info", _show_cost_info, false);
 
 	ros::NodeHandle nh("rne");
 	_rrg_sub = nh.subscribe("rrg", 1000, &RneVisualizer::visualizeRrgGraph,
@@ -117,10 +118,13 @@ void RneVisualizer::addInfoTextVisualization(
 	std::ostringstream oss;
 	if (rrg->nodes[node].reward_function > 0
 			&& rrg->nodes[node].path_to_robot.size() > 0) {
-		oss << std::setw(node < 100 ? 3 : 2) << "(" << node
-				<< ")" << "\n" << std::fixed << std::setprecision(6)
+		oss << std::setw(node < 100 ? 3 : 2) << "(" << node << ")" << "\n"
+				<< std::fixed << std::setprecision(6)
 				<< rrg->nodes[node].reward_function << std::fixed
 				<< std::setprecision(3);
+		if (_show_cost_info)
+			oss << std::fixed << std::setprecision(3) << "\nc: "
+					<< rrg->nodes[node].cost_function;
 		if (_show_gain_info)
 			oss << std::fixed << std::setprecision(3) << "\ng: "
 					<< rrg->nodes[node].gain;
@@ -128,12 +132,11 @@ void RneVisualizer::addInfoTextVisualization(
 			oss << "\nd: " << rrg->nodes[node].distance_to_robot;
 		if (_show_traversability_info)
 			oss << "\nt: "
-					<< rrg->nodes[node].traversability_cost_to_robot
-							/ rrg->nodes[node].traversability_weight_to_robot;
+					<< (double) rrg->nodes[node].traversability_cost_to_robot
+							/ (double) rrg->nodes[node].traversability_weight_to_robot;
 		if (_show_heading_info)
 			oss << "\nh: "
-					<< ((double) rrg->nodes[node].heading_change_to_robot_best_view
-							/ 180.0 * M_PI);
+					<< rrg->nodes[node].heading_change_to_robot_best_view;
 		if (_show_radius_info)
 			oss << "\nr: "
 					<< (rrg->nodes[node].radii_to_robot
@@ -199,6 +202,7 @@ void RneVisualizer::dynamicReconfigureCallback(
 	_show_heading_info = config.show_heading_info;
 	_show_traversability_info = config.show_traversability_info;
 	_show_radius_info = config.show_radius_info;
+	_show_cost_info = config.show_cost_info;
 }
 
 }

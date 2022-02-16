@@ -238,7 +238,6 @@ void GraphConstructor::publishBestAndCurrentNode() {
 }
 
 void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
-//ROS_INFO("start updating nodes");
 	std::vector<std::pair<int, double>> updatable_nodes =
 			_graph_searcher->searchInRadius(center_node, _radius_search_range);
 	for (auto iterator : updatable_nodes) {
@@ -246,12 +245,7 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrg.nodes[iterator.first].status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-//			_node_comparator->removeNode(iterator.first);
 			_nodes_to_update.push_back(iterator.first);
-//			_sort_nodes_to_update = true;
-//			_rrg.nodes[iterator.first].gain = -1;
-//			_rrg.nodes[iterator.first].heading_change_to_robot_best_view = 0.0;
-//			_rrg.nodes[iterator.first].reward_function = 0.0;
 		}
 		if (_rrg.nodes[iterator.first].status
 				!= rrg_nbv_exploration_msgs::Node::FAILED
@@ -327,13 +321,13 @@ void GraphConstructor::handleCurrentGoalFinished() {
 						rrg_nbv_exploration_msgs::Node::INITIAL :
 						rrg_nbv_exploration_msgs::Node::EXPLORED;
 		if (_moved_to_current_goal) { //do not update nodes because of constant re-updating
-			if(!_reupdate_nodes){
+			if (!_reupdate_nodes) {
 				ROS_INFO("update nodes");
 				_node_comparator->removeNode(_current_goal_node);
 				_sort_nodes_to_update = true;
 				update_center = _last_robot_pos;
 				updateNodes(update_center);
-				}
+			}
 			tryFailedNodesRecovery();
 		}
 		break;
@@ -380,13 +374,10 @@ void GraphConstructor::updatedNodeCallback(
 		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
-					(double) (_rrg.nodes[updated_node->index].heading_change_to_robot
-							+ _graph_path_calculator->getAbsoluteAngleDiff(
-									_rrg.nodes[updated_node->index].heading_in,
-									_rrg.nodes[updated_node->index].best_yaw))
-							/ (180.0
-									* (double) _rrg.nodes[updated_node->index].path_to_robot.size());
+			_graph_path_calculator->setHeadingChangeToBestView(
+					updated_node->index, _rrg);
+			_graph_path_calculator->calculateCostFunction(updated_node->index,
+					_rrg);
 			_node_comparator->addNode(updated_node->index);
 			_sort_nodes_to_update = true;
 		} else {
@@ -561,6 +552,7 @@ bool GraphConstructor::resetRrgState(std_srvs::Trigger::Request &req,
 void GraphConstructor::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_node_comparator->dynamicReconfigureCallback(config, level);
+	_graph_path_calculator->dynamicReconfigureCallback(config, level);
 }
 
 }

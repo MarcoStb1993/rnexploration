@@ -8,6 +8,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <rrg_nbv_exploration/GraphConstructorConfig.h>
 
 namespace rrg_nbv_exploration {
 /**
@@ -105,6 +106,26 @@ public:
 	int determineGoalYaw(int current_goal, rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Point robot_pose, bool homing = false);
 
+	/**
+	 * @brief Calculate the cost function of the given node based on its distance, heading change,
+	 * traversability and node radii to the robot
+	 * @param Index of the node
+	 * @param Reference to the RRG
+	 */
+	void calculateCostFunction(int node, rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Update the given node's heading change to best view from robot and update the largest change
+	 * @param Node index
+	 * @param Reference to RRG
+	 */
+	void setHeadingChangeToBestView(int node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::GraphConstructorConfig &config,
+			uint32_t level);
+
 private:
 	ros::NodeHandle _nh;
 
@@ -116,6 +137,10 @@ private:
 	 */
 	std::string _robot_frame;
 	/**
+	 * Radius that includes robot's footprint in m
+	 */
+	double _robot_radius;
+	/**
 	 * Sensor's horizontal FoV that is considered for gain calculation in degrees
 	 */
 	int _sensor_horizontal_fov;
@@ -123,6 +148,30 @@ private:
 	 * @brief Previous yaw of the robot in degrees
 	 */
 	int _last_robot_yaw;
+	/**
+	 * @brief Weighting factor for the radius of a node (only active when inflation is active)
+	 */
+	double _radius_factor;
+	/**
+	 * @brief Weighting factor for the distance to a node
+	 */
+	double _distance_factor;
+	/**
+	 * @brief Weighting factor for the heading change while moving to a node
+	 */
+	double _heading_factor;
+	/**
+	 * @brief Weighting factor for the traversability cost along the path to a node
+	 */
+	double _traversability_factor;
+	/**
+	 * @brief If the inflation of nodes (wavefront) is active
+	 */
+	bool _inflation_active;
+	/**
+	 * @brief Grid map value that indicates a cell is occupied (or inscribed)
+	 */
+	int _grid_map_occupied;
 
 	/**
 	 * @brief Find the yaw in deg and distance in m from the start node to the end node and return true if it was found
@@ -148,14 +197,6 @@ private:
 	void addInterNodes(std::vector<geometry_msgs::PoseStamped> &path,
 			geometry_msgs::Point start, geometry_msgs::Point end,
 			geometry_msgs::Quaternion orientation, double yaw, double distance);
-
-	/**
-	 * @brief Update the given node's heading change to best view from robot and update the largest change
-	 * @param Node index
-	 * @param Reference to RRG
-	 */
-	void setHeadingChangeToBestView(int node,
-			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Calculate a straight path from the robot to the given node

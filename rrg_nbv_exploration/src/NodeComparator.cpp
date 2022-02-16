@@ -19,13 +19,7 @@ NodeComparator::~NodeComparator() {
 
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("robot_radius", _robot_radius, 1.0);
-	private_nh.param("radius_factor", _radius_factor, 1.0);
 	private_nh.param("gain_factor", _gain_factor, 1.0);
-	private_nh.param("distance_factor", _distance_factor, 1.0);
-	private_nh.param("heading_factor", _heading_factor, 1.0);
-	private_nh.param("traversability_factor", _traversability_factor, 1.0);
-	private_nh.param("inflation_active", _inflation_active, true);
 
 	_sort_list = false;
 	_robot_moved = false;
@@ -87,43 +81,24 @@ void NodeComparator::sortByReward() {
 
 void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	for (auto &node : _nodes_ordered_by_reward) {
-		if (rrg.nodes[node.node].path_to_robot.size()
-				&& (node.reward_function == 0 || _robot_moved)) {
-			double gain = rrg.nodes[node.node].gain;
-			double traversability =
-					rrg.nodes[node.node].traversability_weight_to_robot > 0 ?
-							rrg.nodes[node.node].traversability_cost_to_robot
-									/ rrg.nodes[node.node].traversability_weight_to_robot :
-							0;
-			double distance = rrg.nodes[node.node].distance_to_robot;
-			double heading =
-					(double) rrg.nodes[node.node].heading_change_to_robot_best_view
-							/ 180.0 * M_PI;
-			if (_inflation_active && _radius_factor > 0) {
-				double radius = rrg.nodes[node.node].radii_to_robot
-						/ rrg.nodes[node.node].path_to_robot.size()
-						/ _robot_radius;
-				node.reward_function = _gain_factor * gain
-						* exp(
-								-1
-										* ((_distance_factor * distance
-												+ _traversability_factor
-														* traversability
-												+ _heading_factor * heading)
-												/ (_radius_factor * radius)));
-			} else {
-				node.reward_function = _gain_factor * gain
-						* exp(
-								-1
-										* (_distance_factor * distance
-												+ _traversability_factor
-														* traversability
-												+ _heading_factor * heading));
+	if (_gain_factor > 0)
+		for (auto &node : _nodes_ordered_by_reward) {
+			if (rrg.nodes[node.node].path_to_robot.size()
+					&& (node.reward_function == 0 || _robot_moved)) {
+				node.reward_function = _gain_factor * rrg.nodes[node.node].gain
+						* exp(-1 * rrg.nodes[node.node].cost_function);
+				rrg.nodes[node.node].reward_function = node.reward_function;
 			}
-			rrg.nodes[node.node].reward_function = node.reward_function;
 		}
-	}
+	else
+		for (auto &node : _nodes_ordered_by_reward) {
+			if (rrg.nodes[node.node].path_to_robot.size()
+					&& (node.reward_function == 0 || _robot_moved)) {
+				node.reward_function = exp(
+						-1 * rrg.nodes[node.node].cost_function);
+				rrg.nodes[node.node].reward_function = node.reward_function;
+			}
+		}
 }
 
 double NodeComparator::getNodeRewardFunction(int node) {
@@ -153,10 +128,6 @@ std::vector<int> NodeComparator::getListOfNodes() {
 void NodeComparator::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_gain_factor = config.gain_factor;
-	_distance_factor = config.distance_factor;
-	_traversability_factor = config.traversability_factor;
-	_heading_factor = config.heading_factor;
-	_radius_factor = config.radius_factor;
 }
 
 } /* namespace rrg_nbv_exploration */

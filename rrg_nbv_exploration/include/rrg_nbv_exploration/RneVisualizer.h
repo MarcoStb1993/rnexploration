@@ -52,6 +52,7 @@ private:
 	bool _show_traversability_info;
 	bool _show_heading_info;
 	bool _show_radius_info;
+	bool _show_cost_info;
 
 	/**
 	 * @brief Visualization function that publishes the RRG-visualization in the topic "rrg_vis" and is called when receiving new input from topic "rrg"

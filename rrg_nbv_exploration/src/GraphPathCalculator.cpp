@@ -6,7 +6,14 @@ GraphPathCalculator::GraphPathCalculator() :
 	ros::NodeHandle private_nh("~");
 	private_nh.param<std::string>("robot_frame", _robot_frame,
 			"base_footprint");
+	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("sensor_horizontal_fov", _sensor_horizontal_fov, 360);
+	private_nh.param("radius_factor", _radius_factor, 1.0);
+	private_nh.param("distance_factor", _distance_factor, 1.0);
+	private_nh.param("heading_factor", _heading_factor, 1.0);
+	private_nh.param("traversability_factor", _traversability_factor, 1.0);
+	private_nh.param("inflation_active", _inflation_active, true);
+	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	_last_robot_yaw = 0;
 }
 
@@ -47,27 +54,35 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 	//run Dijkstra on RRG and assign distance and path to each node
 	std::set<std::pair<double, int>> node_queue;
 	if (reset) { //robot moved and is currently at startNode's position
+		ROS_INFO_STREAM("Reset cost functions");
 		for (auto &node : rrg.nodes) {
 			node.distance_to_robot = std::numeric_limits<double>::infinity();
 			node.path_to_robot.clear();
 			node.traversability_cost_to_robot = 0.0;
-			node.traversability_weight_to_robot = 0.0;
+			node.traversability_weight_to_robot = 1.0;
 			node.heading_in = 0;
 			node.heading_change_to_robot = 0;
-			node.heading_change_to_robot_best_view = 0;
+			node.heading_change_to_robot_best_view =
+					std::numeric_limits<int>::max();
 			node.radii_to_robot = 0;
+			node.cost_function = std::numeric_limits<double>::infinity();
 		}
 
 		rrg.nodes[startNode].distance_to_robot = 0;
 		rrg.nodes[startNode].path_to_robot.push_back(startNode);
-		rrg.nodes[startNode].heading_change_to_robot = 0;
 		rrg.nodes[startNode].traversability_cost_to_robot =
 				rrg.nodes[startNode].traversability_cost;
 		rrg.nodes[startNode].traversability_weight_to_robot =
 				rrg.nodes[startNode].traversability_weight;
-		rrg.nodes[startNode].heading_in = robot_yaw;
+		double yaw_to_start_node = atan2(
+				rrg.nodes[startNode].position.y - robot_pos.position.y,
+				rrg.nodes[startNode].position.x - robot_pos.position.x);
+		rrg.nodes[startNode].heading_in = yaw_to_start_node;
+		rrg.nodes[startNode].heading_change_to_robot = getAbsoluteAngleDiff(
+				yaw_to_start_node, robot_yaw);
 		rrg.nodes[startNode].radii_to_robot = rrg.nodes[startNode].radius;
 		setHeadingChangeToBestView(startNode, rrg);
+		calculateCostFunction(startNode, rrg);
 	}
 	node_queue.insert(
 			std::make_pair(rrg.nodes[startNode].distance_to_robot, startNode));
@@ -118,6 +133,7 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 						rrg.nodes[current_node].traversability_weight_to_robot
 								+ rrg.nodes[neighbor_node].traversability_weight
 								+ rrg.edges[edge].traversability_weight;
+				calculateCostFunction(neighbor_node, rrg);
 				node_queue.insert(
 						std::make_pair(
 								rrg.nodes[neighbor_node].distance_to_robot,
@@ -134,6 +150,7 @@ bool GraphPathCalculator::updateHeadingToRobot(int startNode,
 		return false;
 	rrg.nodes[startNode].heading_in = robot_yaw;
 	setHeadingChangeToBestView(startNode, rrg);
+	calculateCostFunction(startNode, rrg);
 	_last_robot_yaw = robot_yaw;
 	std::map<int, int> first_nodes; //nodes with a direct edge to the start node (index, heading difference)
 	for (int edge : rrg.nodes[startNode].edges) { //find nodes with direct edge to start node and calculate the difference
@@ -162,11 +179,40 @@ bool GraphPathCalculator::updateHeadingToRobot(int startNode,
 			rrg.nodes[i].heading_change_to_robot =
 					rrg.nodes[i].heading_change_to_robot
 							+ first_nodes.at(rrg.nodes[i].path_to_robot[1]);
-
 			setHeadingChangeToBestView(i, rrg);
+			calculateCostFunction(i, rrg);
 		}
 	}
 	return true;
+}
+
+void GraphPathCalculator::calculateCostFunction(int node,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (rrg.nodes[node].status != rrg_nbv_exploration_msgs::Node::EXPLORED
+			&& rrg.nodes[node].status
+					!= rrg_nbv_exploration_msgs::Node::FAILED) {
+		double traversability =
+				(double) rrg.nodes[node].traversability_cost_to_robot
+						/ (double) rrg.nodes[node].traversability_weight_to_robot; //TODO: re-evaluate traversability cost
+		double distance = rrg.nodes[node].distance_to_robot;
+		double heading =
+				(double) rrg.nodes[node].heading_change_to_robot_best_view
+						/ 180.0; //every half-turn costs as much as 1m of distance
+		double cost_function = _distance_factor * distance
+				+ _traversability_factor * traversability
+				+ _heading_factor * heading;
+		if (_inflation_active && _radius_factor > 0) {
+			double radius = rrg.nodes[node].radii_to_robot
+					/ rrg.nodes[node].path_to_robot.size() / _robot_radius;
+			if (cost_function > 0)
+				rrg.nodes[node].cost_function = cost_function
+						/ (_radius_factor * radius);
+			else
+				rrg.nodes[node].cost_function = 1.0 / (_radius_factor * radius);
+		} else {
+			rrg.nodes[node].cost_function = cost_function;
+		}
+	}
 }
 
 int GraphPathCalculator::getAbsoluteAngleDiff(int x, int y) {
@@ -176,9 +222,13 @@ int GraphPathCalculator::getAbsoluteAngleDiff(int x, int y) {
 void GraphPathCalculator::setHeadingChangeToBestView(int node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	if (rrg.nodes[node].gain > 0) {
-		rrg.nodes[node].heading_change_to_robot_best_view =
-				(double) (getAbsoluteAngleDiff(rrg.nodes[node].heading_in,
-						rrg.nodes[node].best_yaw));
+		if (_sensor_horizontal_fov == 360)
+			rrg.nodes[node].heading_change_to_robot_best_view =
+					rrg.nodes[node].heading_change_to_robot;
+		else
+			rrg.nodes[node].heading_change_to_robot_best_view =
+					getAbsoluteAngleDiff(rrg.nodes[node].heading_in,
+							rrg.nodes[node].best_yaw);
 	} else
 		rrg.nodes[node].heading_change_to_robot_best_view = 0;
 }
@@ -190,7 +240,7 @@ void GraphPathCalculator::getNavigationPath(
 	if (rrg.nearest_node == goal_node) { //nearest node to robot and goal node are the same
 		getPathFromRobotToNode(robot_pose, goal_node, rrg, path);
 	} else { //build a path from start to root and from goal to root until they meet
-		//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
+//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
 		ros::Time timestamp = ros::Time::now();
 		std::vector<int> path_to_robot = rrg.nodes[goal_node].path_to_robot;
 		if (path_to_robot.size() >= 2) {
@@ -338,22 +388,20 @@ void GraphPathCalculator::addInterNodes(
 int GraphPathCalculator::determineGoalYaw(int current_goal,
 		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Point robot_pose,
 		bool homing) {
-	if (_sensor_horizontal_fov == 360 || homing) { //use yaw from incoming edge for 360 degrees FoV
-		int yaw = 0;
+	int yaw = rrg.nodes[current_goal].best_yaw; //normally use best yaw for orientation
+	if (_sensor_horizontal_fov == 360 || homing) { //use yaw from incoming edge for 360 degrees FoV	or when going back to the start
 		double distance;
-		if (rrg.nodes[current_goal].path_to_robot.size() > 1
-				&& !getHeadingBetweenNodes(
+		if (rrg.nodes[current_goal].path_to_robot.size() < 2
+				|| !getHeadingBetweenNodes(
 						rrg.nodes[current_goal].path_to_robot[rrg.nodes[current_goal].path_to_robot.size()
 								- 2], current_goal, yaw, distance, rrg)) { //check if current goal is goal nearest to robot
-			double yaw = atan2(
+			yaw = (int) (atan2(
 					rrg.nodes[current_goal].position.y - robot_pose.y,
-					rrg.nodes[current_goal].position.x - robot_pose.x);
-			yaw *= 180 / M_PI;
+					rrg.nodes[current_goal].position.x - robot_pose.x) * 180
+					/ M_PI);
 		}
-		return yaw;
 	}
-	//use best yaw for orientation
-	return rrg.nodes[current_goal].best_yaw;
+	return yaw;
 }
 
 bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
@@ -366,6 +414,14 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 			return true;
 	}
 	return false;
+}
+
+void GraphPathCalculator::dynamicReconfigureCallback(
+		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
+	_distance_factor = config.distance_factor;
+	_traversability_factor = config.traversability_factor;
+	_heading_factor = config.heading_factor;
+	_radius_factor = config.radius_factor;
 }
 
 }

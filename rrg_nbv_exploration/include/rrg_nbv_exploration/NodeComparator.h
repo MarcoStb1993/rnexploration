@@ -128,33 +128,9 @@ private:
 	 */
 	bool _robot_moved;
 	/**
-	 * Radius that includes robot's footprint in m
-	 */
-	double _robot_radius;
-	/**
-	 * @brief Weighting factor for the radius of a node (only active when inflation is active)
-	 */
-	double _radius_factor;
-	/**
 	 * @brief Weighting factor for the information gain of a node
 	 */
 	double _gain_factor;
-	/**
-	 * @brief Weighting factor for the distance to a node
-	 */
-	double _distance_factor;
-	/**
-	 * @brief Weighting factor for the heading change while moving to a node
-	 */
-	double _heading_factor;
-	/**
-	 * @brief Weighting factor for the traversability cost along the path to a node
-	 */
-	double _traversability_factor;
-	/**
-	 * @brief If the inflation of nodes (wavefront) is active
-	 */
-	bool _inflation_active;
 
 	/**
 	 * @brief Sorts list of nodes with a reward function, the node with the highest reward function comes first
