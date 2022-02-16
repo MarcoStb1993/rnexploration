@@ -54,7 +54,6 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 	//run Dijkstra on RRG and assign distance and path to each node
 	std::set<std::pair<double, int>> node_queue;
 	if (reset) { //robot moved and is currently at startNode's position
-		ROS_INFO_STREAM("Reset cost functions");
 		for (auto &node : rrg.nodes) {
 			node.distance_to_robot = std::numeric_limits<double>::infinity();
 			node.path_to_robot.clear();
