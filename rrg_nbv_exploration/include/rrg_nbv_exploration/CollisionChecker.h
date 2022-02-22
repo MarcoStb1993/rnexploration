@@ -100,11 +100,12 @@ public:
 	 * @param Reference to the RRG
 	 * @param Reference to a possible new node in the RRT
 	 * @param Randomly sampled position serving as a base for a new node's position
+	 * @param Reference to robot pose
 	 * @return Returns true if a path between the nodes was found and false otherwise
 	 */
 	bool steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::Node &new_node,
-			geometry_msgs::Point rand_sample);
+			geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos);
 
 	/**
 	 * @brief Try to inflate an existing node which inflation was previously stopped because of
@@ -436,14 +437,6 @@ private:
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Returns the absolute angle difference in degrees between two given angles in degrees
-	 * @param First angle
-	 * @param Second angle
-	 * @return Absolute angle difference
-	 */
-	int getAbsoluteAngleDiff(int x, int y);
-
-	/**
 	 * @brief Try to move a circle one grid map tile in the given direction
 	 * @param Reference to x-coordinate of the circle's center
 	 * @param Reference to y-coordinate of the circle's center
@@ -530,16 +523,6 @@ private:
 	 * @return Moved point
 	 */
 	geometry_msgs::Point movePoint(int direction, double &x, double &y);
-
-	/**
-	 * @brief Checks if an edge to the given neighbor node from the provided node already exists
-	 * @param Reference to the RRG
-	 * @param Index of the node
-	 * @param Index of the neighbor node
-	 * @return If an edge already exists between the two nodes
-	 */
-	bool isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg, int node,
-			int neighbor_node);
 
 	/**
 	 * @brief Constructs a new edge from the given node to the new node being place

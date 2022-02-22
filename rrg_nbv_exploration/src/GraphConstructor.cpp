@@ -23,7 +23,6 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 			_exploration_finished_timer_duration, 10.0);
 	double nearest_node_tolerance;
 	private_nh.param("nearest_node_tolerance", nearest_node_tolerance, 0.1);
-	_nearest_node_tolerance_squared = pow(nearest_node_tolerance, 2);
 	private_nh.param("max_consecutive_failed_goals",
 			_max_consecutive_failed_goals, 5);
 	private_nh.param("auto_homing", _auto_homing, false);
@@ -119,17 +118,20 @@ void GraphConstructor::runRrgConstruction() {
 	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
+		//TODO: get next_node and edge_to_next_node, reset them on goal change and when nearest node changes
 		bool updatePathsWithReset = determineNearestNodeToRobot(
 				_robot_pose.position); //check if nearest node to robot changed which means robot moved
 		expandGraph(false, !updatePathsWithReset, _robot_pose); //global expansion
 		if (_local_sampling_radius > 0) //local sampling expansion
 			expandGraph(true, !updatePathsWithReset, _robot_pose);
-		if (updatePathsWithReset) //robot moved, update paths
+		if (updatePathsWithReset) { //robot moved, update paths
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
-					_robot_pose);
-		else { //check if robot heading changed and update heading
+					_robot_pose, true);
+			determineNextNodeInPath();
+		} else { //check if robot heading changed and update heading
 			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
-					_rrg, _robot_pose))
+					_rrg, _robot_pose, _next_node, _edge_to_next_node,
+					_distance_to_nearest_node_squared))
 				_node_comparator->robotMoved();
 		}
 		_node_comparator->maintainList(_rrg);
@@ -151,7 +153,7 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths,
 	else
 		samplePoint(rand_sample);
 	rrg_nbv_exploration_msgs::Node node;
-	if (_collision_checker->steer(_rrg, node, rand_sample)) {
+	if (_collision_checker->steer(_rrg, node, rand_sample, robot_pos)) {
 		if (updatePaths)
 			_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
 					robot_pos, false); //check if new connection could improve other distances
@@ -191,8 +193,27 @@ void GraphConstructor::checkCurrentGoal() {
 		_moved_to_current_goal = false;
 		_goal_updated = true;
 		_updating = false;
+		determineNextNodeInPath();
 		ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 	}
+}
+
+void GraphConstructor::determineNextNodeInPath() {
+	if (_current_goal_node >= 0
+			&& _rrg.nodes[_current_goal_node].path_to_robot.size() > 1) {
+		_next_node = _rrg.nodes[_current_goal_node].path_to_robot.at(1); //next goal on the path to the robot
+		_edge_to_next_node = _graph_path_calculator->findExistingEdge(_rrg,
+				_rrg.nearest_node, _next_node);
+		if (_edge_to_next_node >= 0)
+			return;
+
+	}
+	_next_node = -1;
+}
+
+void GraphConstructor::resetNextNodeInPath() {
+	_next_node = -1;
+	_edge_to_next_node = -1;
 }
 
 bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
@@ -203,25 +224,39 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
-			addNodeToLastThreeNodesPath(nearest_node);
-			if (!_graph_path_calculator->neighbourNodes(_rrg, nearest_node,
-					_rrg.nearest_node)) {
-				//check if robot came off path and is close to a non-neighbor node
-				double distance_squared = pow(
-						_rrg.nodes[_rrg.nearest_node].position.x
-								- _rrg.nodes[nearest_node].position.x, 2)
-						+ pow(
-								_rrg.nodes[_rrg.nearest_node].position.y
-										- _rrg.nodes[nearest_node].position.y,
+//			ROS_INFO_STREAM(
+//					"Current nearest node " << _rrg.nearest_node << " new " << nearest_node << " next node " << next_node << " with edge " << edge_to_next_node);
+			if (nearest_node != _next_node) {
+				double distance_to_edge =
+						pow(
+								(((_rrg.nodes[_next_node].position.x
+										- _rrg.nodes[_rrg.nearest_node].position.x)
+										* (_rrg.nodes[_rrg.nearest_node].position.y
+												- pos.y))
+										- ((_rrg.nodes[_rrg.nearest_node].position.x
+												- pos.x)
+												* (_rrg.nodes[_next_node].position.y
+														- _rrg.nodes[_rrg.nearest_node].position.y)))
+										/ (_rrg.edges[_edge_to_next_node].length),
 								2);
-				if (distance_squared <= _nearest_node_tolerance_squared) {
+//				ROS_INFO_STREAM(
+//						"Distance to edge " << sqrt(distance_to_edge) << " distance to nn " << sqrt(min_distance));
+				if (distance_to_edge <= min_distance) { //robot is closer to edge than to nearest node, keep current one
+//					ROS_INFO_STREAM(
+//							"Robot stays on edge, no new nearest neighbor");
 					return false;
 				}
 			}
 			_moved_to_current_goal = true;
 			_node_comparator->robotMoved();
+//			ROS_INFO_STREAM(
+//					"Moved along edge from " << _rrg.nearest_node << " to " << nearest_node);
 			_rrg.nearest_node = nearest_node;
+			_distance_to_nearest_node_squared = min_distance;
+			addNodeToLastThreeNodesPath(nearest_node);
 			return true;
+		} else { //nearest node remained the same, just update distance
+			_distance_to_nearest_node_squared = min_distance;
 		}
 	}
 	return false;
@@ -299,6 +334,7 @@ void GraphConstructor::handleCurrentGoalFinished() {
 		_node_comparator->removeNode(_current_goal_node);
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		resetNextNodeInPath();
 		tryFailedNodesRecovery();
 		_consecutive_failed_goals = 0;
 		break;
@@ -307,10 +343,12 @@ void GraphConstructor::handleCurrentGoalFinished() {
 		_node_comparator->removeNode(_current_goal_node);
 		_sort_nodes_to_update = true;
 		_rrg.nodes[_current_goal_node].gain = 0;
-		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view = 0;
+		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view =
+				_rrg.nodes[_current_goal_node].heading_change_to_robot;
 		_rrg.nodes[_current_goal_node].reward_function = 0;
 		update_center = _rrg.nodes[_current_goal_node].position;
 		updateNodes(update_center);
+		resetNextNodeInPath();
 		tryFailedNodesRecovery();
 		_consecutive_failed_goals = 0;
 		break;
@@ -330,13 +368,15 @@ void GraphConstructor::handleCurrentGoalFinished() {
 			}
 			tryFailedNodesRecovery();
 		}
+		resetNextNodeInPath();
 		break;
 	case rrg_nbv_exploration_msgs::Node::FAILED:
 		ROS_INFO_STREAM("RNE goal " << _current_goal_node << " failed");
 		_node_comparator->removeNode(_current_goal_node);
 		_failed_nodes_to_recover.push_back(_current_goal_node);
 		_rrg.nodes[_current_goal_node].gain = 0;
-		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view = 0;
+		_rrg.nodes[_current_goal_node].heading_change_to_robot_best_view =
+				_rrg.nodes[_current_goal_node].heading_change_to_robot;
 		_rrg.nodes[_current_goal_node].reward_function = 0;
 		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
 			ROS_WARN_STREAM("Exploration aborted, robot stuck");
@@ -347,6 +387,7 @@ void GraphConstructor::handleCurrentGoalFinished() {
 			update_center = _last_robot_pos;
 			updateNodes(update_center);
 		}
+		resetNextNodeInPath();
 		break;
 	default:
 		//active or waiting (should not occur)
@@ -374,16 +415,18 @@ void GraphConstructor::updatedNodeCallback(
 		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
-			_graph_path_calculator->setHeadingChangeToBestView(
-					updated_node->index, _rrg);
-			_graph_path_calculator->calculateCostFunction(updated_node->index,
-					_rrg);
+			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
+					_graph_path_calculator->calculateHeadingChangeToBestView(
+							_rrg.nodes[updated_node->index]);
+			_rrg.nodes[updated_node->index].cost_function =
+					_graph_path_calculator->calculateCostFunction(
+							_rrg.nodes[updated_node->index]);
 			_node_comparator->addNode(updated_node->index);
 			_sort_nodes_to_update = true;
 		} else {
 			_rrg.nodes[updated_node->index].gain = 0;
 			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
-					0.0;
+					_rrg.nodes[updated_node->index].heading_change_to_robot;
 			_rrg.nodes[updated_node->index].reward_function = 0.0;
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called

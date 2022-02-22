@@ -15,6 +15,8 @@ GraphPathCalculator::GraphPathCalculator() :
 	private_nh.param("inflation_active", _inflation_active, true);
 	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	_last_robot_yaw = 0;
+	_robot_radius_squared = pow(_robot_radius, 2);
+	_last_nearest_node = 0;
 }
 
 geometry_msgs::Pose GraphPathCalculator::getRobotPose() {
@@ -46,20 +48,19 @@ int GraphPathCalculator::getRobotYaw(const geometry_msgs::Pose &robot_pos) {
 	return robot_yaw;
 }
 
-void GraphPathCalculator::updatePathsToRobot(int startNode,
+void GraphPathCalculator::updatePathsToRobot(int start_node,
 		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose robot_pos,
 		bool reset) {
 	int robot_yaw = getRobotYaw(robot_pos); //get current robot orientation (yaw) for heading change calculation
 	_last_robot_yaw = robot_yaw;
 	//run Dijkstra on RRG and assign distance and path to each node
-	std::set<std::pair<double, int>> node_queue;
+	std::set<int> node_queue;
 	if (reset) { //robot moved and is currently at startNode's position
 		for (auto &node : rrg.nodes) {
 			node.distance_to_robot = std::numeric_limits<double>::infinity();
 			node.path_to_robot.clear();
 			node.traversability_cost_to_robot = 0.0;
 			node.traversability_weight_to_robot = 1.0;
-			node.heading_in = 0;
 			node.heading_change_to_robot = 0;
 			node.heading_change_to_robot_best_view =
 					std::numeric_limits<int>::max();
@@ -67,169 +68,257 @@ void GraphPathCalculator::updatePathsToRobot(int startNode,
 			node.cost_function = std::numeric_limits<double>::infinity();
 		}
 
-		rrg.nodes[startNode].distance_to_robot = 0;
-		rrg.nodes[startNode].path_to_robot.push_back(startNode);
-		rrg.nodes[startNode].traversability_cost_to_robot =
-				rrg.nodes[startNode].traversability_cost;
-		rrg.nodes[startNode].traversability_weight_to_robot =
-				rrg.nodes[startNode].traversability_weight;
-		double yaw_to_start_node = atan2(
-				rrg.nodes[startNode].position.y - robot_pos.position.y,
-				rrg.nodes[startNode].position.x - robot_pos.position.x);
-		rrg.nodes[startNode].heading_in = yaw_to_start_node;
-		rrg.nodes[startNode].heading_change_to_robot = getAbsoluteAngleDiff(
-				yaw_to_start_node, robot_yaw);
-		rrg.nodes[startNode].radii_to_robot = rrg.nodes[startNode].radius;
-		setHeadingChangeToBestView(startNode, rrg);
-		calculateCostFunction(startNode, rrg);
+		initializeStartingNode(start_node, robot_pos, robot_yaw, rrg);
+		if (_last_nearest_node >= 0
+				&& findExistingEdge(rrg, start_node, _last_nearest_node) >= 0) {
+			initializeStartingNode(_last_nearest_node, robot_pos, robot_yaw,
+					rrg);
+			node_queue.insert(_last_nearest_node);
+		}
 	}
-	node_queue.insert(
-			std::make_pair(rrg.nodes[startNode].distance_to_robot, startNode));
+	node_queue.insert(start_node);
+	findCheapestRoutes(node_queue, rrg);
+	if (reset)
+		_last_nearest_node = start_node;
+}
+
+bool GraphPathCalculator::updateHeadingToRobot(int start_node,
+		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose &robot_pos,
+		int next_node, int edge_to_next_node,
+		double distance_to_nearest_node_squared) {
+	int robot_yaw = getRobotYaw(robot_pos);
+	if (robot_yaw == _last_robot_yaw) //only calculate new heading if yaw changed
+		return false;
+	_last_robot_yaw = robot_yaw;
+	for (auto &node : rrg.nodes) { //Reset cost functions
+		node.distance_to_robot = std::numeric_limits<double>::infinity();
+		node.path_to_robot.clear();
+		node.traversability_cost_to_robot = 0.0;
+		node.traversability_weight_to_robot = 1.0;
+		node.heading_in = 0;
+		node.heading_change_to_robot = 0;
+		node.heading_change_to_robot_best_view =
+				std::numeric_limits<int>::max();
+		node.radii_to_robot = 0;
+		node.cost_function = std::numeric_limits<double>::infinity();
+	}
+	initializeStartingNode(start_node, robot_pos, robot_yaw, rrg);
+	rrg.nodes[start_node].cost_function = calculateCostFunction(
+			rrg.nodes[start_node]);
+	std::set<int> node_queue; //queue to nodes that were updates
+	if (distance_to_nearest_node_squared <= _robot_radius_squared) { //robot in proximity to nearest node
+		for (int edge : rrg.nodes[start_node].edges) { //find nodes with direct edge to start node and calculate the difference
+			int direct_neighbor_node = -1;
+			int edge_yaw = -1;
+			if (rrg.edges[edge].first_node == start_node) {
+				direct_neighbor_node = rrg.edges[edge].second_node;
+				edge_yaw = rrg.edges[edge].yaw;
+			} else { //reverse yaw when travelling edge the opposite way
+				direct_neighbor_node = rrg.edges[edge].first_node;
+				edge_yaw =
+						rrg.edges[edge].yaw >= 180 ?
+								rrg.edges[edge].yaw - 180 :
+								rrg.edges[edge].yaw + 180;
+			}
+			int direct_neighbor_heading_change_to_robot = getAbsoluteAngleDiff(
+					edge_yaw, robot_yaw);
+			rrg.nodes[direct_neighbor_node].heading_in = edge_yaw;
+			rrg.nodes[direct_neighbor_node].heading_change_to_robot =
+					direct_neighbor_heading_change_to_robot;
+			rrg.nodes[direct_neighbor_node].heading_change_to_robot_best_view =
+					calculateHeadingChangeToBestView(
+							rrg.nodes[direct_neighbor_node]);
+			rrg.nodes[direct_neighbor_node].distance_to_robot =
+					rrg.nodes[start_node].distance_to_robot
+							+ rrg.edges[edge].length;
+			rrg.nodes[direct_neighbor_node].path_to_robot =
+					rrg.nodes[start_node].path_to_robot;
+			rrg.nodes[direct_neighbor_node].path_to_robot.push_back(
+					direct_neighbor_node);
+			rrg.nodes[direct_neighbor_node].traversability_cost_to_robot =
+					rrg.nodes[start_node].traversability_cost_to_robot
+							+ rrg.nodes[direct_neighbor_node].traversability_cost
+							+ rrg.edges[edge].traversability_cost;
+			rrg.nodes[direct_neighbor_node].traversability_weight_to_robot =
+					rrg.nodes[start_node].traversability_weight_to_robot
+							+ rrg.nodes[direct_neighbor_node].traversability_weight
+							+ rrg.edges[edge].traversability_weight;
+			rrg.nodes[direct_neighbor_node].radii_to_robot =
+					rrg.nodes[start_node].radii_to_robot
+							+ rrg.nodes[direct_neighbor_node].radius;
+			rrg.nodes[direct_neighbor_node].cost_function =
+					calculateCostFunction(rrg.nodes[direct_neighbor_node]);
+			node_queue.insert(direct_neighbor_node);
+		}
+	} else {
+		node_queue.insert(start_node);
+		if (next_node != -1 && edge_to_next_node != -1) { // ignore start node for distance, path, traversability and radii
+			initializeStartingNode(next_node, robot_pos, robot_yaw, rrg);
+			rrg.nodes[next_node].distance_to_robot =
+					rrg.edges[edge_to_next_node].length;
+			rrg.nodes[next_node].traversability_cost_to_robot +=
+					rrg.edges[edge_to_next_node].traversability_cost;
+			rrg.nodes[next_node].traversability_weight_to_robot +=
+					rrg.edges[edge_to_next_node].traversability_weight;
+			node_queue.insert(next_node);
+		}
+	}
+	findCheapestRoutes(node_queue, rrg);
+	return true;
+}
+
+void GraphPathCalculator::initializeStartingNode(int node,
+		const geometry_msgs::Pose &robot_pos, int robot_yaw,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	int yaw_to_start_node = (int) ((atan2(
+			rrg.nodes[node].position.y - robot_pos.position.y,
+			rrg.nodes[node].position.x - robot_pos.position.x) * 180.0 / M_PI));
+	if (yaw_to_start_node < 0)
+		yaw_to_start_node += 360;
+
+	rrg.nodes[node].heading_in = yaw_to_start_node;
+	rrg.nodes[node].heading_change_to_robot = getAbsoluteAngleDiff(
+			yaw_to_start_node, robot_yaw);
+	rrg.nodes[node].heading_change_to_robot_best_view =
+			calculateHeadingChangeToBestView(rrg.nodes[node]);
+	rrg.nodes[node].distance_to_robot = 0;
+	rrg.nodes[node].path_to_robot.push_back(node);
+	rrg.nodes[node].traversability_cost_to_robot =
+			rrg.nodes[node].traversability_cost;
+	rrg.nodes[node].traversability_weight_to_robot =
+			rrg.nodes[node].traversability_weight;
+	rrg.nodes[node].radii_to_robot = rrg.nodes[node].radius;
+	rrg.nodes[node].cost_function = calculateCostFunction(rrg.nodes[node]);
+}
+
+void GraphPathCalculator::findCheapestRoutes(std::set<int> node_queue,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
 	while (!node_queue.empty()) {
-		double current_distance = node_queue.begin()->first;
-		int current_node = node_queue.begin()->second;
+		int current_node = *node_queue.begin();
 		node_queue.erase(node_queue.begin());
 		for (auto edge : rrg.nodes[current_node].edges) {
-			int neighbor_node =
+			int neighbor_node_index =
 					rrg.edges[edge].first_node == current_node ?
 							rrg.edges[edge].second_node :
 							rrg.edges[edge].first_node;
-			double neighbor_distance = rrg.edges[edge].length;
-			double total_distance = current_distance + neighbor_distance;
-			if (total_distance < rrg.nodes[neighbor_node].distance_to_robot) {
-				node_queue.erase(
-						std::make_pair(
-								rrg.nodes[neighbor_node].distance_to_robot,
-								neighbor_node));
-				rrg.nodes[neighbor_node].distance_to_robot = total_distance;
-				rrg.nodes[neighbor_node].path_to_robot =
-						rrg.nodes[current_node].path_to_robot;
-				rrg.nodes[neighbor_node].path_to_robot.push_back(neighbor_node);
-				int current_heading_out = 0;
-				if (rrg.edges[edge].second_node == current_node) { //edge yaw is from first to second node
-					current_heading_out =
-							rrg.edges[edge].yaw >= 180 ?
-									rrg.edges[edge].yaw - 180 :
-									rrg.edges[edge].yaw + 180;
-				} else {
-					current_heading_out = rrg.edges[edge].yaw;
-				}
-				rrg.nodes[neighbor_node].radii_to_robot =
-						rrg.nodes[current_node].radii_to_robot
-								+ rrg.nodes[neighbor_node].radius;
-				rrg.nodes[neighbor_node].heading_in = current_heading_out;
-				rrg.nodes[neighbor_node].heading_change_to_robot =
-						rrg.nodes[current_node].heading_change_to_robot
-								+ getAbsoluteAngleDiff(
-										rrg.nodes[current_node].heading_in,
-										current_heading_out); //calculate heading cost from current to neighbor node
-				setHeadingChangeToBestView(neighbor_node, rrg);
-				rrg.nodes[neighbor_node].traversability_cost_to_robot =
-						rrg.nodes[current_node].traversability_cost_to_robot
-								+ rrg.nodes[neighbor_node].traversability_cost
-								+ rrg.edges[edge].traversability_cost;
-				rrg.nodes[neighbor_node].traversability_weight_to_robot =
-						rrg.nodes[current_node].traversability_weight_to_robot
-								+ rrg.nodes[neighbor_node].traversability_weight
-								+ rrg.edges[edge].traversability_weight;
-				calculateCostFunction(neighbor_node, rrg);
-				node_queue.insert(
-						std::make_pair(
-								rrg.nodes[neighbor_node].distance_to_robot,
-								neighbor_node));
+			if (isNodeInPath(neighbor_node_index, current_node, rrg)) { //don't allow loops
+				continue;
+			}
+			rrg_nbv_exploration_msgs::Node node_with_new_connection =
+					calculateCostFunctionForConnection(current_node,
+							neighbor_node_index, edge, rrg);
+			if (node_with_new_connection.cost_function
+					< rrg.nodes[neighbor_node_index].cost_function) {
+				rrg.nodes[neighbor_node_index].distance_to_robot =
+						node_with_new_connection.distance_to_robot;
+				rrg.nodes[neighbor_node_index].path_to_robot =
+						node_with_new_connection.path_to_robot;
+				rrg.nodes[neighbor_node_index].radii_to_robot =
+						node_with_new_connection.radii_to_robot;
+				rrg.nodes[neighbor_node_index].heading_in =
+						node_with_new_connection.heading_in;
+				rrg.nodes[neighbor_node_index].heading_change_to_robot =
+						node_with_new_connection.heading_change_to_robot;
+				rrg.nodes[neighbor_node_index].heading_change_to_robot_best_view =
+						node_with_new_connection.heading_change_to_robot_best_view;
+				rrg.nodes[neighbor_node_index].traversability_cost_to_robot =
+						node_with_new_connection.traversability_cost_to_robot;
+				rrg.nodes[neighbor_node_index].traversability_weight_to_robot =
+						node_with_new_connection.traversability_weight_to_robot;
+				rrg.nodes[neighbor_node_index].cost_function =
+						node_with_new_connection.cost_function;
+				node_queue.insert(neighbor_node_index);
 			}
 		}
 	}
 }
 
-bool GraphPathCalculator::updateHeadingToRobot(int startNode,
-		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose robot_pos) {
-	int robot_yaw = getRobotYaw(robot_pos);
-	if (robot_yaw == _last_robot_yaw) //only calculate new heading if yaw changed
-		return false;
-	rrg.nodes[startNode].heading_in = robot_yaw;
-	setHeadingChangeToBestView(startNode, rrg);
-	calculateCostFunction(startNode, rrg);
-	_last_robot_yaw = robot_yaw;
-	std::map<int, int> first_nodes; //nodes with a direct edge to the start node (index, heading difference)
-	for (int edge : rrg.nodes[startNode].edges) { //find nodes with direct edge to start node and calculate the difference
-		int first_node = -1;
-		int edge_yaw = -1;
-		if (rrg.edges[edge].first_node == startNode) {
-			first_node = rrg.edges[edge].second_node;
-			edge_yaw = rrg.edges[edge].yaw;
-		} else { //reverse yaw when travelling edge the opposite way
-			first_node = rrg.edges[edge].first_node;
-			edge_yaw =
-					rrg.edges[edge].yaw >= 180 ?
-							rrg.edges[edge].yaw - 180 :
-							rrg.edges[edge].yaw + 180;
-		}
-		int new_yaw = getAbsoluteAngleDiff(edge_yaw,
-				rrg.nodes[startNode].heading_in);
-		//get signed difference between angles
-		int difference = new_yaw
-				- rrg.nodes[first_node].heading_change_to_robot;
-		difference = (difference + 180) % 360 - 180;
-		first_nodes.insert(std::make_pair(first_node, difference));
+bool GraphPathCalculator::isNodeInPath(int neighbor_node_index,
+		int current_node, rrg_nbv_exploration_msgs::Graph &rrg) {
+	for (auto i : rrg.nodes[current_node].path_to_robot) {
+		if (i == neighbor_node_index)
+			return true;
 	}
-	for (int i = 0; i < rrg.node_counter; i++) { //update all node headings to robot depending on the first node in their particular path
-		if (rrg.nodes[i].path_to_robot.size() >= 2) {
-			rrg.nodes[i].heading_change_to_robot =
-					rrg.nodes[i].heading_change_to_robot
-							+ first_nodes.at(rrg.nodes[i].path_to_robot[1]);
-			setHeadingChangeToBestView(i, rrg);
-			calculateCostFunction(i, rrg);
-		}
-	}
-	return true;
+	return false;
 }
 
-void GraphPathCalculator::calculateCostFunction(int node,
-		rrg_nbv_exploration_msgs::Graph &rrg) {
-	if (rrg.nodes[node].status != rrg_nbv_exploration_msgs::Node::EXPLORED
-			&& rrg.nodes[node].status
-					!= rrg_nbv_exploration_msgs::Node::FAILED) {
-		double traversability =
-				(double) rrg.nodes[node].traversability_cost_to_robot
-						/ (double) rrg.nodes[node].traversability_weight_to_robot; //TODO: re-evaluate traversability cost
-		double distance = rrg.nodes[node].distance_to_robot;
-		double heading =
-				(double) rrg.nodes[node].heading_change_to_robot_best_view
-						/ 180.0; //every half-turn costs as much as 1m of distance
-		double cost_function = _distance_factor * distance
-				+ _traversability_factor * traversability
-				+ _heading_factor * heading;
-		if (_inflation_active && _radius_factor > 0) {
-			double radius = rrg.nodes[node].radii_to_robot
-					/ rrg.nodes[node].path_to_robot.size() / _robot_radius;
-			if (cost_function > 0)
-				rrg.nodes[node].cost_function = cost_function
-						/ (_radius_factor * radius);
-			else
-				rrg.nodes[node].cost_function = 1.0 / (_radius_factor * radius);
-		} else {
-			rrg.nodes[node].cost_function = cost_function;
-		}
+double GraphPathCalculator::calculateCostFunction(
+		rrg_nbv_exploration_msgs::Node &node) {
+	double traversability = (double) node.traversability_cost_to_robot
+			/ (double) node.traversability_weight_to_robot; //TODO: re-evaluate traversability cost
+	double distance = node.distance_to_robot;
+	double heading = (double) node.heading_change_to_robot_best_view / 180.0; //every half-turn costs as much as 1m of distance
+	double cost_function = _distance_factor * distance
+			+ _traversability_factor * traversability
+			+ _heading_factor * heading;
+	if (_inflation_active && _radius_factor > 0) {
+		double radius = (node.radii_to_robot
+				/ (double) node.path_to_robot.size() / _robot_radius) - 1.0;
+		if (cost_function > 0)
+			return (cost_function / (1.0 + _radius_factor * radius));
+		else
+			return (1.0 / (1.0 + _radius_factor * radius));
+	} else {
+		return cost_function;
 	}
+}
+
+rrg_nbv_exploration_msgs::Node GraphPathCalculator::calculateCostFunctionForConnection(
+		int neighbor_node, int node, int edge,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	rrg_nbv_exploration_msgs::Node updated_node;
+	updated_node.distance_to_robot = rrg.nodes[neighbor_node].distance_to_robot
+			+ rrg.edges[edge].length;
+	updated_node.path_to_robot = rrg.nodes[neighbor_node].path_to_robot;
+	updated_node.path_to_robot.push_back(node);
+	updated_node.radii_to_robot = rrg.nodes[neighbor_node].radii_to_robot
+			+ rrg.nodes[node].radius;
+	if (rrg.edges[edge].second_node == neighbor_node) { //edge yaw is from first to second node
+		updated_node.heading_in =
+				rrg.edges[edge].yaw >= 180 ?
+						rrg.edges[edge].yaw - 180 : rrg.edges[edge].yaw + 180;
+	} else {
+		updated_node.heading_in = rrg.edges[edge].yaw;
+	}
+	updated_node.heading_change_to_robot =
+			rrg.nodes[neighbor_node].heading_change_to_robot
+					+ getAbsoluteAngleDiff(rrg.nodes[neighbor_node].heading_in,
+							updated_node.heading_in); //calculate heading cost from current to neighbor node
+	updated_node.heading_change_to_robot_best_view =
+			calculateHeadingChangeToBestView(updated_node);
+	updated_node.traversability_cost_to_robot =
+			rrg.nodes[neighbor_node].traversability_cost_to_robot
+					+ rrg.nodes[node].traversability_cost
+					+ rrg.edges[edge].traversability_cost;
+	updated_node.traversability_weight_to_robot =
+			rrg.nodes[neighbor_node].traversability_weight_to_robot
+					+ rrg.nodes[node].traversability_weight
+					+ rrg.edges[edge].traversability_weight;
+	updated_node.cost_function = calculateCostFunction(updated_node);
+	return updated_node;
 }
 
 int GraphPathCalculator::getAbsoluteAngleDiff(int x, int y) {
 	return 180 - abs(abs(x - y) - 180);
 }
 
-void GraphPathCalculator::setHeadingChangeToBestView(int node,
-		rrg_nbv_exploration_msgs::Graph &rrg) {
-	if (rrg.nodes[node].gain > 0) {
-		if (_sensor_horizontal_fov == 360)
-			rrg.nodes[node].heading_change_to_robot_best_view =
-					rrg.nodes[node].heading_change_to_robot;
-		else
-			rrg.nodes[node].heading_change_to_robot_best_view =
-					getAbsoluteAngleDiff(rrg.nodes[node].heading_in,
-							rrg.nodes[node].best_yaw);
-	} else
-		rrg.nodes[node].heading_change_to_robot_best_view = 0;
+int GraphPathCalculator::calculateHeadingChangeToBestView(
+		rrg_nbv_exploration_msgs::Node &node) {
+	if (node.gain > 0 && _sensor_horizontal_fov < 360)
+		return node.heading_change_to_robot
+				+ getAbsoluteAngleDiff(node.heading_in, node.best_yaw);
+	else
+		return node.heading_change_to_robot;
+}
+
+int GraphPathCalculator::findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg,
+		int node, int neighbor_node) {
+	for (auto edge : rrg.nodes[node].edges) {
+		if (rrg.edges[edge].first_node == neighbor_node
+				|| rrg.edges[edge].second_node == neighbor_node)
+			return edge; //connection already present
+	}
+	return -1;
 }
 
 void GraphPathCalculator::getNavigationPath(

@@ -6,7 +6,8 @@ RneVisualizer::RneVisualizer() {
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("show_gain_info", _show_gain_info, false);
 	private_nh.param("show_distance_info", _show_distance_info, false);
-	private_nh.param("show_distance_info", _show_traversability_info, false);
+	private_nh.param("show_traversability_info", _show_traversability_info,
+			false);
 	private_nh.param("show_heading_info", _show_heading_info, false);
 	private_nh.param("show_radius_info", _show_radius_info, false);
 	private_nh.param("show_cost_info", _show_cost_info, false);
@@ -116,8 +117,7 @@ void RneVisualizer::addInfoTextVisualization(
 	node_info_text.pose.position.y = rrg->nodes[node].position.y;
 	node_info_text.pose.position.z = rrg->nodes[node].position.z + 0.5;
 	std::ostringstream oss;
-	if (rrg->nodes[node].reward_function > 0
-			&& rrg->nodes[node].path_to_robot.size() > 0) {
+	if (rrg->nodes[node].reward_function > 0) {
 		oss << std::setw(node < 100 ? 3 : 2) << "(" << node << ")" << "\n"
 				<< std::fixed << std::setprecision(6)
 				<< rrg->nodes[node].reward_function << std::fixed

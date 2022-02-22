@@ -185,10 +185,6 @@ private:
 	 */
 	double _local_sampling_radius;
 	/**
-	 * @brief Squared distance to a node in m to count it as nearest node
-	 */
-	double _nearest_node_tolerance_squared;
-	/**
 	 * @brief Maximum number of consecutive failed goals before exploration is cancelled
 	 */
 	int _max_consecutive_failed_goals;
@@ -220,6 +216,18 @@ private:
 	 * @brief List of nodes ordered ascending by distance to robot which gain can be recalculated because the robot moved
 	 */
 	std::vector<int> _nodes_to_reupdate;
+	/**
+	 * @brief Index of the next node in the path from the nearest node to the robot to the current goal
+	 */
+	int _next_node;
+	/**
+	 * @brief Index of the edge to the next node in the path from the nearest node to the robot to the current goal
+	 */
+	int _edge_to_next_node;
+	/**
+	 * @brief Squared distance to the currently nearest node in m
+	 */
+	double _distance_to_nearest_node_squared;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -252,7 +260,7 @@ private:
 	 */
 	void checkCurrentGoal();
 	/**
-	 * @brief Update the PRM message variable holding the index of the node currently nearest to the robot
+	 * @brief Check if a new node is nearest to the robot and if it is on the path to the current goal
 	 * @param Robot position
 	 * @return Returns true if a new node is nearest to the robot
 	 */
@@ -316,6 +324,18 @@ private:
 	 * @param Node index to add
 	 */
 	void addNodeToLastThreeNodesPath(int node);
+
+	/**
+	 * @brief Determine the next node in the path to the current goal from the node nearest to the robot
+	 * as well as the edge connecting the nearest and the next node
+	 */
+	void determineNextNodeInPath();
+
+	/**
+	 * @brief Set next node in the path to the current goal from the node nearest to the robot and the
+	 * edge connecting next and nearest node to -1
+	 */
+	void resetNextNodeInPath();
 
 	/**
 	 * Timer callback for setting exploration to finished

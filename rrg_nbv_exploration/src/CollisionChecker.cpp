@@ -116,9 +116,9 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 	rrg.nodes[0].path_to_robot.push_back(0);
 	rrg.nodes[0].heading_in = robot_yaw;
 	rrg.nodes[0].heading_change_to_robot = 0;
-	rrg.nodes[0].heading_change_to_robot_best_view =
-			std::numeric_limits<int>::max();
-	rrg.nodes[0].cost_function = std::numeric_limits<double>::infinity();
+	rrg.nodes[0].heading_change_to_robot_best_view = 0;
+	rrg.nodes[0].cost_function = _graph_path_calculator->calculateCostFunction(
+			rrg.nodes[0]);
 
 	_vis_map.data = tmp_vis_map_data;
 	_visualization_pub.publish(_vis_map);
@@ -167,7 +167,7 @@ void CollisionChecker::precalculateCircleLinesOffset() {
 
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::Node &new_node,
-		geometry_msgs::Point rand_sample) {
+		geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos) {
 	int nearest_node;
 
 	new_node.position.x = rand_sample.x;
@@ -268,9 +268,17 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			}
 		}
 		if (connected) {
-			double shortest_distance = std::numeric_limits<double>::infinity();
-			int node_with_shortest_distance = -1;
-			int edge_to_shortest_distance = -1;
+			new_node.traversability_cost = node_cost;
+			new_node.traversability_weight = node_tiles > 0 ? node_tiles : 1;
+			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+			new_node.gain = -1;
+			new_node.reward_function = 0;
+			new_node.index = rrg.node_counter++;
+			new_node.position.z = height / nodes.size();
+			new_node.retry_inflation = node_collision == Collisions::unknown;
+			new_node.cost_function = std::numeric_limits<double>::infinity();
+
+			// determine cheapest path from robot to new node
 			for (auto &edge : new_edges) {
 				edge.index = rrg.edge_counter++;
 				new_node.edges.push_back(edge.index);
@@ -278,50 +286,63 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 				rrg.edges.push_back(edge);
 				rrg.nodes[edge.first_node].edges.push_back(edge.index);
 				rrg.nodes[edge.first_node].edge_counter++;
-				//find shortest distance to new node
-				double distance_to_robot =
+				rrg_nbv_exploration_msgs::Node updated_node; //calculate potential cost if connected via this edge
+				updated_node.distance_to_robot =
 						rrg.nodes[edge.first_node].distance_to_robot
 								+ edge.length;
-				if (distance_to_robot < shortest_distance) {
-					shortest_distance = distance_to_robot;
-					node_with_shortest_distance = edge.first_node;
-					edge_to_shortest_distance = edge.index;
+				updated_node.path_to_robot =
+						rrg.nodes[edge.first_node].path_to_robot;
+				updated_node.path_to_robot.push_back(new_node.index);
+				updated_node.radii_to_robot =
+						rrg.nodes[edge.first_node].radii_to_robot
+								+ new_node.radius;
+				if (edge.first_node == rrg.nearest_node) { //calculate heading to new node directly from robot if edge to nearest node
+					int yaw_to_start_node = (int) ((atan2(
+							new_node.position.y - robot_pos.position.y,
+							new_node.position.x - robot_pos.position.x) * 180.0
+							/ M_PI));
+					if (yaw_to_start_node < 0)
+						yaw_to_start_node += 360;
+
+					updated_node.heading_in = yaw_to_start_node;
+				} else
+					updated_node.heading_in = edge.yaw;
+				updated_node.heading_change_to_robot =
+						rrg.nodes[edge.first_node].heading_change_to_robot
+								+ _graph_path_calculator->getAbsoluteAngleDiff(
+										rrg.nodes[edge.first_node].heading_in,
+										updated_node.heading_in); //calculate heading cost from current to neighbor node
+				updated_node.heading_change_to_robot_best_view =
+						_graph_path_calculator->calculateHeadingChangeToBestView(
+								updated_node);
+				updated_node.traversability_cost_to_robot =
+						rrg.nodes[edge.first_node].traversability_cost_to_robot
+								+ new_node.traversability_cost
+								+ edge.traversability_cost;
+				updated_node.traversability_weight_to_robot =
+						rrg.nodes[edge.first_node].traversability_weight_to_robot
+								+ new_node.traversability_weight
+								+ edge.traversability_weight;
+				updated_node.cost_function =
+						_graph_path_calculator->calculateCostFunction(
+								updated_node);
+				if (updated_node.cost_function < new_node.cost_function) {
+					new_node.distance_to_robot = updated_node.distance_to_robot;
+					new_node.path_to_robot = updated_node.path_to_robot;
+					new_node.heading_in = updated_node.heading_in;
+					new_node.heading_change_to_robot =
+							updated_node.heading_change_to_robot;
+					new_node.heading_change_to_robot_best_view =
+							updated_node.heading_change_to_robot_best_view;
+					new_node.radii_to_robot = updated_node.radii_to_robot;
+					new_node.traversability_cost_to_robot =
+							updated_node.traversability_cost_to_robot;
+					new_node.traversability_weight_to_robot =
+							updated_node.traversability_weight_to_robot;
+					new_node.cost_function = updated_node.cost_function;
 				}
 			}
-			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-			new_node.gain = -1;
-			new_node.reward_function = 0;
-			new_node.index = rrg.node_counter++;
-			new_node.position.z = height / nodes.size();
-			new_node.retry_inflation = node_collision == Collisions::unknown;
-			new_node.distance_to_robot = shortest_distance;
-			new_node.path_to_robot =
-					rrg.nodes[node_with_shortest_distance].path_to_robot;
-			new_node.path_to_robot.push_back(new_node.index);
-			int heading_out = rrg.edges[edge_to_shortest_distance].yaw; //first node is always root
-			new_node.heading_in = heading_out;
-			new_node.heading_change_to_robot =
-					rrg.nodes[node_with_shortest_distance].heading_change_to_robot
-							+ _graph_path_calculator->getAbsoluteAngleDiff(
-									heading_out,
-									rrg.nodes[node_with_shortest_distance].heading_in); //calculate heading cost from current to neighbor node
-			new_node.heading_change_to_robot_best_view =
-					std::numeric_limits<int>::max();
-			new_node.radii_to_robot =
-					rrg.nodes[node_with_shortest_distance].radii_to_robot
-							+ new_node.radius;
-			new_node.traversability_cost = node_cost;
-			new_node.traversability_weight = node_tiles > 0 ? node_tiles : 1;
-			new_node.traversability_cost_to_robot =
-					rrg.nodes[node_with_shortest_distance].traversability_cost_to_robot
-							+ new_node.traversability_cost
-							+ rrg.edges[edge_to_shortest_distance].traversability_cost;
-			new_node.traversability_weight_to_robot =
-					rrg.nodes[node_with_shortest_distance].traversability_weight_to_robot
-							+ new_node.traversability_weight
-							+ rrg.edges[edge_to_shortest_distance].traversability_weight;
 			rrg.nodes.push_back(new_node);
-			_graph_path_calculator->calculateCostFunction(new_node.index, rrg);
 
 			for (auto edge : new_retriable_edges) { //add edges which failed because of unknown space
 				_retriable_edges.push_back(edge);
@@ -360,12 +381,15 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg.largest_node_radius = std::max(new_radius, rrg.largest_node_radius);
 		rrg.nodes[node].traversability_cost = node_cost;
 		rrg.nodes[node].traversability_weight = node_tiles > 0 ? node_tiles : 1;
-		_graph_path_calculator->calculateCostFunction(node, rrg);
+		rrg.nodes[node].cost_function =
+				_graph_path_calculator->calculateCostFunction(rrg.nodes[node]);
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(rrg.nodes[node].position,
 						pow(new_radius + rrg.largest_node_radius, 2));
 		for (auto it : nodes) {
-			if (it.first == node || isEdgePresent(rrg, node, it.first))
+			if (it.first == node
+					|| _graph_path_calculator->findExistingEdge(rrg, node,
+							it.first) != -1)
 				continue; //skip node itself or existing edge
 			double distance = sqrt(it.second);
 			geometry_msgs::Point edge_center;
@@ -500,16 +524,6 @@ void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
 	}
 }
 
-bool CollisionChecker::isEdgePresent(rrg_nbv_exploration_msgs::Graph &rrg,
-		int node, int neighbor_node) {
-	for (auto edge : rrg.nodes[node].edges) {
-		if (rrg.edges[edge].first_node == neighbor_node
-				|| rrg.edges[edge].second_node == neighbor_node)
-			return true; //connection already present
-	}
-	return false;
-}
-
 void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
 	double new_radius = -1;
 	std::vector<CircleLine> prevOffsetSet;
@@ -623,8 +637,8 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 		current_direction = new_direction;
 		return true;
 	}
-	const int difference = getAbsoluteAngleDiff(current_direction,
-			new_direction);
+	const int difference = _graph_path_calculator->getAbsoluteAngleDiff(
+			current_direction, new_direction);
 	if (difference == 0) {
 		return true; //same directions
 	} else if ((fixed && difference >= 90) || difference >= 135) {
@@ -1107,10 +1121,6 @@ void CollisionChecker::occupancyGridUpdatesCallback(
 int CollisionChecker::getIndex(int x, int y) {
 	int sx = _occupancy_grid->info.width;
 	return y * sx + x;
-}
-
-int CollisionChecker::getAbsoluteAngleDiff(int x, int y) {
-	return 180 - abs(abs(x - y) - 180);
 }
 
 bool CollisionChecker::worldToMap(double wx, double wy, unsigned int &mx,

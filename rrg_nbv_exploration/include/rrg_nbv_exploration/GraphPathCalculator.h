@@ -45,7 +45,7 @@ public:
 			std::vector<int> parentPathtoRobot, double parentDistanceToRobot);
 
 	/**
-	 * @brief Updates paths and distances from the given start node to the respective nodes using
+	 * @brief Updates paths and costs from the given start node to the respective nodes using
 	 * Dijkstra's algorithm
 	 * @param Index of the node from which Dijkstra's is started
 	 * @param Current graph
@@ -53,18 +53,23 @@ public:
 	 * @param If all current paths and distances should be reset or only a "local update" is necessary
 	 */
 	void updatePathsToRobot(int startNode, rrg_nbv_exploration_msgs::Graph &rrg,
-			geometry_msgs::Pose robot_pos, bool reset = true);
+			geometry_msgs::Pose robot_pos, bool reset);
 
 	/**
-	 * @brief Updates heading change from the robot's current position due to a heading change of the robot
+	 * @brief Updates paths and costs from the robot's current position due to a heading change of the robot
+	 * to all respective nodes using Dijkstra's algorithm
 	 * @param Index of the node closest to the robot
 	 * @param Current graph
-	 * @param Robot pose
+	 * @param Reference to robot pose
+	 * @param Index of the next node on the path to the current goal from the currently nearest node
+	 * @param Index of the edge from the currently nearest node to the next node
+	 * @param Squared distance to the currently nearest node in m
 	 * @return True if node headings were updated
 	 */
 	bool updateHeadingToRobot(int startNode,
 			rrg_nbv_exploration_msgs::Graph &rrg,
-			geometry_msgs::Pose robot_pos);
+			geometry_msgs::Pose &robot_pos, int next_node,
+			int edge_to_next_node, double distance_to_nearest_node_squared);
 
 	/**
 	 * @brief Returns a path from the node closest to the robot to the goal node moving only along the tree's edges
@@ -78,7 +83,7 @@ public:
 			geometry_msgs::Point robot_pose);
 
 	/**
-	 * @brief Returns if the two given nodes are next to each other by searching the the graphs edges
+	 * @brief Returns if the two given nodes are next to each other by searching the graphs edges
 	 * @param Current graph
 	 * @param Node started from
 	 * @param Node went to
@@ -109,18 +114,28 @@ public:
 	/**
 	 * @brief Calculate the cost function of the given node based on its distance, heading change,
 	 * traversability and node radii to the robot
-	 * @param Index of the node
-	 * @param Reference to the RRG
+	 * @param Node to calculate cost function for
+	 * @return Cost function
 	 */
-	void calculateCostFunction(int node, rrg_nbv_exploration_msgs::Graph &rrg);
+	double calculateCostFunction(rrg_nbv_exploration_msgs::Node &node);
 
 	/**
-	 * @brief Update the given node's heading change to best view from robot and update the largest change
-	 * @param Node index
-	 * @param Reference to RRG
+	 * @brief Update the given node's heading change to best view from robot
+	 * @param Reference to node which heading will be updated
+	 * @return Heading change to best view in degrees
 	 */
-	void setHeadingChangeToBestView(int node,
-			rrg_nbv_exploration_msgs::Graph &rrg);
+	int calculateHeadingChangeToBestView(rrg_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * @brief Checks if an edge to the given neighbor node from the provided node already exists and
+	 * returns its index if it does
+	 * @param Reference to the RRG
+	 * @param Index of the node
+	 * @param Index of the neighbor node
+	 * @return Index of the edge if it exists, -1 otherwise
+	 */
+	int findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg, int node,
+			int neighbor_node);
 
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
@@ -140,6 +155,10 @@ private:
 	 * Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
+	/**
+	 * Squared radius that includes robot's footprint in m
+	 */
+	double _robot_radius_squared;
 	/**
 	 * Sensor's horizontal FoV that is considered for gain calculation in degrees
 	 */
@@ -172,6 +191,10 @@ private:
 	 * @brief Grid map value that indicates a cell is occupied (or inscribed)
 	 */
 	int _grid_map_occupied;
+	/**
+	 * @brief Index of the node that was previously the nearest node to the robot
+	 */
+	int _last_nearest_node;
 
 	/**
 	 * @brief Find the yaw in deg and distance in m from the start node to the end node and return true if it was found
@@ -208,5 +231,50 @@ private:
 	void getPathFromRobotToNode(geometry_msgs::Point robot_pose, int goal_node,
 			rrg_nbv_exploration_msgs::Graph &rrg,
 			std::vector<geometry_msgs::PoseStamped> &path);
-};
+
+	/**
+	 * @brief Calculate the cost function for the provided node if it would be connected to the
+	 * neighbor node via the given edge, return the modified node
+	 * @param Index of the neighbor node from which the connection will be evaluated
+	 * @param Index of the node which potential cost function will be calculated
+	 * @param Index of the edge that connects both nodes
+	 * @param Reference to the RRG
+	 * @return Modified node with newly calculated cost function (and heading, traversability and distance)
+	 */
+	rrg_nbv_exploration_msgs::Node calculateCostFunctionForConnection(
+			int neighbor_node, int node, int edge,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Implementation of Dijkstra's algorithm to find the path to each node with the lowest cost,
+	 * starting with the nodes already in the given queue
+	 * @param Queue of node indices for which neighbors the path cost must be checked
+	 * @param Reference to the RRG
+	 */
+	void findCheapestRoutes(std::set<int> node_queue,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Initialize a starting node for an update of all nodes' paths and costs, uses the yaw from
+	 * the robot to this node as heading in
+	 * @param Index of the start node
+	 * @param Reference to the robot's pose
+	 * @param Robot orientation in deg
+	 * @param Reference to the RRG
+	 */
+	void initializeStartingNode(int startNode,
+			const geometry_msgs::Pose &robot_pos, int robot_yaw,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Check if a given neighbor node is already in the current node's path
+	 * @param Index of the neighbor node
+	 * @param Index of the current node
+	 * @param Reference to the RRG
+	 * @param If the neighbor node is in the current node's path
+	 */
+	bool isNodeInPath(int neighbor_node_index, int current_node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+}
+;
 }
