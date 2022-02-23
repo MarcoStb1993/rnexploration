@@ -126,12 +126,13 @@ void GraphConstructor::runRrgConstruction() {
 			expandGraph(true, !updatePathsWithReset, _robot_pose);
 		if (updatePathsWithReset) { //robot moved, update paths
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
-					_robot_pose, true);
+					_robot_pose, true, _nodes_to_update, _sort_nodes_to_update);
 			determineNextNodeInPath();
 		} else { //check if robot heading changed and update heading
 			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
 					_rrg, _robot_pose, _next_node, _edge_to_next_node,
-					_distance_to_nearest_node_squared))
+					_distance_to_nearest_node_squared, _nodes_to_update,
+					_sort_nodes_to_update))
 				_node_comparator->robotMoved();
 		}
 		_node_comparator->maintainList(_rrg);
@@ -154,11 +155,14 @@ void GraphConstructor::expandGraph(bool local, bool updatePaths,
 		samplePoint(rand_sample);
 	rrg_nbv_exploration_msgs::Node node;
 	if (_collision_checker->steer(_rrg, node, rand_sample, robot_pos)) {
-		if (updatePaths)
-			_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
-					robot_pos, false); //check if new connection could improve other distances
-		_nodes_to_update.push_back(node.index);
-		_sort_nodes_to_update = true;
+		if (!std::isinf(node.cost_function)) { //do not update unreachable nodes
+			if (updatePaths)
+				_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
+						robot_pos, false, _nodes_to_update,
+						_sort_nodes_to_update); //check if new connection could improve other distances
+			_nodes_to_update.push_back(node.index);
+			_sort_nodes_to_update = true;
+		}
 		_graph_searcher->rebuildIndex(_rrg);
 		_exploration_finished_timer.stop();
 	}
@@ -224,8 +228,6 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
-//			ROS_INFO_STREAM(
-//					"Current nearest node " << _rrg.nearest_node << " new " << nearest_node << " next node " << next_node << " with edge " << edge_to_next_node);
 			if (nearest_node != _next_node) {
 				double distance_to_edge =
 						pow(
@@ -239,18 +241,12 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 														- _rrg.nodes[_rrg.nearest_node].position.y)))
 										/ (_rrg.edges[_edge_to_next_node].length),
 								2);
-//				ROS_INFO_STREAM(
-//						"Distance to edge " << sqrt(distance_to_edge) << " distance to nn " << sqrt(min_distance));
 				if (distance_to_edge <= min_distance) { //robot is closer to edge than to nearest node, keep current one
-//					ROS_INFO_STREAM(
-//							"Robot stays on edge, no new nearest neighbor");
 					return false;
 				}
 			}
 			_moved_to_current_goal = true;
 			_node_comparator->robotMoved();
-//			ROS_INFO_STREAM(
-//					"Moved along edge from " << _rrg.nearest_node << " to " << nearest_node);
 			_rrg.nearest_node = nearest_node;
 			_distance_to_nearest_node_squared = min_distance;
 			addNodeToLastThreeNodesPath(nearest_node);
@@ -279,14 +275,15 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 		if (_rrg.nodes[iterator.first].status
 				!= rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& _rrg.nodes[iterator.first].status
-						!= rrg_nbv_exploration_msgs::Node::FAILED) {
+						!= rrg_nbv_exploration_msgs::Node::FAILED
+				&& !std::isinf(_rrg.nodes[iterator.first].cost_function)) {
 			_nodes_to_update.push_back(iterator.first);
 		}
 		if (_rrg.nodes[iterator.first].status
 				!= rrg_nbv_exploration_msgs::Node::FAILED
-				&& _rrg.nodes[iterator.first].retry_inflation)
+				&& _rrg.nodes[iterator.first].retry_inflation) //retry previously failed inflation
 			_collision_checker->inflateExistingNode(_rrg, iterator.first,
-					_robot_pose);
+					_robot_pose, _nodes_to_update, _sort_nodes_to_update);
 	}
 }
 
@@ -446,11 +443,20 @@ void GraphConstructor::tryFailedNodesRecovery() {
 						} else if (collision == Collisions::empty) {
 							_rrg.nodes[node].status =
 									rrg_nbv_exploration_msgs::Node::INITIAL;
-							_nodes_to_update.push_back(node); //recalculate node gain
+							_graph_path_calculator->findBestConnectionForNode(
+									_rrg, _rrg.nodes[node], _robot_pose, false);
+							_graph_path_calculator->updatePathsToRobot(node,
+									_rrg, _robot_pose, false, _nodes_to_update,
+									_sort_nodes_to_update); //check if recovered connection could improve other distances
+							if (!std::isinf(_rrg.nodes[node].cost_function)) { //check if node is reachable
+								_nodes_to_update.push_back(node); //recalculate node gain
+								_sort_nodes_to_update = true;
+							}
 						}
 						return true;
 					}),_failed_nodes_to_recover.end());
-	_collision_checker->retryEdges(_rrg, _robot_pose); //try to rebuild failed edges
+	_collision_checker->retryEdges(_rrg, _robot_pose, _nodes_to_update,
+			_sort_nodes_to_update); //try to rebuild failed edges
 }
 
 void GraphConstructor::addNodeToLastThreeNodesPath(int node) {

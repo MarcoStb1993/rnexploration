@@ -113,9 +113,13 @@ public:
 	 * @param Reference to the RRG
 	 * @param Index of the node to be inflated
 	 * @param Pose of the robot
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 */
 	void inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
-			geometry_msgs::Pose robot_pos);
+			geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
+			bool &added_node_to_update);
 
 	/**
 	 * @brief Check if a previously failed node is in collision
@@ -130,9 +134,13 @@ public:
 	 * @brief Retry edges that previously failed the collision check due to unknown tiles
 	 * @param Reference to the RRG
 	 * @param Pose of the robot
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 */
 	void retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
-			geometry_msgs::Pose robot_pos);
+			geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
+			bool &added_node_to_update);
 
 private:
 	ros::NodeHandle _nh;
@@ -545,9 +553,13 @@ private:
 	 * @param Robot pose
 	 * @param Reference to the RRG
 	 * @param the newly added edge
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 */
 	void checkNewEdgePathLength(const geometry_msgs::Pose &robot_pos,
 			rrg_nbv_exploration_msgs::Graph &rrg,
-			rrg_nbv_exploration_msgs::Edge &edge);
+			rrg_nbv_exploration_msgs::Edge &edge,
+			std::list<int> &nodes_to_update, bool &added_node_to_update);
 };
 }

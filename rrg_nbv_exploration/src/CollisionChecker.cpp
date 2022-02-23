@@ -277,71 +277,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			new_node.position.z = height / nodes.size();
 			new_node.retry_inflation = node_collision == Collisions::unknown;
 			new_node.cost_function = std::numeric_limits<double>::infinity();
-
-			// determine cheapest path from robot to new node
-			for (auto &edge : new_edges) {
-				edge.index = rrg.edge_counter++;
-				new_node.edges.push_back(edge.index);
-				new_node.edge_counter++;
-				rrg.edges.push_back(edge);
-				rrg.nodes[edge.first_node].edges.push_back(edge.index);
-				rrg.nodes[edge.first_node].edge_counter++;
-				rrg_nbv_exploration_msgs::Node updated_node; //calculate potential cost if connected via this edge
-				updated_node.distance_to_robot =
-						rrg.nodes[edge.first_node].distance_to_robot
-								+ edge.length;
-				updated_node.path_to_robot =
-						rrg.nodes[edge.first_node].path_to_robot;
-				updated_node.path_to_robot.push_back(new_node.index);
-				updated_node.radii_to_robot =
-						rrg.nodes[edge.first_node].radii_to_robot
-								+ new_node.radius;
-				if (edge.first_node == rrg.nearest_node) { //calculate heading to new node directly from robot if edge to nearest node
-					int yaw_to_start_node = (int) ((atan2(
-							new_node.position.y - robot_pos.position.y,
-							new_node.position.x - robot_pos.position.x) * 180.0
-							/ M_PI));
-					if (yaw_to_start_node < 0)
-						yaw_to_start_node += 360;
-
-					updated_node.heading_in = yaw_to_start_node;
-				} else
-					updated_node.heading_in = edge.yaw;
-				updated_node.heading_change_to_robot =
-						rrg.nodes[edge.first_node].heading_change_to_robot
-								+ _graph_path_calculator->getAbsoluteAngleDiff(
-										rrg.nodes[edge.first_node].heading_in,
-										updated_node.heading_in); //calculate heading cost from current to neighbor node
-				updated_node.heading_change_to_robot_best_view =
-						_graph_path_calculator->calculateHeadingChangeToBestView(
-								updated_node);
-				updated_node.traversability_cost_to_robot =
-						rrg.nodes[edge.first_node].traversability_cost_to_robot
-								+ new_node.traversability_cost
-								+ edge.traversability_cost;
-				updated_node.traversability_weight_to_robot =
-						rrg.nodes[edge.first_node].traversability_weight_to_robot
-								+ new_node.traversability_weight
-								+ edge.traversability_weight;
-				updated_node.cost_function =
-						_graph_path_calculator->calculateCostFunction(
-								updated_node);
-				if (updated_node.cost_function < new_node.cost_function) {
-					new_node.distance_to_robot = updated_node.distance_to_robot;
-					new_node.path_to_robot = updated_node.path_to_robot;
-					new_node.heading_in = updated_node.heading_in;
-					new_node.heading_change_to_robot =
-							updated_node.heading_change_to_robot;
-					new_node.heading_change_to_robot_best_view =
-							updated_node.heading_change_to_robot_best_view;
-					new_node.radii_to_robot = updated_node.radii_to_robot;
-					new_node.traversability_cost_to_robot =
-							updated_node.traversability_cost_to_robot;
-					new_node.traversability_weight_to_robot =
-							updated_node.traversability_weight_to_robot;
-					new_node.cost_function = updated_node.cost_function;
-				}
-			}
+			_graph_path_calculator->findBestConnectionForNode(rrg, new_node,
+					robot_pos, true, new_edges);
 			rrg.nodes.push_back(new_node);
 
 			for (auto edge : new_retriable_edges) { //add edges which failed because of unknown space
@@ -364,7 +301,8 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 }
 
 void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
-		int node, geometry_msgs::Pose robot_pos) {
+		int node, geometry_msgs::Pose robot_pos,
+		std::list<int> &nodes_to_update, bool &added_node_to_update) {
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
 	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
@@ -419,7 +357,8 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 				rrg.edges.push_back(new_edge);
 				rrg.nodes[it.first].edges.push_back(new_edge.index);
 				rrg.nodes[it.first].edge_counter++;
-				checkNewEdgePathLength(robot_pos, rrg, new_edge);
+				checkNewEdgePathLength(robot_pos, rrg, new_edge,
+						nodes_to_update, added_node_to_update);
 			}
 		}
 		if (_rrt_collision_visualization_pub.getNumSubscribers() > 0) {
@@ -450,20 +389,22 @@ int CollisionChecker::collisionCheckForFailedNode(
 void CollisionChecker::checkNewEdgePathLength(
 		const geometry_msgs::Pose &robot_pos,
 		rrg_nbv_exploration_msgs::Graph &rrg,
-		rrg_nbv_exploration_msgs::Edge &edge) {
+		rrg_nbv_exploration_msgs::Edge &edge, std::list<int> &nodes_to_update,
+		bool &added_node_to_update) {
 	if (rrg.nodes[edge.first_node].distance_to_robot + edge.length
 			< rrg.nodes[edge.second_node].distance_to_robot) {
 		_graph_path_calculator->updatePathsToRobot(edge.first_node, rrg,
-				robot_pos, false);
+				robot_pos, false, nodes_to_update, added_node_to_update);
 	} else if (rrg.nodes[edge.second_node].distance_to_robot + edge.length
 			< rrg.nodes[edge.first_node].distance_to_robot) {
 		_graph_path_calculator->updatePathsToRobot(edge.second_node, rrg,
-				robot_pos, false);
+				robot_pos, false, nodes_to_update, added_node_to_update);
 	}
 }
 
 void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
-		geometry_msgs::Pose robot_pos) {
+		geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
+		bool &added_node_to_update) {
 	nav_msgs::OccupancyGrid map = *_occupancy_grid;
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
@@ -473,7 +414,8 @@ void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
 	_retriable_edges.erase(
 			std::remove_if(_retriable_edges.begin(), _retriable_edges.end(),
 					[this, &rrg, &robot_pos, &map, &tmp_vis_map_data,
-							&edge_added, &new_edge_markers](
+							&edge_added, &new_edge_markers, &nodes_to_update,
+							&added_node_to_update](
 							rrg_nbv_exploration_msgs::Edge &edge) {
 						int edge_cost = 0, edge_tiles = 0, edge_collision =
 								Collisions::empty;
@@ -505,7 +447,8 @@ void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
 							edge_added = true;
 							visualizeEdge(edge_length, edge_center, edge.yaw,
 									new_edge_markers);
-							checkNewEdgePathLength(robot_pos, rrg, edge);
+							checkNewEdgePathLength(robot_pos, rrg, edge,
+									nodes_to_update, added_node_to_update);
 							return true;
 						} else if (edge_collision == Collisions::occupied) { //discard edge
 							return true;

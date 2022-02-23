@@ -51,9 +51,13 @@ public:
 	 * @param Current graph
 	 * @param Robot pose
 	 * @param If all current paths and distances should be reset or only a "local update" is necessary
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 */
 	void updatePathsToRobot(int startNode, rrg_nbv_exploration_msgs::Graph &rrg,
-			geometry_msgs::Pose robot_pos, bool reset);
+			geometry_msgs::Pose robot_pos, bool reset,
+			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
 	/**
 	 * @brief Updates paths and costs from the robot's current position due to a heading change of the robot
@@ -64,12 +68,16 @@ public:
 	 * @param Index of the next node on the path to the current goal from the currently nearest node
 	 * @param Index of the edge from the currently nearest node to the next node
 	 * @param Squared distance to the currently nearest node in m
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 * @return True if node headings were updated
 	 */
 	bool updateHeadingToRobot(int startNode,
 			rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Pose &robot_pos, int next_node,
-			int edge_to_next_node, double distance_to_nearest_node_squared);
+			int edge_to_next_node, double distance_to_nearest_node_squared,
+			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
 	/**
 	 * @brief Returns a path from the node closest to the robot to the goal node moving only along the tree's edges
@@ -136,6 +144,20 @@ public:
 	 */
 	int findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			int neighbor_node);
+
+	/**
+	 * @brief Find the best connection to the robot for the given node along any of its edges
+	 * @param Reference to the RRG
+	 * @param Reference to the node for which the best connection must be found
+	 * @param Reference to the robot position
+	 * @param If the connection must be found for a newly placed (true) node or an existing one (false)
+	 * @param For a newly placed node a list of edges connecting it to neighboring nodes must be supplied
+	 */
+	void findBestConnectionForNode(rrg_nbv_exploration_msgs::Graph &rrg,
+			rrg_nbv_exploration_msgs::Node &node,
+			geometry_msgs::Pose &robot_pos, bool new_node,
+			std::vector<rrg_nbv_exploration_msgs::Edge> edges = std::vector<
+					rrg_nbv_exploration_msgs::Edge>());
 
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
@@ -250,9 +272,14 @@ private:
 	 * starting with the nodes already in the given queue
 	 * @param Queue of node indices for which neighbors the path cost must be checked
 	 * @param Reference to the RRG
+	 * @param If all current paths and distances should be reset or only a "local update" is necessary
+	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
+	 * added to this list
+	 * @param Reference to if a node was added to the list of nodes to update
 	 */
-	void findCheapestRoutes(std::set<int> node_queue,
-			rrg_nbv_exploration_msgs::Graph &rrg);
+	void findBestRoutes(std::set<int> node_queue,
+			rrg_nbv_exploration_msgs::Graph &rrg, bool reset,
+			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
 	/**
 	 * @brief Initialize a starting node for an update of all nodes' paths and costs, uses the yaw from
@@ -262,7 +289,7 @@ private:
 	 * @param Robot orientation in deg
 	 * @param Reference to the RRG
 	 */
-	void initializeStartingNode(int startNode,
+	void initializeStartingNode(int start_node,
 			const geometry_msgs::Pose &robot_pos, int robot_yaw,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
