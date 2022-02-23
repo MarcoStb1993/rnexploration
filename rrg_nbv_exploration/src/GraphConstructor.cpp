@@ -67,6 +67,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_graph_path_calculator.reset(new GraphPathCalculator());
 	_node_comparator.reset(new NodeComparator());
 	_running = false;
+	_explored_current_goal_node_by_update = false;
 }
 
 void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
@@ -263,7 +264,9 @@ void GraphConstructor::publishBestAndCurrentNode() {
 	msg.current_goal = _current_goal_node;
 	msg.best_node =
 			_node_comparator->isEmpty() ?
-					_current_goal_node : _node_comparator->getBestNode();
+					(_explored_current_goal_node_by_update ?
+							-1 : _current_goal_node) :
+					_node_comparator->getBestNode(); //set best node to -1 if current goal was explored and no unexplored nodes are available
 	msg.goal_updated = _goal_updated;
 	_best_and_current_goal_publisher.publish(msg);
 }
@@ -425,6 +428,11 @@ void GraphConstructor::updatedNodeCallback(
 			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
 					_rrg.nodes[updated_node->index].heading_change_to_robot;
 			_rrg.nodes[updated_node->index].reward_function = 0.0;
+			if (updated_node->status == rrg_nbv_exploration_msgs::Node::EXPLORED
+					&& _current_goal_node == updated_node->index
+					&& _node_comparator->isEmpty()) { //current goal is explored, change goal
+				_explored_current_goal_node_by_update = true;
+			}
 		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}

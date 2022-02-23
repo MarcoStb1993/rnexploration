@@ -228,6 +228,10 @@ private:
 	 * @brief Squared distance to the currently nearest node in m
 	 */
 	double _distance_to_nearest_node_squared;
+	/**
+	 * @brief If the current goal node was set to explored by an update
+	 */
+	bool _explored_current_goal_node_by_update;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node

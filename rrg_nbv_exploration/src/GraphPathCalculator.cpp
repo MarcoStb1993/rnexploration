@@ -226,8 +226,6 @@ void GraphPathCalculator::findBestRoutes(std::set<int> node_queue,
 				if (!reset
 						&& std::isinf(
 								rrg.nodes[neighbor_node_index].cost_function)) { //add previously unreachable node to list of nodes to update
-					ROS_WARN_STREAM(
-							"Added prev unreachable" << neighbor_node_index << " to nodes to update");
 					nodes_to_update.push_back(neighbor_node_index);
 					added_node_to_update = true;
 				}
