@@ -672,9 +672,7 @@ double CollisionChecker::inflateCircle(double &x, double &y, bool move_node,
 	if (_inflated_ring_lines_offsets.empty())
 		calculateNextInflatedCircleLinesOffset();
 	int index = 0;
-	if (current_radius == _robot_radius)
-		current_radius = _inflated_ring_lines_offsets.front().first;
-	else {
+	if (current_radius > _robot_radius) {
 		index = (current_radius - _robot_radius) / _grid_map_resolution;
 	}
 	auto it = std::next(_inflated_ring_lines_offsets.begin(), index);
