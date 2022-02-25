@@ -36,9 +36,9 @@ void RneVisualizer::initializeVisualization(
 	_node_points.action = visualization_msgs::Marker::ADD;
 	_node_points.pose.orientation.w = 1.0;
 	_node_points.type = visualization_msgs::Marker::SPHERE_LIST;
-	_node_points.scale.x = 0.2f;
-	_node_points.scale.y = 0.2f;
-	_node_points.scale.z = 0.2f;
+	_node_points.scale.x = _robot_radius * 0.2f;
+	_node_points.scale.y = _robot_radius * 0.2f;
+	_node_points.scale.z = _robot_radius * 0.2f;
 	_node_points.color.g = 1.0f;
 	_node_points.color.a = 1.0f;
 	_edge_line_list.header.frame_id = "/map";
@@ -48,7 +48,7 @@ void RneVisualizer::initializeVisualization(
 	_edge_line_list.action = visualization_msgs::Marker::ADD;
 	_edge_line_list.pose.orientation.w = 1.0;
 	_edge_line_list.type = visualization_msgs::Marker::LINE_LIST;
-	_edge_line_list.scale.x = 0.08f;
+	_edge_line_list.scale.x = _robot_radius * 0.075f;
 	_edge_line_list.color.b = 1.0f;
 	_edge_line_list.color.a = 1.0f;
 }
