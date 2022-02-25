@@ -17,6 +17,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("max_edge_distance", _max_edge_distance, 2.0);
 	_max_edge_distance_squared = pow(_max_edge_distance, 2);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	_robot_radius_squared = pow(_robot_radius, 2);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
 	private_nh.param("exploration_finished_timer_duration",
@@ -229,21 +230,36 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
 		if (nearest_node != _rrg.nearest_node) { //if nearest node changed
-			if (nearest_node != _next_node) {
-				double distance_to_edge =
-						pow(
-								(((_rrg.nodes[_next_node].position.x
+			if (_next_node != -1 && nearest_node != _next_node) {
+				//projection of robot pos on the edge between nearest and next node
+				double projection_on_edge =
+						((pos.x - _rrg.nodes[_rrg.nearest_node].position.x)
+								* (_rrg.nodes[_next_node].position.x
 										- _rrg.nodes[_rrg.nearest_node].position.x)
-										* (_rrg.nodes[_rrg.nearest_node].position.y
-												- pos.y))
-										- ((_rrg.nodes[_rrg.nearest_node].position.x
-												- pos.x)
-												* (_rrg.nodes[_next_node].position.y
-														- _rrg.nodes[_rrg.nearest_node].position.y)))
-										/ (_rrg.edges[_edge_to_next_node].length),
-								2);
-				if (distance_to_edge <= min_distance) { //robot is closer to edge than to nearest node, keep current one
-					return false;
+								+ (pos.y
+										- _rrg.nodes[_rrg.nearest_node].position.y)
+										* (_rrg.nodes[_next_node].position.y
+												- _rrg.nodes[_rrg.nearest_node].position.y))
+								/ pow(_rrg.edges[_edge_to_next_node].length, 2);
+				if (projection_on_edge > 0 && projection_on_edge < 1) { //if projection is outside these bounds, the robot is outside the line segment
+					double distance_to_edge =
+							pow(
+									(pos.x
+											- (_rrg.nodes[_rrg.nearest_node].position.x
+													+ projection_on_edge
+															* (_rrg.nodes[_next_node].position.x
+																	- _rrg.nodes[_rrg.nearest_node].position.x))),
+									2)
+									+ pow(
+											(pos.y
+													- (_rrg.nodes[_rrg.nearest_node].position.y
+															+ projection_on_edge
+																	* (_rrg.nodes[_next_node].position.y
+																			- _rrg.nodes[_rrg.nearest_node].position.y))),
+											2);
+					if (distance_to_edge <= min_distance) { //robot is closer to edge than to nearest node, keep current one
+						return false;
+					}
 				}
 			}
 			_moved_to_current_goal = true;
@@ -253,6 +269,13 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 			addNodeToLastThreeNodesPath(nearest_node);
 			return true;
 		} else { //nearest node remained the same, just update distance
+			double recalculate_distance = _robot_radius_squared / SQRT10;
+			if (nearest_node == _current_goal_node
+					&& _distance_to_nearest_node_squared > recalculate_distance
+					&& min_distance <= recalculate_distance) { //update current goal node gain when 1/10 robot radius away
+				_nodes_to_reupdate.clear();
+				_nodes_to_reupdate.push_back(_node_comparator->getBestNode());
+			}
 			_distance_to_nearest_node_squared = min_distance;
 		}
 	}

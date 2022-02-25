@@ -22,6 +22,8 @@
 #include <rrg_nbv_exploration/CollisionChecker.h>
 #include <rrg_nbv_exploration/NodeComparator.h>
 
+#define SQRT10 sqrt(10.0)
+
 namespace rrg_nbv_exploration {
 
 /**
@@ -168,6 +170,10 @@ private:
 	 * @brief Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
+	/**
+	 * @brief Squared radius that includes robot's footprint in m
+	 */
+	double _robot_radius_squared;
 	/**
 	 * @brief If current goal is currently updating
 	 */
