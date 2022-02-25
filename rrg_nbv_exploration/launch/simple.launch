@@ -94,6 +94,7 @@
 	<node pkg="rrg_nbv_exploration" type="rneVisualizationNode"
 		name="rneVisualizationNode" output="screen" >
 		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
+		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
 		<param name="show_gain_info" type="bool" value="false" />
 		<param name="show_distance_info" type="bool" value="false" />
 		<param name="show_traversability_info" type="bool" value="false" />

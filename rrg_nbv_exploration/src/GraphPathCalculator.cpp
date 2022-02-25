@@ -264,8 +264,9 @@ bool GraphPathCalculator::isNodeInPath(int neighbor_node_index,
 
 double GraphPathCalculator::calculateCostFunction(
 		rrg_nbv_exploration_msgs::Node &node) {
-	double traversability = (double) node.traversability_cost_to_robot
-			/ (double) node.traversability_weight_to_robot; //TODO: re-evaluate traversability cost
+	double traversability = ((double) node.traversability_cost_to_robot
+			/ (double) _grid_map_occupied)
+			/ (double) node.traversability_weight_to_robot;
 	double distance = node.distance_to_robot;
 	double heading = (double) node.heading_change_to_robot_best_view / 180.0; //every half-turn costs as much as 1m of distance
 	double cost_function = _distance_factor * distance

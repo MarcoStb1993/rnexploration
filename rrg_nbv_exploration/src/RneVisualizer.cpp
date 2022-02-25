@@ -4,6 +4,7 @@ namespace rrg_nbv_exploration {
 RneVisualizer::RneVisualizer() {
 	ros::NodeHandle private_nh("~");
 	private_nh.param("robot_radius", _robot_radius, 1.0);
+	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
 	private_nh.param("show_gain_info", _show_gain_info, false);
 	private_nh.param("show_distance_info", _show_distance_info, false);
 	private_nh.param("show_traversability_info", _show_traversability_info,
@@ -133,6 +134,7 @@ void RneVisualizer::addInfoTextVisualization(
 		if (_show_traversability_info)
 			oss << "\nt: "
 					<< (double) rrg->nodes[node].traversability_cost_to_robot
+							/ (double) _grid_map_occupied
 							/ (double) rrg->nodes[node].traversability_weight_to_robot;
 		if (_show_heading_info)
 			oss << "\nh: "

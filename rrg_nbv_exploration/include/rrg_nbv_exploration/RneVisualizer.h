@@ -8,7 +8,6 @@
 #include "sstream"
 #include <rrg_nbv_exploration/RneVisualizerConfig.h>
 
-
 namespace rrg_nbv_exploration {
 /**
  * @brief The RneVisualizer class takes the RRG topic and creates spheres and lines to depict the node as markers in RViz
@@ -22,8 +21,7 @@ public:
 	~RneVisualizer();
 
 	void dynamicReconfigureCallback(
-			rrg_nbv_exploration::RneVisualizerConfig &config,
-			uint32_t level);
+			rrg_nbv_exploration::RneVisualizerConfig &config, uint32_t level);
 
 private:
 	ros::NodeHandle _nh;
@@ -46,6 +44,10 @@ private:
 	 * Radius that includes robot's footprint in m
 	 */
 	double _robot_radius;
+	/**
+	 * @brief Grid map value that indicates a cell is occupied (or inscribed)
+	 */
+	int _grid_map_occupied;
 
 	bool _show_gain_info;
 	bool _show_distance_info;
@@ -76,8 +78,8 @@ private:
 	 * @param Reference to RRG
 	 */
 	void addInfoTextVisualization(
-			visualization_msgs::MarkerArray &_node_info_texts,
-			int node, const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg);
+			visualization_msgs::MarkerArray &_node_info_texts, int node,
+			const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg);
 
 	/**
 	 * @brief Clear the info text markers if the graph is being rebuilt
