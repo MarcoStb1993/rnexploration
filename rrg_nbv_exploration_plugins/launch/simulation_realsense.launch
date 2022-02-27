@@ -236,7 +236,6 @@
 		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
 		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
 		<arg name="max_node_height_difference" default="1.0" />	
-		<arg name="add_start_node" default="true" />
 		<arg name="gain_factor" default="1.0" />
 		<arg name="distance_factor" default="1.0" />
 		<arg name="heading_factor" default="1.0" />
