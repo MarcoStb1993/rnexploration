@@ -14,7 +14,6 @@ NodeComparator::NodeComparator() {
 }
 
 NodeComparator::~NodeComparator() {
-	// TODO Auto-generated destructor stub
 }
 
 void NodeComparator::initialization() {

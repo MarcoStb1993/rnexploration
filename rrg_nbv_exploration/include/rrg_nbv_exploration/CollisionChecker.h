@@ -142,6 +142,33 @@ public:
 			geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
 			bool &added_node_to_update);
 
+	/**
+	 * @brief Add the given node index to the list of available nodes (also removes edges to
+	 * this node from list of retriable edges)
+	 * @param Node index that just became inactive
+	 */
+	void addAvailableNode(int node);
+
+	/**
+	 * @brief Add the given edge to the list of available edges
+	 * @param Index of the edge that just became inactive
+	 */
+	void addAvailableEdge(int edge);
+
+	/**
+	 * @brief Find the best connection to the robot for the given node along any of its edges
+	 * @param Reference to the RRG
+	 * @param Reference to the node for which the best connection must be found
+	 * @param Reference to the robot position
+	 * @param If the connection must be found for a newly placed (true) node or an existing one (false)
+	 * @param For a newly placed node a list of edges connecting it to neighboring nodes must be supplied
+	 */
+	void findBestConnectionForNode(rrg_nbv_exploration_msgs::Graph &rrg,
+			rrg_nbv_exploration_msgs::Node &node,
+			geometry_msgs::Pose &robot_pos, bool new_node,
+			std::vector<rrg_nbv_exploration_msgs::Edge> edges = std::vector<
+					rrg_nbv_exploration_msgs::Edge>());
+
 private:
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
@@ -241,6 +268,14 @@ private:
 	 * which could be retried
 	 */
 	std::vector<rrg_nbv_exploration_msgs::Edge> _retriable_edges;
+	/**
+	 * @brief Ordered list of node indices where the nodes are inactive and can be replaced with a new node
+	 */
+	std::set<int> _available_nodes;
+	/**
+	 * @set Ordered list of edge indices where the edges are inactive and can be replaced with a new edge
+	 */
+	std::set<int> _available_edges;
 
 	ros::Publisher _rrt_collision_visualization_pub;
 	visualization_msgs::MarkerArray _node_points;
@@ -533,19 +568,21 @@ private:
 	geometry_msgs::Point movePoint(int direction, double &x, double &y);
 
 	/**
-	 * @brief Constructs a new edge from the given node to the new node being place
+	 * @brief Constructs a new edge from the given neighbor node to the new node being place
 	 * @param Yaw of the edge
 	 * @param Length of edge's path box
 	 * @param Traversability cost of the edge's path box
 	 * @param Number of tiles inside the edge's path box
-	 * @param First node of the edge
+	 * @param Index of the new node of the edge
+	 * @param Index of the neighbor node of the edge
 	 * @param Distance between the two nodes
 	 * @param Reference to the RRG
 	 * @return The constructed edge
 	 */
 	rrg_nbv_exploration_msgs::Edge constructEdge(double edge_yaw,
-			double edge_length, int edge_cost, int edge_tiles, int node,
-			double distance, rrg_nbv_exploration_msgs::Graph &rrg);
+			double edge_length, int edge_cost, int edge_tiles,
+			int neighbor_node, int new_node, double distance,
+			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
 	 * @brief Check if the newly added edge shortens the path length to the robot for one of the nodes

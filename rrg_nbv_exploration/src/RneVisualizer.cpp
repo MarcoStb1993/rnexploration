@@ -57,6 +57,7 @@ void RneVisualizer::initializeVisualization(
 void RneVisualizer::visualizeRrgGraph(
 		const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	if (_rrg_visualization_pub.getNumSubscribers() > 0) {
+		bool clear_info_texts = false;
 		bool publishInfo = _rrg_text_info_visualization_pub.getNumSubscribers()
 				> 0
 				&& (ros::Time::now() - _last_info_publish).toSec()
@@ -71,25 +72,33 @@ void RneVisualizer::visualizeRrgGraph(
 		_edge_line_list.points.clear();
 		_edge_line_list.colors.clear();
 		for (int i = 0; i < rrg->node_counter; i++) {
-			_node_points.points.push_back(rrg->nodes[i].position);
-			_node_points.colors.push_back(getColor(rrg->nodes[i]));
-			if (publishInfo)
-				addInfoTextVisualization(_node_info_texts, i, rrg);
+			if (rrg->nodes[i].status
+					!= rrg_nbv_exploration_msgs::Node::INACTIVE) {
+				_node_points.points.push_back(rrg->nodes[i].position);
+				_node_points.colors.push_back(getColor(rrg->nodes[i]));
+				if (publishInfo)
+					addInfoTextVisualization(_node_info_texts, i, rrg);
+			}
+//			else { //remove info text from inactive nodes
+//				clear_info_texts = true;
+//			}
 		}
 		for (int j = 0; j < rrg->edges.size(); j++) {
-			_edge_line_list.points.push_back(
-					rrg->nodes[rrg->edges[j].first_node].position);
-			_edge_line_list.colors.push_back(
-					getColor(rrg->nodes[rrg->edges[j].first_node]));
-			_edge_line_list.points.push_back(
-					rrg->nodes[rrg->edges[j].second_node].position);
-			_edge_line_list.colors.push_back(
-					getColor(rrg->nodes[rrg->edges[j].second_node]));
+			if (!rrg->edges[j].inactive) {
+				_edge_line_list.points.push_back(
+						rrg->nodes[rrg->edges[j].first_node].position);
+				_edge_line_list.colors.push_back(
+						getColor(rrg->nodes[rrg->edges[j].first_node]));
+				_edge_line_list.points.push_back(
+						rrg->nodes[rrg->edges[j].second_node].position);
+				_edge_line_list.colors.push_back(
+						getColor(rrg->nodes[rrg->edges[j].second_node]));
+			}
 		}
 		_rrg_visualization_pub.publish(_node_points);
 		_rrg_visualization_pub.publish(_edge_line_list);
 		if (publishInfo) {
-			if (rrg->node_counter < _last_rrg_node_count) { //graph normally only grows
+			if (clear_info_texts || rrg->node_counter < _last_rrg_node_count) { //graph normally only grows
 				clearInfoText();
 			}
 			_rrg_text_info_visualization_pub.publish(_node_info_texts);

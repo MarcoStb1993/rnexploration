@@ -58,6 +58,8 @@ void CollisionChecker::initialize(rrg_nbv_exploration_msgs::Graph &rrg,
 	}
 	_node_edges.markers.clear();
 	_node_points.markers.clear();
+	_available_nodes.clear();
+	_available_edges.clear();
 	_marker_id = 0;
 
 	initRootNodeAndGraph(map, rrg);
@@ -205,6 +207,12 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		new_node.position.y = rand_sample.y;
 		new_node.position.z = rand_sample.z;
 		new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+		if (_available_nodes.empty()) {
+			new_node.index = rrg.node_counter;
+		} else {
+			new_node.index = *_available_nodes.begin();
+			new_node.edges.clear();
+		}
 		//check if new node can be connected to other nodes
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(new_node.position,
@@ -218,6 +226,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		std::vector<rrg_nbv_exploration_msgs::Edge> new_retriable_edges;
 		std::vector<visualization_msgs::Marker> new_edge_markers;
 		for (auto it : nodes) {
+			if (rrg.nodes[it.first].status
+					== rrg_nbv_exploration_msgs::Node::INACTIVE) //skip connections to inactive nodes
+				continue;
 			double distance = sqrt(it.second);
 			double edge_yaw = atan2(
 					new_node.position.y - rrg.nodes[it.first].position.y,
@@ -256,16 +267,17 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 				height += rrg.nodes[it.first].position.z;
 				rrg_nbv_exploration_msgs::Edge new_edge = constructEdge(
 						edge_yaw, edge_length, edge_cost, edge_tiles, it.first,
-						distance, rrg);
+						new_node.index, distance, rrg);
 				new_edges.push_back(new_edge);
 				visualizeEdge(edge_length, edge_center, edge_yaw,
 						new_edge_markers);
 			} else if (edge_collision == Collisions::unknown) { //store failed edge for later reassessment
 				rrg_nbv_exploration_msgs::Edge new_edge = constructEdge(
 						edge_yaw, edge_length, edge_cost, edge_tiles, it.first,
-						distance, rrg);
+						new_node.index, distance, rrg);
 				new_retriable_edges.push_back(new_edge);
 			}
+
 		}
 		if (connected) {
 			new_node.traversability_cost = node_cost;
@@ -273,13 +285,18 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 			new_node.gain = -1;
 			new_node.reward_function = 0;
-			new_node.index = rrg.node_counter++;
 			new_node.position.z = height / nodes.size();
 			new_node.retry_inflation = node_collision == Collisions::unknown;
 			new_node.cost_function = std::numeric_limits<double>::infinity();
-			_graph_path_calculator->findBestConnectionForNode(rrg, new_node,
-					robot_pos, true, new_edges);
-			rrg.nodes.push_back(new_node);
+			findBestConnectionForNode(rrg, new_node, robot_pos, true,
+					new_edges);
+			if (_available_nodes.empty()) {
+				rrg.node_counter++;
+				rrg.nodes.push_back(new_node);
+			} else { //reuse existing inactive node entries if possible
+				rrg.nodes.at(*_available_nodes.begin()) = new_node;
+				_available_nodes.erase(_available_nodes.begin());
+			}
 
 			for (auto edge : new_retriable_edges) { //add edges which failed because of unknown space
 				_retriable_edges.push_back(edge);
@@ -327,8 +344,10 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 		for (auto it : nodes) {
 			if (it.first == node
 					|| _graph_path_calculator->findExistingEdge(rrg, node,
-							it.first) != -1)
-				continue; //skip node itself or existing edge
+							it.first) != -1
+					|| rrg.nodes[it.first].status
+							== rrg_nbv_exploration_msgs::Node::INACTIVE)
+				continue; //skip node itself, existing edge or inactive node
 			double distance = sqrt(it.second);
 			geometry_msgs::Point edge_center;
 			double edge_length;
@@ -351,10 +370,17 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 				new_edge.first_node = std::min(it.first, node);
 				new_edge.second_node = std::max(it.first, node);
 				new_edge.length = distance;
-				new_edge.index = rrg.edge_counter++;
+				new_edge.inactive = false;
+				if (_available_edges.empty()) {
+					new_edge.index = rrg.edge_counter++;
+					rrg.edges.push_back(new_edge);
+				} else { //reuse existing inactive edge entries if possible
+					new_edge.index = *_available_edges.begin();
+					rrg.edges.at(*_available_edges.begin()) = new_edge;
+					_available_edges.erase(_available_edges.begin());
+				}
 				rrg.nodes[node].edges.push_back(new_edge.index);
 				rrg.nodes[node].edge_counter++;
-				rrg.edges.push_back(new_edge);
 				rrg.nodes[it.first].edges.push_back(new_edge.index);
 				rrg.nodes[it.first].edge_counter++;
 				checkNewEdgePathLength(robot_pos, rrg, new_edge,
@@ -961,17 +987,20 @@ bool CollisionChecker::calculateEdge(int nearest_node, double &edge_length,
 }
 
 rrg_nbv_exploration_msgs::Edge CollisionChecker::constructEdge(double edge_yaw,
-		double edge_length, int edge_cost, int edge_tiles, int node,
-		double distance, rrg_nbv_exploration_msgs::Graph &rrg) {
+		double edge_length, int edge_cost, int edge_tiles, int neighbor_node,
+		int new_node, double distance, rrg_nbv_exploration_msgs::Graph &rrg) {
 	rrg_nbv_exploration_msgs::Edge new_edge;
 	new_edge.yaw = (int) ((edge_yaw * 180.0 / M_PI));
 	if (new_edge.yaw < 0)
 		new_edge.yaw += 360;
+	if (new_node < neighbor_node) //reverse edge yaw (always from node with smaller index to larger index
+		new_edge.yaw += new_edge.yaw > 180 ? (-180) : 180;
 	new_edge.traversability_cost = edge_length > 0 ? edge_cost : 0.0;
 	new_edge.traversability_weight = edge_length > 0 ? edge_tiles : 0.0;
-	new_edge.first_node = node;
-	new_edge.second_node = rrg.node_counter;
+	new_edge.first_node = std::min(new_node, neighbor_node);
+	new_edge.second_node = std::max(new_node, neighbor_node);
 	new_edge.length = distance;
+	new_edge.inactive = false;
 	return new_edge;
 }
 
@@ -1042,6 +1071,115 @@ bool CollisionChecker::checkDistance(geometry_msgs::Point &point,
 		return true;
 	}
 	return false;
+}
+
+void CollisionChecker::findBestConnectionForNode(
+		rrg_nbv_exploration_msgs::Graph &rrg,
+		rrg_nbv_exploration_msgs::Node &node, geometry_msgs::Pose &robot_pos,
+		bool new_node, std::vector<rrg_nbv_exploration_msgs::Edge> edges) {
+	std::vector<rrg_nbv_exploration_msgs::Edge> node_edges;
+	if (!new_node) { //get edges from given existing node
+		for (auto i : node.edges) {
+			node_edges.push_back(rrg.edges[i]);
+		}
+	} else { //use given edges for new node
+		node_edges = edges;
+	}
+	for (auto &edge : node_edges) {
+		int neighbor_node_index =
+				edge.first_node == node.index ?
+						edge.second_node : edge.first_node;
+		if (new_node) { //store edges in RRG and references in the particular nodes
+			if (_available_edges.empty()) {
+				edge.index = rrg.edge_counter++;
+				rrg.edges.push_back(edge);
+			} else { //reuse existing inactive edge entries if possible
+				edge.index = *_available_edges.begin();
+				rrg.edges.at(*_available_edges.begin()) = edge;
+				_available_edges.erase(_available_edges.begin());
+			}
+			node.edges.push_back(edge.index);
+			node.edge_counter++;
+			rrg.nodes[neighbor_node_index].edges.push_back(edge.index);
+			rrg.nodes[neighbor_node_index].edge_counter++;
+		}
+		if (rrg.nodes[neighbor_node_index].status
+				!= rrg_nbv_exploration_msgs::Node::FAILED
+				&& !std::isinf(rrg.nodes[neighbor_node_index].cost_function)) {
+			//only evaluate edge if it is not to a failed or unreachable node
+			rrg_nbv_exploration_msgs::Node updated_node; //calculate potential cost if connected via this edge
+			updated_node.distance_to_robot =
+					rrg.nodes[neighbor_node_index].distance_to_robot
+							+ edge.length;
+			updated_node.path_to_robot =
+					rrg.nodes[neighbor_node_index].path_to_robot;
+			updated_node.path_to_robot.push_back(node.index);
+			updated_node.radii_to_robot =
+					rrg.nodes[neighbor_node_index].radii_to_robot + node.radius;
+			if (neighbor_node_index == rrg.nearest_node) {
+				//calculate heading to new node directly from robot if edge to nearest node
+				int yaw_to_start_node =
+						(int) (((atan2(node.position.y - robot_pos.position.y,
+								node.position.x - robot_pos.position.x) * 180.0
+								/ M_PI)));
+				if (yaw_to_start_node < 0)
+					yaw_to_start_node += 360;
+
+				updated_node.heading_in = yaw_to_start_node;
+			} else
+				updated_node.heading_in = edge.yaw;
+
+			updated_node.heading_change_to_robot =
+					rrg.nodes[neighbor_node_index].heading_change_to_robot
+							+ _graph_path_calculator->getAbsoluteAngleDiff(
+									rrg.nodes[neighbor_node_index].heading_in,
+									updated_node.heading_in); //calculate heading cost from current to neighbor node
+			updated_node.heading_change_to_robot_best_view =
+					_graph_path_calculator->calculateHeadingChangeToBestView(
+							updated_node);
+			updated_node.traversability_cost_to_robot =
+					rrg.nodes[neighbor_node_index].traversability_cost_to_robot
+							+ node.traversability_cost
+							+ edge.traversability_cost;
+			updated_node.traversability_weight_to_robot =
+					rrg.nodes[neighbor_node_index].traversability_weight_to_robot
+							+ node.traversability_weight
+							+ edge.traversability_weight;
+			updated_node.cost_function =
+					_graph_path_calculator->calculateCostFunction(updated_node);
+			if (updated_node.cost_function < node.cost_function) {
+				node.distance_to_robot = updated_node.distance_to_robot;
+				node.path_to_robot = updated_node.path_to_robot;
+				node.heading_in = updated_node.heading_in;
+				node.heading_change_to_robot =
+						updated_node.heading_change_to_robot;
+				node.heading_change_to_robot_best_view =
+						updated_node.heading_change_to_robot_best_view;
+				node.radii_to_robot = updated_node.radii_to_robot;
+				node.traversability_cost_to_robot =
+						updated_node.traversability_cost_to_robot;
+				node.traversability_weight_to_robot =
+						updated_node.traversability_weight_to_robot;
+				node.cost_function = updated_node.cost_function;
+			}
+		}
+	}
+}
+
+void CollisionChecker::addAvailableNode(int node) {
+	_available_nodes.insert(node);
+	_retriable_edges.erase(
+			std::remove_if(_retriable_edges.begin(), _retriable_edges.end(),
+					[this, &node](rrg_nbv_exploration_msgs::Edge &edge) {
+						if (edge.first_node == node || edge.second_node == node)
+							return true; //remove retriable edge if connecting to the newly inactive node
+						else
+							return false;
+					}),_retriable_edges.end());
+}
+
+void CollisionChecker::addAvailableEdge(int edge) {
+	_available_edges.insert(edge);
 }
 
 void CollisionChecker::occupancyGridCallback(

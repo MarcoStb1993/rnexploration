@@ -123,9 +123,13 @@ private:
 	 */
 	int _last_goal_node;
 	/**
-	 * @brief Maximal sensor range that is considered for gain calculation
+	 * @brief Maximal sensor range that is considered for gain calculation in m
 	 */
 	double _sensor_range;
+	/**
+	 * @brief Squared maximal sensor range that is considered for gain calculation in m
+	 */
+	double _sensor_range_squared;
 	/**
 	 * @brief Doubled and squared sensor range for radius search in kd-tree
 	 */
@@ -249,21 +253,36 @@ private:
 	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
 	 * @param If the paths of possibly connected nodes should be updated
 	 * @param Current robot pose
+	 * @param Reference to if the graph searcher index must be rebuilt
 	 */
-	void expandGraph(bool local, bool updatePaths,
+	void expandGraph(bool local, bool update_paths,
 			geometry_msgs::Pose robot_pos);
+
 	/**
-	 * @brief Randomly samples a point from within the map dimensions
-	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
+	 * @brief
 	 */
-	void samplePoint(geometry_msgs::Point &rand_sample);
+	void pruneLocalGraph(bool new_nearest_node);
 	/**
-	 * @brief Randomly samples a point from within a circle around the given center
+	 * @brief Randomly samples a point from within the sensor range around the robot
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
-	 * @return If the point is inside map dimensions
+	 * @return If the point is inside map dimensions and was successfully created
 	 */
-	bool samplePointLocally(geometry_msgs::Point &rand_sample,
-			geometry_msgs::Point center);
+	bool samplePoint(geometry_msgs::Point &rand_sample);
+	/**
+	 * @brief Randomly samples a point within local sampling range around the robot
+	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
+	 * @return If the point is inside map dimensions and was successfully created
+	 */
+	bool samplePointLocally(geometry_msgs::Point &rand_sample);
+	/**
+	 * @brief Randomly samples a point from within a circle with the provided radius around the given center
+	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
+	 * @param Center for the sampling area
+	 * @param Radius of the sampling area
+	 * @return If the point is inside map dimensions and was successfully created
+	 */
+	bool samplePointInRadius(geometry_msgs::Point &rand_sample,
+			geometry_msgs::Point center, double radius);
 
 	/**
 	 * @brief Check if there is a current goal, if there are still nodes to be explored and select a new goal if required and possible
@@ -346,6 +365,63 @@ private:
 	 * edge connecting next and nearest node to -1
 	 */
 	void resetNextNodeInPath();
+
+	/**
+	 * @brief Iterates over all nodes and sets them to inactive if they are outside the robot's sensor
+	 * range, also returns a set of all disconnected nodes that had a deactivated node in their path to
+	 * the robot
+	 * @param Reference to the set of deactivated nodes
+	 * @param Reference to the set of deactivated edges
+	 * @return List of nodes that had one of the deactivated nodes in their path to the robot
+	 */
+	std::vector<int> findOutOfSensorRadiusNodes(std::set<int> &pruned_nodes,
+			std::set<int> &pruned_edges);
+
+	/**
+	 * @brief Checks if the given node is next in the path to the robot of the neighbor node
+	 * @param Index of the neighbor node
+	 * @param Index of the node
+	 * @return If the given node is next in the path to the robot of the neighbor node
+	 */
+	bool isNextInPathToRobot(int neighbor_node, int node);
+
+	/**
+	 * @brief Sets the given node to inactive and removes it from all update lists
+	 * @param Index of the node to deactivate
+	 */
+	void deactivateNode(int node);
+
+	/**
+	 * @brief Returns the remaining node at the other end of the given edge from the provided node
+	 * which will is deactivated and removes the reference to this edge from the remaining node
+	 * @param Index of the edge connecting the nodes
+	 * @param Index of the node that is deactivated
+	 * @return Index of the remaining node
+	 */
+	int removeEdgeFromRemainingNode(int edge, int node);
+
+	/**
+	 * @brief Removes the pruned edges or adds them to available edges depending on the index
+	 * @param Reference to the set of pruned edges
+	 */
+	void handlePrunedEdges(const std::set<int> &pruned_edges);
+
+	/**
+	 * @brief Removes the pruned nodes or adds them to available nodes depending on the index
+	 * @param Reference to the set of pruned nodes
+	 */
+	void handlePrunedNodes(const std::set<int> &pruned_nodes);
+
+	/**
+	 * @brief Iterates over the vector of nodes that were disconnected because a deactivated node was
+	 * in their path to the robot and adds further disconnected nodes as well as finding nodes with an
+	 * edge to a disconnected node and a viable path to the robot
+	 * @param Reference to the list of disconnected nodes
+	 * @param Reference to the set of nodes still connected to a disconnected node and the remaining RRG
+	 */
+	void findAllConnectedAndDisconnectedNodes(
+			std::vector<int> &disconnected_nodes,
+			std::set<int> &connected_nodes);
 
 	/**
 	 * Timer callback for setting exploration to finished

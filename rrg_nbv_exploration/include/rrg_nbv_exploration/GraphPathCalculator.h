@@ -145,20 +145,6 @@ public:
 	int findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			int neighbor_node);
 
-	/**
-	 * @brief Find the best connection to the robot for the given node along any of its edges
-	 * @param Reference to the RRG
-	 * @param Reference to the node for which the best connection must be found
-	 * @param Reference to the robot position
-	 * @param If the connection must be found for a newly placed (true) node or an existing one (false)
-	 * @param For a newly placed node a list of edges connecting it to neighboring nodes must be supplied
-	 */
-	void findBestConnectionForNode(rrg_nbv_exploration_msgs::Graph &rrg,
-			rrg_nbv_exploration_msgs::Node &node,
-			geometry_msgs::Pose &robot_pos, bool new_node,
-			std::vector<rrg_nbv_exploration_msgs::Edge> edges = std::vector<
-					rrg_nbv_exploration_msgs::Edge>());
-
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
 			uint32_t level);

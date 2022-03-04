@@ -226,7 +226,7 @@
 		<arg name="robot_width" value="0.7" />
 		<arg name="sensor_height" value="0.515" />
 		<arg name="sensor_size" value="0.05" />
-		<arg name="sensor_max_range" value="100.0" />
+		<arg name="sensor_max_range" value="5.0" />
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />
