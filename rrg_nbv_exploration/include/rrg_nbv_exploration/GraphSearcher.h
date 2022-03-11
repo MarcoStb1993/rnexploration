@@ -1,14 +1,14 @@
 #include "ros/ros.h"
-#include "std_msgs/String.h"
 #include "rrg_nbv_exploration_msgs/Graph.h"
-#include "rrg_nbv_exploration_msgs/Node.h"
 
 #include <rrg_nbv_exploration/nanoflann.hpp>
 
 /**
- * @brief The TreeSearcher class provides functionality for constructing a KD tree and executing nearest neighbour
- * search as well as radius search. It always treats all node points as if they were on the same height (z=0)
+ * @brief The GraphSearcher class provides functionality for constructing a KD tree and executing nearest
+ * neighbor search as well as radius search. It always treats all node points as if they were on the
+ * same height (z=0)
  */
+#pragma once
 class GraphSearcher {
 public:
 	/**
@@ -26,10 +26,10 @@ public:
 	 */
 	void rebuildIndex(rrg_nbv_exploration_msgs::Graph &rrg);
 	/**
-	 * @brief Find the nearest neighbour in the current kd-tree to the randomly sampled point given as parameter
-	 * @param Randomly sampled 3D point
-	 * @param Link to minimum squared distance calculated between a node in the tree and the randomly sampled point
-	 * @param Link to the nearest node in the tree from the randomly sampled point
+	 * @brief Find the nearest neighbor in the current kd-tree to the point given as parameter
+	 * @param 3D point
+	 * @param Link to minimum squared distance calculated between a node in the tree and the point
+	 * @param Link to the nearest node in the tree from the given point
 	 */
 	void findNearestNeighbour(geometry_msgs::Point rand_sample,
 			double &min_distance, int &nearest_node);
@@ -39,8 +39,8 @@ public:
 	 * @param Search radius (needs to be squared)
 	 * @return List of the indices of all nodes in this radius and their respective squared distance sorted ascending by squared distance
 	 */
-	std::vector<std::pair<int,double>> searchInRadius(geometry_msgs::Point node_position,
-			double radius);
+	std::vector<std::pair<int, double>> searchInRadius(
+			geometry_msgs::Point node_position, double radius);
 
 private:
 	/**
@@ -66,6 +66,6 @@ private:
 	};
 	typedef nanoflann::KDTreeSingleIndexAdaptor<
 			nanoflann::L2_Simple_Adaptor<double, rrg_adaptor>, rrg_adaptor, 3> kd_tree_adaptor;
-	rrg_adaptor _rrt_kd_adaptor;
+	rrg_adaptor _rrg_kd_adaptor;
 	kd_tree_adaptor _kd_tree_index;
 };

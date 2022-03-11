@@ -342,18 +342,34 @@ Visualization Manager:
       Voxel Rendering: Occupied Voxels
     - Class: rviz/Marker
       Enabled: true
+      Marker Topic: /rne/globalgraph_vis
+      Name: GlobalGraph
+      Namespaces:
+        globalgraph_vis: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /rne/globalgraph_vis_info
+      Name: GlobalGraph Info
+      Namespaces:
+        globalgraph_vis_info: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
       Marker Topic: /rne/rrg_vis
       Name: RRG
       Namespaces:
-        rrg: true
+        rrg_vis: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /rne/rrg_vis_info
-      Name: RRG Subtexts
+      Name: RRG Info
       Namespaces:
-        rrt_tree: true
+        rrg_vis_info: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -508,7 +524,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.439547538757324
+      Distance: 19.125551223754883
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

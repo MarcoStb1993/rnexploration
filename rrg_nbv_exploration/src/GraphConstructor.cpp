@@ -68,6 +68,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_collision_checker.reset(new CollisionChecker());
 	_graph_path_calculator.reset(new GraphPathCalculator());
 	_node_comparator.reset(new NodeComparator());
+	_global_graph_handler.reset(new GlobalGraphHandler());
 	_running = false;
 	_explored_current_goal_node_by_update = false;
 	if (_local_sampling_radius > _sensor_range) //cannot sample outside local area
@@ -79,7 +80,7 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_rrg.edges.clear();
 	_nodes_to_update.clear();
 	_rrg.header.frame_id = "/map";
-	_rrg.ns = "rrt_tree";
+	_rrg.ns = "rrg";
 	_rrg.node_counter = 0;
 	_rrg.edge_counter = 0;
 	rrg_nbv_exploration_msgs::Node root;
@@ -107,6 +108,8 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_generator.seed(time(NULL));
 	_collision_checker->initialize(_rrg, _graph_searcher,
 			_graph_path_calculator);
+	_global_graph_handler->initialize(_rrg.nodes[0], _graph_path_calculator,
+			_graph_searcher, _collision_checker);
 }
 
 void GraphConstructor::startRrgConstruction() {
@@ -133,6 +136,8 @@ void GraphConstructor::runRrgConstruction() {
 			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
 					_robot_pose, true, _nodes_to_update, _sort_nodes_to_update);
 			determineNextNodeInPath();
+			_global_graph_handler->deactivateFrontiersInLocalGraph(_rrg,
+					_last_robot_pos);
 		} else { //check if robot heading changed and update heading
 			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
 					_rrg, _robot_pose, _next_node, _edge_to_next_node,
@@ -149,6 +154,7 @@ void GraphConstructor::runRrgConstruction() {
 		}
 	}
 	_rrg_publisher.publish(_rrg);
+	_global_graph_handler->publishGlobalGraph();
 }
 
 void GraphConstructor::expandGraph(bool local, bool update_paths,
@@ -213,11 +219,12 @@ void GraphConstructor::pruneLocalGraph(bool new_nearest_node) {
 		for (auto node : disconnected_nodes) {
 			if (std::isinf(_rrg.nodes[node].cost_function)) { //check if disconnected nodes are still disconnected and deactivate them
 				pruned_nodes.insert(node);
-				deactivateNode(node);
+//				ROS_INFO_STREAM(node << " was disconnected completely");
+				_rrg.nodes[node].status =
+						rrg_nbv_exploration_msgs::Node::INACTIVE;
 				for (int edge : _rrg.nodes[node].edges) {
 					_rrg.edges[edge].inactive = true;
 					pruned_edges.insert(edge);
-					removeEdgeFromRemainingNode(edge, node);
 				}
 			}
 		}
@@ -226,10 +233,6 @@ void GraphConstructor::pruneLocalGraph(bool new_nearest_node) {
 			handlePrunedNodes(pruned_nodes);
 			_graph_searcher->rebuildIndex(_rrg);
 		}
-
-		//TODO: global
-		//TODO: store initial nodes that were removed in global graph (cluster neighboring nodes)
-		//TODO: store paths to global frontiers in global graph
 	}
 }
 
@@ -243,18 +246,23 @@ std::vector<int> GraphConstructor::findOutOfSensorRadiusNodes(
 					+ pow(_robot_pose.position.y - node.position.y, 2);
 			if (distance_squared > _sensor_range_squared) {	//remove node from local graph
 				pruned_nodes.insert(node.index);
-				deactivateNode(node.index);
+//				ROS_INFO_STREAM(
+//						"Node " << node.index << " out of sensor range");
+				_rrg.nodes[node.index].status =
+						rrg_nbv_exploration_msgs::Node::INACTIVE;
 				disconnected_nodes_set.erase(node.index); //remove in case it was already added
 				for (int edge : node.edges) {
 					_rrg.edges[edge].inactive = true;
 					pruned_edges.insert(edge);
-					int remaining_node = removeEdgeFromRemainingNode(edge,
-							node.index);
+					int remaining_node =
+							_rrg.edges[edge].first_node == node.index ?
+									_rrg.edges[edge].second_node :
+									_rrg.edges[edge].first_node;
 					if (isNextInPathToRobot(remaining_node, node.index)) {
 						_rrg.nodes[remaining_node].cost_function =
 								std::numeric_limits<double>::infinity();
-						_rrg.nodes[remaining_node].path_to_robot.clear();
 						disconnected_nodes_set.insert(remaining_node);
+//						ROS_INFO_STREAM("Disconnected Node " << remaining_node);
 					}
 				}
 			}
@@ -272,18 +280,26 @@ bool GraphConstructor::isNextInPathToRobot(int neighbor_node, int node) {
 }
 
 void GraphConstructor::deactivateNode(int node) {
-	_rrg.nodes[node].status = rrg_nbv_exploration_msgs::Node::INACTIVE;
-	_rrg.nodes[node].position.x = 0;
-	_rrg.nodes[node].position.y = 0;
 	if (_rrg.nodes[node].gain > 0) {
-		_nodes_to_update.remove(_rrg.nodes[node].index);
+		_nodes_to_update.remove(node);
 		_nodes_to_reupdate.erase(
 				std::remove(_nodes_to_reupdate.begin(),
-						_nodes_to_reupdate.end(), _rrg.nodes[node].index),
+						_nodes_to_reupdate.end(), node),
 				_nodes_to_reupdate.end());
-		_node_comparator->removeNode(_rrg.nodes[node].index);
+		_node_comparator->removeNode(node);
+		_global_graph_handler->addFrontier(node, _rrg);
 	}
+	if (!_rrg.nodes[node].connected_to.empty()) {
+		_global_graph_handler->continuePath(node, _rrg);
+		_rrg.nodes[node].connected_to.clear();
+	}
+	for (int edge : _rrg.nodes[node].edges) {
+		removeEdgeFromRemainingNode(edge, node);
+	}
+	_rrg.nodes[node].path_to_robot.clear();
 	_rrg.nodes[node].gain = 0;
+	_rrg.nodes[node].position.x = 0;
+	_rrg.nodes[node].position.y = 0;
 }
 
 int GraphConstructor::removeEdgeFromRemainingNode(int edge, int node) {
@@ -310,17 +326,26 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 	}
 }
 
+bool GraphConstructor::sortByPathLength(int node_one, int node_two) {
+	return _rrg.nodes[node_one].path_to_robot.size()
+			< _rrg.nodes[node_two].path_to_robot.size();
+}
+
 void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
-	auto nit = pruned_nodes.rbegin();
-	while (nit != pruned_nodes.rend()) { //remove or add inactive nodes
-		if (*nit == _rrg.node_counter - 1) {
+	std::vector<int> nodes(pruned_nodes.begin(), pruned_nodes.end());
+	std::sort(nodes.begin(), nodes.end(), [this](int node_one, int node_two) {
+		return sortByPathLength(node_one, node_two);
+	}); //sort ascending by path to robot length
+	for (int i = nodes.size() - 1; i >= 0; i--) { //remove or add inactive nodes
+		deactivateNode(nodes.at(i));
+		if (nodes.at(i) == _rrg.node_counter - 1) {
 			_rrg.nodes.pop_back();
 			_rrg.node_counter--;
 		} else {
-			_collision_checker->addAvailableNode(*nit);
-			_rrg.nodes[*nit].edges.clear();
+			_collision_checker->addAvailableNode(nodes.at(i));
+			_rrg.nodes[nodes.at(i)].edges.clear();
+			_rrg.nodes[nodes.at(i)].edge_counter = 0;
 		}
-		nit++;
 	}
 }
 
@@ -329,6 +354,7 @@ void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 	for (int i = 0; i < disconnected_nodes.size(); i++) {
 		//find disconnected nodes recursively
 		int node = disconnected_nodes.at(i);
+//		ROS_INFO_STREAM("Disconnected Node " << node);
 		for (int edge : _rrg.nodes[node].edges) {
 			int neighbor_node =
 					_rrg.edges[edge].first_node == node ?
@@ -337,15 +363,18 @@ void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 			if (isNextInPathToRobot(neighbor_node, node)) {
 				_rrg.nodes[neighbor_node].cost_function = std::numeric_limits<
 						double>::infinity();
-				_rrg.nodes[neighbor_node].path_to_robot.clear();
 				if (std::find(disconnected_nodes.begin(),
 						disconnected_nodes.end(), neighbor_node)
-						== disconnected_nodes.end())
-					//only add neighbor if not already present
+						== disconnected_nodes.end()) { //only add neighbor if not already present
+//					ROS_INFO_STREAM(
+//							"Has also disconnected Node " << neighbor_node);
 					disconnected_nodes.push_back(neighbor_node);
-
+				}
 				connected_nodes.erase(neighbor_node);
-			} else if (!std::isinf(_rrg.nodes[neighbor_node].cost_function)) {
+			} else if (!_rrg.edges[edge].inactive
+					&& !std::isinf(_rrg.nodes[neighbor_node].cost_function)) {
+//				ROS_INFO_STREAM(
+//						"Has still connected neighbor " << neighbor_node);
 				connected_nodes.insert(neighbor_node);
 			}
 		}
@@ -637,9 +666,11 @@ void GraphConstructor::tryFailedNodesRecovery() {
 						int collision =
 								_collision_checker->collisionCheckForFailedNode(
 										_rrg, node);
-						if (collision == Collisions::unknown) {
+						if (collision
+								== CollisionChecker::Collisions::unknown) {
 							return false; //keep node and try to recover again
-						} else if (collision == Collisions::empty) {
+						} else if (collision
+								== CollisionChecker::Collisions::empty) {
 							_rrg.nodes[node].status =
 									rrg_nbv_exploration_msgs::Node::INITIAL;
 							_collision_checker->findBestConnectionForNode(_rrg,

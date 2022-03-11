@@ -21,6 +21,7 @@
 
 #include <rrg_nbv_exploration/CollisionChecker.h>
 #include <rrg_nbv_exploration/NodeComparator.h>
+#include <rrg_nbv_exploration/GlobalGraphHandler.h>
 
 #define SQRT10 sqrt(10.0)
 
@@ -83,7 +84,7 @@ private:
 	 */
 	std::shared_ptr<CollisionChecker> _collision_checker;
 	/**
-	 * @brief Helper class for kd-tree GraphConstructor and nearest neighbor search
+	 * @brief Helper class for radius and nearest neighbor search in kd-tree based on RRG
 	 */
 	std::shared_ptr<GraphSearcher> _graph_searcher;
 	/**
@@ -94,6 +95,11 @@ private:
 	 * @brief Helper class for calculating the gain cost ratio of a node and sorting them ordered by this ratio
 	 */
 	std::shared_ptr<NodeComparator> _node_comparator;
+	/**
+	 * @brief Helper class for managing the global graph with its frontiers and paths connecting them and the local graph
+	 */
+	std::shared_ptr<GlobalGraphHandler> _global_graph_handler;
+	;
 	/**
 	 * @brief Current graph being built as a RRG
 	 */
@@ -390,6 +396,14 @@ private:
 	 * @param Index of the node to deactivate
 	 */
 	void deactivateNode(int node);
+
+	/**
+	 * @brief Compare two nodes and return if the path to the robot of the first is smaller than the second
+	 * @param First node index
+	 * @param Second node index
+	 * @return If the first node's path to the robot is smaller than the second's
+	 */
+	bool sortByPathLength(int node_one, int node_two);
 
 	/**
 	 * @brief Returns the remaining node at the other end of the given edge from the provided node

@@ -18,67 +18,20 @@
 
 #define PI_HALF (M_PI / 2)
 
-/**
- * @brief Directions for evasive inflation
- */
-enum Directions {
-	none = -1,
-	center = 1000,
-	north = 0,
-	south = 180,
-	east = 270,
-	west = 90,
-	northeast = 315,
-	northwest = 45,
-	southeast = 225,
-	southwest = 135
-};
-
-/**
- * @brief Different collision detections
- */
-enum Collisions {
-	empty = 0, unknown = 1, occupied = 2
-};
-
-/**
- * @brief Structure to store offset that define a slice parallel to the x-axis of a circle or ring
- * in the grid map
- */
-struct CircleLine {
-	unsigned int x_offset;
-	unsigned int x_start;
-	unsigned int y_offset;
-
-	CircleLine(unsigned int x, unsigned int y) {
-		x_offset = x;
-		y_offset = y;
-		x_start = 0;
-	}
-
-	CircleLine(unsigned int xs, unsigned int x, unsigned int y) {
-		x_offset = x;
-		y_offset = y;
-		x_start = xs;
-	}
-};
-
-struct GridPoint {
-	unsigned int x;
-	unsigned int y;
-};
-
-struct MapPoint {
-	double x;
-	double y;
-};
-
 namespace rrg_nbv_exploration {
 /**
  * @brief The CollisionChecker class checks if a given position can be connected to the existing tree without collision on the occupancy grid.
  */
+#pragma once
 class CollisionChecker {
 public:
+	/**
+	 * @brief Different collision detections
+	 */
+	enum Collisions {
+		empty = 0, unknown = 1, occupied = 2
+	};
+
 	/**
 	 * @brief Constructor that initializes the node handle, parameters and a publishers and subscribers
 	 */
@@ -169,7 +122,67 @@ public:
 			std::vector<rrg_nbv_exploration_msgs::Edge> edges = std::vector<
 					rrg_nbv_exploration_msgs::Edge>());
 
+	/**
+	 * @brief Check if a frontier at the given position could be connected to the provided node in the RRG
+	 * @param Reference to the RRG
+	 * @param Index of the node to try the connection to
+	 * @param Position of the frontier
+	 * @param Distance between node and frontier in m
+	 * @return If a connection can be made to the frontier
+	 */
+	bool checkConnectionToFrontier(rrg_nbv_exploration_msgs::Graph &rrg,
+			int node, geometry_msgs::Point frontier, double distance);
+
 private:
+
+	/**
+	 * @brief Directions for evasive inflation
+	 */
+	enum Directions {
+		none = -1,
+		center = 1000,
+		north = 0,
+		south = 180,
+		east = 270,
+		west = 90,
+		northeast = 315,
+		northwest = 45,
+		southeast = 225,
+		southwest = 135
+	};
+
+	/**
+	 * @brief Structure to store offset that define a slice parallel to the x-axis of a circle or ring
+	 * in the grid map
+	 */
+	struct CircleLine {
+		unsigned int x_offset;
+		unsigned int x_start;
+		unsigned int y_offset;
+
+		CircleLine(unsigned int x, unsigned int y) {
+			x_offset = x;
+			y_offset = y;
+			x_start = 0;
+		}
+
+		CircleLine(unsigned int xs, unsigned int x, unsigned int y) {
+			x_offset = x;
+			y_offset = y;
+			x_start = xs;
+		}
+	};
+
+	struct GridPoint {
+		unsigned int x;
+		unsigned int y;
+	};
+
+	struct MapPoint {
+		double x;
+		double y;
+	};
+
 	ros::NodeHandle _nh;
 	ros::Publisher _collision_visualization;
 	ros::Publisher _visualization_pub;

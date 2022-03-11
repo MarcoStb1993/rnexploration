@@ -18,6 +18,9 @@ find_package(catkin REQUIRED COMPONENTS
    Edge.msg
    BestAndCurrentNode.msg
    NodeToUpdate.msg
+   GlobalPath.msg
+   GlobalFrontier.msg
+   GlobalGraph.msg
    )
    
 add_service_files(

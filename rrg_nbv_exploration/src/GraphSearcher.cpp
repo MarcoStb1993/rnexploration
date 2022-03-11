@@ -1,12 +1,12 @@
 #include <rrg_nbv_exploration/GraphSearcher.h>
 
 GraphSearcher::GraphSearcher() :
-		_kd_tree_index(3, _rrt_kd_adaptor,
+		_kd_tree_index(3, _rrg_kd_adaptor,
 				nanoflann::KDTreeSingleIndexAdaptorParams(20)) {
 }
 
 void GraphSearcher::initialize(rrg_nbv_exploration_msgs::Graph &rrg) {
-	_rrt_kd_adaptor.rrg = rrg;
+	_rrg_kd_adaptor.rrg = rrg;
 	_kd_tree_index.buildIndex();
 }
 

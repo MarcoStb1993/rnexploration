@@ -14,6 +14,7 @@ namespace rrg_nbv_exploration {
 /**
  * @brief The TreePathCalculator class calculates a traversable path for the robot to a new node from it's parent node.
  */
+#pragma once
 class GraphPathCalculator {
 public:
 	/**

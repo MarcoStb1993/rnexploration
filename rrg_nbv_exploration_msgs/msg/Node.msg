@@ -33,3 +33,4 @@ int32 traversability_cost_to_robot		# Accumulated traversability cost of nodes a
 int32 traversability_weight_to_robot	# Accumulated weight of traversing nodes and edges from this node to the node nearest to the robot equal to the number of tiles in its radius
 float64 radii_to_robot					# Accumulated node radii from this node to the node nearest to the robot
 float64 cost_function					# Cost function that combines distance, heading change, traversability and node radii to robot
+int32[] connected_to					# Indices of frontiers which have a path connected to this node

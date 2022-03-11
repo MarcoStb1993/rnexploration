@@ -48,7 +48,9 @@ add_executable(rneNode src/RneNode.cpp
 				src/CollisionChecker.cpp
 				src/GraphPathCalculator.cpp
 				src/NodeComparator.cpp
-				src/GainCalculator.cpp)
+				src/GainCalculator.cpp
+				src/GlobalGraphHandler.cpp
+				src/GlobalGraphSearcher.cpp)
 add_executable(gainCalcNode src/GainCalcNode.cpp
 				src/GainCalculator.cpp)
 add_executable(rneVisualizationNode src/RneVisualizationNode.cpp

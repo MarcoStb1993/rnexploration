@@ -126,7 +126,7 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 	_visualization_pub.publish(_vis_map);
 }
 
-std::vector<CircleLine> CollisionChecker::calculateCircleLinesOffset(
+std::vector<CollisionChecker::CircleLine> CollisionChecker::calculateCircleLinesOffset(
 		double radius) {
 	std::vector<CircleLine> circle_lines_offset;
 	double half_resolution = _grid_map_resolution / 2;
@@ -1180,6 +1180,32 @@ void CollisionChecker::addAvailableNode(int node) {
 
 void CollisionChecker::addAvailableEdge(int edge) {
 	_available_edges.insert(edge);
+}
+
+bool CollisionChecker::checkConnectionToFrontier(
+		rrg_nbv_exploration_msgs::Graph &rrg, int node,
+		geometry_msgs::Point frontier, double distance) {
+	nav_msgs::OccupancyGrid map = *_occupancy_grid;
+	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
+	std::vector<visualization_msgs::Marker> new_edge_markers;
+	int edge_cost = 0, edge_tiles = 0, edge_collision = Collisions::empty;
+	geometry_msgs::Point edge_center;
+	edge_center.x = (rrg.nodes[node].position.x + frontier.x) / 2;
+	edge_center.y = (rrg.nodes[node].position.y + frontier.y) / 2;
+	double edge_length = distance - _path_box_distance_thres;
+	double edge_yaw = atan2(frontier.y - rrg.nodes[node].position.y,
+			frontier.x - rrg.nodes[node].position.x);
+	fmod(edge_yaw, M_PI / 2) == 0 ?
+			isAlignedRectangleInCollision(edge_center.x, edge_center.y,
+					edge_yaw, edge_length, _robot_width / 2, map,
+					tmp_vis_map_data, edge_cost, edge_tiles, edge_collision) :
+			isRectangleInCollision(edge_center.x, edge_center.y, edge_yaw,
+					edge_length, _robot_width / 2, map, tmp_vis_map_data,
+					edge_cost, edge_tiles, edge_collision);
+	if (edge_collision == Collisions::empty) {
+		return true;
+	}
+	return false;
 }
 
 void CollisionChecker::occupancyGridCallback(
