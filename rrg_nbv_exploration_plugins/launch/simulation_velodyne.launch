@@ -221,7 +221,7 @@
 	<!-- RN Exploration -->
 	<include
 		file="$(find rrg_nbv_exploration)/launch/simple.launch">
-		<arg name="update_frequency" value="20" />
+		<arg name="update_frequency" value="5" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
 		<arg name="robot_width" value="0.7" />
 		<arg name="sensor_height" value="0.515" />

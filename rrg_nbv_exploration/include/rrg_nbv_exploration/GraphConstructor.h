@@ -265,9 +265,11 @@ private:
 			geometry_msgs::Pose robot_pos);
 
 	/**
-	 * @brief
+	 * @brief Removes nodes that are outside the sliding RRG radius around the robot including
+	 * nodes that were disconnected from the RRG and their respective edges and adds nodes with
+	 * gain to the global graph as well as continuing paths in the global graph
 	 */
-	void pruneLocalGraph(bool new_nearest_node);
+	void pruneLocalGraph();
 	/**
 	 * @brief Randomly samples a point from within the sensor range around the robot
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
@@ -406,13 +408,12 @@ private:
 	bool sortByPathLength(int node_one, int node_two);
 
 	/**
-	 * @brief Returns the remaining node at the other end of the given edge from the provided node
-	 * which will is deactivated and removes the reference to this edge from the remaining node
+	 * @brief Removes the reference to this edge from the remaining node at the other end of the
+	 * given edge from the provided node
 	 * @param Index of the edge connecting the nodes
 	 * @param Index of the node that is deactivated
-	 * @return Index of the remaining node
 	 */
-	int removeEdgeFromRemainingNode(int edge, int node);
+	void removeEdgeFromRemainingNode(int edge, int node);
 
 	/**
 	 * @brief Removes the pruned edges or adds them to available edges depending on the index

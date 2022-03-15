@@ -207,12 +207,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		new_node.position.y = rand_sample.y;
 		new_node.position.z = rand_sample.z;
 		new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
-		if (_available_nodes.empty()) {
-			new_node.index = rrg.node_counter;
-		} else {
-			new_node.index = *_available_nodes.begin();
-			new_node.edges.clear();
-		}
+		new_node.index = getAvailableNodeIndex(rrg);
 		//check if new node can be connected to other nodes
 		std::vector<std::pair<int, double>> nodes =
 				_graph_searcher->searchInRadius(new_node.position,
@@ -290,14 +285,7 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			new_node.cost_function = std::numeric_limits<double>::infinity();
 			findBestConnectionForNode(rrg, new_node, robot_pos, true,
 					new_edges);
-			if (_available_nodes.empty()) {
-				rrg.node_counter++;
-				rrg.nodes.push_back(new_node);
-			} else { //reuse existing inactive node entries if possible
-				rrg.nodes.at(*_available_nodes.begin()) = new_node;
-				_available_nodes.erase(_available_nodes.begin());
-			}
-
+			insertNodeInRrg(new_node, rrg);
 			for (auto edge : new_retriable_edges) { //add edges which failed because of unknown space
 				_retriable_edges.push_back(edge);
 			}
@@ -370,15 +358,7 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 				new_edge.first_node = std::min(it.first, node);
 				new_edge.second_node = std::max(it.first, node);
 				new_edge.length = distance;
-				new_edge.inactive = false;
-				if (_available_edges.empty()) {
-					new_edge.index = rrg.edge_counter++;
-					rrg.edges.push_back(new_edge);
-				} else { //reuse existing inactive edge entries if possible
-					new_edge.index = *_available_edges.begin();
-					rrg.edges.at(*_available_edges.begin()) = new_edge;
-					_available_edges.erase(_available_edges.begin());
-				}
+				insertEdgeInRrg(new_edge, rrg);
 				rrg.nodes[node].edges.push_back(new_edge.index);
 				rrg.nodes[node].edge_counter++;
 				rrg.nodes[it.first].edges.push_back(new_edge.index);
@@ -462,8 +442,7 @@ void CollisionChecker::retryEdges(rrg_nbv_exploration_msgs::Graph &rrg,
 										_robot_width / 2, map, tmp_vis_map_data,
 										edge_cost, edge_tiles, edge_collision);
 						if (edge_collision == Collisions::empty) { //add edge to RRG
-							edge.index = rrg.edge_counter++;
-							rrg.edges.push_back(edge);
+							insertEdgeInRrg(edge, rrg);
 							rrg.nodes[edge.first_node].edges.push_back(
 									edge.index);
 							rrg.nodes[edge.first_node].edge_counter++;
@@ -1090,14 +1069,7 @@ void CollisionChecker::findBestConnectionForNode(
 				edge.first_node == node.index ?
 						edge.second_node : edge.first_node;
 		if (new_node) { //store edges in RRG and references in the particular nodes
-			if (_available_edges.empty()) {
-				edge.index = rrg.edge_counter++;
-				rrg.edges.push_back(edge);
-			} else { //reuse existing inactive edge entries if possible
-				edge.index = *_available_edges.begin();
-				rrg.edges.at(*_available_edges.begin()) = edge;
-				_available_edges.erase(_available_edges.begin());
-			}
+			insertEdgeInRrg(edge, rrg);
 			node.edges.push_back(edge.index);
 			node.edge_counter++;
 			rrg.nodes[neighbor_node_index].edges.push_back(edge.index);
@@ -1168,18 +1140,86 @@ void CollisionChecker::findBestConnectionForNode(
 
 void CollisionChecker::addAvailableNode(int node) {
 	_available_nodes.insert(node);
-	_retriable_edges.erase(
-			std::remove_if(_retriable_edges.begin(), _retriable_edges.end(),
-					[this, &node](rrg_nbv_exploration_msgs::Edge &edge) {
-						if (edge.first_node == node || edge.second_node == node)
-							return true; //remove retriable edge if connecting to the newly inactive node
-						else
-							return false;
-					}),_retriable_edges.end());
 }
 
 void CollisionChecker::addAvailableEdge(int edge) {
 	_available_edges.insert(edge);
+}
+
+int CollisionChecker::getAvailableNodeIndex(
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (!_available_nodes.empty()) {
+		ROS_INFO_STREAM("Available node index " << *_available_nodes.begin());
+		return *_available_nodes.begin();
+	} else {
+		ROS_INFO_STREAM("Node index at end " << rrg.node_counter);
+		return rrg.node_counter;
+	}
+}
+
+void CollisionChecker::insertNodeInRrg(rrg_nbv_exploration_msgs::Node &node,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (!_available_nodes.empty()) {
+		ROS_INFO_STREAM("Insert node at " << *_available_nodes.begin());
+		rrg.nodes.at(*_available_nodes.begin()) = node;
+		_available_nodes.erase(_available_nodes.begin());
+	} else {
+		ROS_INFO_STREAM("Push node at " << rrg.node_counter);
+		rrg.nodes.push_back(node);
+		rrg.node_counter++;
+	}
+}
+
+void CollisionChecker::insertEdgeInRrg(rrg_nbv_exploration_msgs::Edge &edge,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	if (!_available_edges.empty()) {
+		ROS_INFO_STREAM("Insert edge at " << *_available_edges.begin());
+		edge.index = *_available_edges.begin();
+		edge.inactive = false;
+		rrg.edges.at(*_available_edges.begin()) = edge;
+		_available_edges.erase(_available_edges.begin());
+	} else {
+		ROS_INFO_STREAM("Push edge at " << rrg.edge_counter);
+		edge.index = rrg.edge_counter++;
+		rrg.edges.push_back(edge);
+	}
+}
+
+void CollisionChecker::removeDeletedAvailableNodes(int node_counter) {
+	int removals = 0;
+	for (auto it = _available_nodes.begin(); it != _available_nodes.end();) {
+		if (*it >= node_counter) {
+			it = _available_nodes.erase(it);
+			removals++;
+		} else {
+			++it;
+		}
+	}
+	ROS_WARN_STREAM(
+			"Removed " << removals << " available nodes above equal index "<< node_counter);
+}
+
+void CollisionChecker::removeDeletedAvailableEdges(int edge_counter) {
+	int removals = 0;
+	for (auto it = _available_edges.begin(); it != _available_edges.end();) {
+		if (*it >= edge_counter) {
+			it = _available_edges.erase(it);
+			removals++;
+		} else {
+			++it;
+		}
+	}
+	ROS_WARN_STREAM(
+			"Removed " << removals << " available edges above equal index "<< edge_counter);
+}
+
+void CollisionChecker::removeRetriableEdgesForNode(int node) {
+	_retriable_edges.erase(
+			std::remove_if(_retriable_edges.begin(), _retriable_edges.end(),
+					[node](rrg_nbv_exploration_msgs::Edge &edge) {
+						return (edge.first_node == node
+								|| edge.second_node == node); //remove retriable edge if connecting to the newly inactive node
+					}),_retriable_edges.end());
 }
 
 bool CollisionChecker::checkConnectionToFrontier(

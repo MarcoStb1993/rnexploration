@@ -14,6 +14,7 @@
 #include <rrg_nbv_exploration_msgs/Graph.h>
 #include <rrg_nbv_exploration/GraphPathCalculator.h>
 #include <rrg_nbv_exploration/GlobalGraphSearcher.h>
+#include <rrg_nbv_exploration/GlobalPathWaypointSearcher.h>
 #include <rrg_nbv_exploration/GraphSearcher.h>
 #include <rrg_nbv_exploration/CollisionChecker.h>
 
@@ -70,6 +71,16 @@ public:
 	void deactivateFrontiersInLocalGraph(rrg_nbv_exploration_msgs::Graph &rrg,
 			geometry_msgs::Point robot_position);
 
+	/**
+	 * @brief Checks if a new node in the RRG can reduce the global paths, which have a connection to
+	 * a neighbor node of the new node, if their nearest respective waypoint would be connected to
+	 * the new node
+	 * @param Reference to the RRG
+	 * @param Index of the new node
+	 */
+	void checkPathsWaypoints(rrg_nbv_exploration_msgs::Graph &rrg,
+			int new_node);
+
 private:
 
 	ros::NodeHandle _nh;
@@ -85,9 +96,13 @@ private:
 	 */
 	std::shared_ptr<GraphPathCalculator> _graph_path_calculator;
 	/**
-	 * @brief Helper class for kd-tree radius and nearest neighbor search
+	 * @brief Helper class for kd-tree radius and nearest neighbor search in global graph
 	 */
 	std::shared_ptr<GlobalGraphSearcher> _global_graph_searcher;
+	/**
+	 * @brief Helper class for kd-tree radius and nearest neighbor search in a path's waypoints
+	 */
+	std::shared_ptr<GlobalPathWaypointSearcher> _global_path_waypoint_searcher;
 	/**
 	 * @brief Helper class for radius and nearest neighbor search in kd-tree based on RRG
 	 */
@@ -191,7 +206,7 @@ private:
 
 	/**
 	 * @brief Add the given frontier to the global graph by inserting it at an available position marked
-	 * by the given index or by adding it to the list if none is available
+	 * by the given index or by adding it to the end of the list if none is available
 	 * @param Reference of the frontier to be inserted
 	 */
 	void insertFrontierInGg(
@@ -199,7 +214,7 @@ private:
 
 	/**
 	 * @brief Add the given path to the global graph by inserting it at an available position marked
-	 * by the given index or by adding it to the list if none is available
+	 * by the given index or by adding it to the end of the list if none is available
 	 * @param Reference of the path to be inserted
 	 */
 	void insertPathInGg(
@@ -216,13 +231,100 @@ private:
 	void addFrontierToBePruned(int frontier_to_prune,
 			std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
 			rrg_nbv_exploration_msgs::Graph &rrg);
-	void connectFrontiers(int frontier_one, int frontier_two,
-			rrg_nbv_exploration_msgs::GlobalPath &path, int path_at_node,
-			bool connecting_node);
+
+	/**
+	 * @brief Create a new path connecting the first and second frontier at a connecting node
+	 *  and add it to the global graph with the waypoints being a union from both paths
+	 * @param Index of the first frontier with a path to a node in the local graph
+	 * @param Index of the second frontier with a path to a node in the local graph
+	 * @param Index to the path of the first node
+	 * @param Index of the path of the second node
+	 * @param If the node at which both frontier's path meet is a connecting node or the deactivated
+	 * node at which the first frontier should be placed
+	 */
+	void connectFrontiers(int frontier_one, int frontier_two, int path_one,
+			int path_two, bool connecting_node);
+
+	/**
+	 * @brief Check if there are any paths to existing frontiers at the node or connecting node of a
+	 * new frontier and merge them if there are, the frontier with the shortest distance to the local
+	 * graph remains, all others are deactivated (including their paths)
+	 * @param Index of the node in the local graph at which the new frontier should be placed
+	 * @param Reference to the path of the new frontier
+	 * @param Reference to the RRG
+	 * @param Reference to the new frontier
+	 * @return True if the new frontier can be placed in the global graph, false if it was merged into
+	 * an existing frontier
+	 */
 	bool mergeNeighborFrontiers(int node,
 			const rrg_nbv_exploration_msgs::GlobalPath &path,
 			rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
+
+	/**
+	 * @brief Determine the waypoint from the given node which is closest to the frontier of the give path
+	 * and can be connected to the new node which
+	 * @param Index of the path
+	 * @param Index of the new node in the RRG
+	 * @param List of waypoints of the given path that could potentially be connected to the new node
+	 * ordered ascending by distance to the new node (first=index of the waypoint, second=squared distance)
+	 * @param Reference to the RRG
+	 * @return Index of a connectable waypoint closest to the frontier (defaults to last index if no
+	 * suitable waypoint was found)
+	 */
+	int getClosestWaypointToFrontier(int path, int new_node,
+			std::vector<std::pair<int, double> > &waypoints_near_new_node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Calculate the resulting path length if the given path would be connected to the new node
+	 * from the provided closest waypoint
+	 * @param Index of the path
+	 * @param Index of the new node in the RRG
+	 * @param Index of the closest waypoint to the frontier of the given path that can be connected
+	 * to the new node
+	 * @param Reference to the RRG
+	 * @return Resulting path length when rewiring the path	 *
+	 */
+	double calculateNewPathLength(int path, int new_node,
+			int closest_waypoint_to_frontier,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Rewires the given path to the provided new node using the given waypoint
+	 * @param Index of the path
+	 * @param Index of the closest waypoint to the frontier of the given path that can be connected
+	 * to the new node
+	 * @param New path length when rewiring the path
+	 * @param Index of the new node in the RRG
+	 * @param Reference to the RRG
+	 */
+	void rewirePathToNewNode(int path, int closest_waypoint_to_frontier,
+			double new_path_length, int new_node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Attempts to improve existing connections between frontiers, because the frontiers from the
+	 * given path was rewired to a new node in the RRG, by checking if a connection via the new node would
+	 * reduce the path length and also creates new connections if a path to a frontier is found that did
+	 * not exist before
+	 * @param Index of the new node in the RRG
+	 * @param Index of the path
+	 * @param Reference to the RRG
+	 */
+	void tryToImproveConnectionsToOtherFrontiers(int new_node, int path,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Improves an existing connection between two frontiers because one of the frontiers
+	 * was rewired to a new node in the RRG and the rewiring leads to a shorter path
+	 * @param Index of the path connecting the frontiers
+	 * @param Index of the path to the local graph that was rewired
+	 * @param Index of the other frontier which connection will be improved
+	 * @param Index of the other frontier's path to the local graph
+	 */
+	void improvePathToConnectedFrontier(int frontier_path, int path,
+			int other_frontier, int other_path);
 };
 
 } /* namespace rrg_nbv_exploration */

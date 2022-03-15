@@ -96,8 +96,7 @@ public:
 			bool &added_node_to_update);
 
 	/**
-	 * @brief Add the given node index to the list of available nodes (also removes edges to
-	 * this node from list of retriable edges)
+	 * @brief Add the given node index to the list of available nodes
 	 * @param Node index that just became inactive
 	 */
 	void addAvailableNode(int node);
@@ -109,7 +108,14 @@ public:
 	void addAvailableEdge(int edge);
 
 	/**
-	 * @brief Find the best connection to the robot for the given node along any of its edges
+	 * @brief Remove all currently stored retriable edges that have a connection to the given node
+	 * @param Index of the node
+	 */
+	void removeRetriableEdgesForNode(int node);
+
+	/**
+	 * @brief Find the best connection to the robot for the given node along any of its edges and add the
+	 * connection to the RRG
 	 * @param Reference to the RRG
 	 * @param Reference to the node for which the best connection must be found
 	 * @param Reference to the robot position
@@ -132,6 +138,20 @@ public:
 	 */
 	bool checkConnectionToFrontier(rrg_nbv_exploration_msgs::Graph &rrg,
 			int node, geometry_msgs::Point frontier, double distance);
+
+	/**
+	 * @brief Remove indices from list of available nodes if the node entries were deleted from the
+	 * end of the list
+	 * @param Number of nodes in the list
+	 */
+	void removeDeletedAvailableNodes(int node_counter);
+
+	/**
+	 * @brief Remove indices from list of available edges if the edge entries were deleted from the
+	 * end of the list
+	 * @param Number of edges in the list
+	 */
+	void removeDeletedAvailableEdges(int edge_counter);
 
 private:
 
@@ -611,5 +631,29 @@ private:
 			rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::Edge &edge,
 			std::list<int> &nodes_to_update, bool &added_node_to_update);
+
+	/**
+	 * @brief Add the given edge to the RRG by inserting it at an available position marked
+	 * by the given index or by adding it to the end of the list if none is available
+	 * @param Reference of the edge to be inserted
+	 * @param Reference to the RRG
+	 */
+	void insertEdgeInRrg(rrg_nbv_exploration_msgs::Edge &edge,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Add the given node to the RRG by inserting it at an available position marked
+	 * by the given index or by adding it to the end of the list if none is available
+	 * @param Reference of the node to be inserted
+	 * @param Reference to the RRG
+	 */
+	void insertNodeInRrg(rrg_nbv_exploration_msgs::Node &node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Retrieve the lowest available node index for a new node (uses inactive nodes if available)
+	 * @return Node index for new node
+	 */
+	int getAvailableNodeIndex(rrg_nbv_exploration_msgs::Graph &rrg);
 };
 }
