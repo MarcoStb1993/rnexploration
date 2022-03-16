@@ -11,8 +11,8 @@ namespace rrg_nbv_exploration {
 
 GlobalGraphHandler::GlobalGraphHandler() {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("sensor_max_range", _sensor_range, 5.0);
-	_sensor_range_squared = pow(_sensor_range, 2);
+	private_nh.param("local_graph_radius", _local_graph_radius, 5.0);
+	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 	private_nh.param("inflation_active", _inflation_active, true);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
@@ -189,6 +189,8 @@ void GlobalGraphHandler::continuePath(int node,
 				{ _gg.paths.at(connected_path).frontier, connected_path });
 	}
 	for (int path : rrg.nodes.at(node).connected_to) {
+		ROS_INFO_STREAM(
+				"Check path " << path << " that is connected to " << node);
 		_gg.paths.at(path).waypoints.insert(_gg.paths.at(path).waypoints.end(),
 				additional_waypoints.begin(), additional_waypoints.end()); //add additional waypoints to path
 		_gg.paths.at(path).connecting_node = connecting_node;
@@ -208,6 +210,8 @@ void GlobalGraphHandler::continuePath(int node,
 				new_frontier_connections.insert(elem.first);
 			}
 			for (auto frontier_path : _gg.frontiers.at(current_frontier).paths) {
+				ROS_INFO_STREAM(
+						"Look at path "<<frontier_path<< " at current frontier " << current_frontier);
 				if (_gg.paths.at(frontier_path).connection
 						!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { //connected to another frontier
 					new_frontier_connections.erase(
@@ -351,7 +355,7 @@ void GlobalGraphHandler::deactivateFrontiersInLocalGraph(
 	std::set<int> pruned_paths;
 	std::vector<std::pair<int, double>> frontiers_in_sensor_range =
 			_global_graph_searcher->searchInRadius(robot_position,
-					_sensor_range_squared); //find all frontiers in sensor range around the robot
+					_local_graph_radius_squared); //find all frontiers in sensor range around the robot
 	if (frontiers_in_sensor_range.size() > 0)
 		ROS_INFO_STREAM("+++++ Deactivate frontiers in local graph");
 	for (auto frontier_in_sensor_range : frontiers_in_sensor_range) {
@@ -423,8 +427,11 @@ void GlobalGraphHandler::handlePrunedFrontiers(
 	while (pruned_frontier != pruned_frontiers.rend()) { //remove or add inactive frontiers
 		deactivateFrontier(*pruned_frontier);
 		if (*pruned_frontier == _gg.frontiers_counter - 1) {
-			for (int i = *pruned_frontier; i > *std::next(pruned_frontier);
-					i--) {
+			int next_pruned_frontier =
+					std::next(pruned_frontier) == pruned_frontiers.rend() ?
+							(*pruned_frontier - 1) :
+							*std::next(pruned_frontier);
+			for (int i = *pruned_frontier; i > next_pruned_frontier; i--) {
 				if (_gg.frontiers.at(i).inactive) {
 					ROS_INFO_STREAM(
 							"Remove frontier " << i << " from back of list");
@@ -465,7 +472,10 @@ void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
 	while (pruned_path != pruned_paths.rend()) { //remove or add inactive paths
 		deactivatePath(*pruned_path);
 		if (*pruned_path == _gg.paths_counter - 1) {
-			for (int i = *pruned_path; i > *std::next(pruned_path); i--) {
+			int next_pruned_path =
+					std::next(pruned_path) == pruned_paths.rend() ?
+							(*pruned_path - 1) : *std::next(pruned_path);
+			for (int i = *pruned_path; i > next_pruned_path; i--) {
 				if (_gg.paths.at(i).inactive) {
 					ROS_INFO_STREAM(
 							"Remove path " << i << " from back of list");
@@ -589,7 +599,7 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("getClosestWaypointToFrontier");
 	int closest_waypoint_to_frontier = _gg.paths.at(path).waypoints.size() - 1; //index of last waypoint in list
-	//find connectable waypoint closest to the frontier (most path reduction)
+//find connectable waypoint closest to the frontier (most path reduction)
 	if (_inflation_active) {
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
 			//							ROS_INFO_STREAM(
@@ -665,8 +675,8 @@ void GlobalGraphHandler::tryToImproveConnectionsToOtherFrontiers(int new_node,
 		int path, rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("tryToImproveConnectionsToOtherFrontiers");
 	int current_frontier = _gg.paths.at(path).frontier; //look for new connections with this frontier
-	//							ROS_INFO_STREAM(
-	//									"Try to improve connections from current frontier " << current_frontier << " with path " << path);
+//							ROS_INFO_STREAM(
+//									"Try to improve connections from current frontier " << current_frontier << " with path " << path);
 	std::set<int> new_frontier_connections; //set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
 
 	for (auto connected_path : rrg.nodes.at(new_node).connected_to) {
@@ -695,8 +705,8 @@ void GlobalGraphHandler::tryToImproveConnectionsToOtherFrontiers(int new_node,
 			}
 		}
 	}
-	//							ROS_INFO_STREAM(
-	//									"Add new " << new_frontier_connections.size()<<" connections");
+//							ROS_INFO_STREAM(
+//									"Add new " << new_frontier_connections.size()<<" connections");
 	for (auto new_frontier_connection : new_frontier_connections) {
 		connectFrontiers(current_frontier, new_frontier_connection, path,
 				_gg.frontiers.at(new_frontier_connection).paths.at(0), true); //first path of frontier is always path to local graph
@@ -717,6 +727,13 @@ void GlobalGraphHandler::improvePathToConnectedFrontier(int frontier_path,
 			_gg.paths.at(frontier_path).waypoints.end(),
 			_gg.paths.at(other_path).waypoints.rbegin(),
 			_gg.paths.at(other_path).waypoints.rend());
+}
+
+void GlobalGraphHandler::dynamicReconfigureCallback(
+		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
+	_local_graph_radius = std::max(config.local_graph_radius,
+			2 * _robot_radius);
+	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 }
 
 } /* namespace rrg_nbv_exploration */

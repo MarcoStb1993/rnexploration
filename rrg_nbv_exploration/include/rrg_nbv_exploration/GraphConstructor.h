@@ -133,13 +133,17 @@ private:
 	 */
 	double _sensor_range;
 	/**
-	 * @brief Squared maximal sensor range that is considered for gain calculation in m
-	 */
-	double _sensor_range_squared;
-	/**
 	 * @brief Doubled and squared sensor range for radius search in kd-tree
 	 */
 	double _radius_search_range;
+	/**
+	 * @brief Radius of the RRG around the robot in m
+	 */
+	double _local_graph_radius;
+	/**
+	 * @brief Squared radius of the RRG around the robot in m
+	 */
+	double _local_graph_radius_squared;
 	/**
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
@@ -248,6 +252,10 @@ private:
 	 * @brief If the current goal node was set to explored by an update
 	 */
 	bool _explored_current_goal_node_by_update;
+	/**
+	 * @brief The number of attempted samples each loop
+	 */
+	int _samples_per_loop;
 
 	/**
 	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
@@ -256,13 +264,9 @@ private:
 	void initRrg(const geometry_msgs::Point &seed);
 	/**
 	 * @brief Samples new nodes and tries to connect them to the graph
-	 * @param If the new nodes should be sampled locally around the robot or within map dimensions
 	 * @param If the paths of possibly connected nodes should be updated
-	 * @param Current robot pose
-	 * @param Reference to if the graph searcher index must be rebuilt
 	 */
-	void expandGraph(bool local, bool update_paths,
-			geometry_msgs::Pose robot_pos);
+	void expandGraph(bool update_paths);
 
 	/**
 	 * @brief Removes nodes that are outside the sliding RRG radius around the robot including
@@ -271,13 +275,15 @@ private:
 	 */
 	void pruneLocalGraph();
 	/**
-	 * @brief Randomly samples a point from within the sensor range around the robot
+	 * @brief Randomly samples a point from within the minimum of the sensor range and RRG radius
+	 * around the robot
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 * @return If the point is inside map dimensions and was successfully created
 	 */
 	bool samplePoint(geometry_msgs::Point &rand_sample);
 	/**
-	 * @brief Randomly samples a point within local sampling range around the robot
+	 * @brief Randomly samples a point within the minimum of the local sampling range and RRG radius
+	 * around the robot
 	 * @param Reference to a point that is filled with randomly sampled x and y coordinates
 	 * @return If the point is inside map dimensions and was successfully created
 	 */
@@ -426,6 +432,19 @@ private:
 	 * @param Reference to the set of pruned nodes
 	 */
 	void handlePrunedNodes(const std::set<int> &pruned_nodes);
+
+	/**
+	 * @brief Remove given node from node comparator, nodes to update and nodes to re-update lists
+	 * @param Node index
+	 */
+	void removeNodeFromUpdateLists(int node);
+
+	/**
+	 * @brief Find connected nodes with gain and cluster them to only allow of of the connected nodes
+	 * to become a frontier (by setting the other node's gain to 0)
+	 * @param List of pruned nodes ordered ascending by path length to robot
+	 */
+	void findConnectedNodesWithGain(std::vector<int> &nodes);
 
 	/**
 	 * @brief Iterates over the vector of nodes that were disconnected because a deactivated node was

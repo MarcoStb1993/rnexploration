@@ -81,6 +81,10 @@ public:
 	void checkPathsWaypoints(rrg_nbv_exploration_msgs::Graph &rrg,
 			int new_node);
 
+	void dynamicReconfigureCallback(
+			rrg_nbv_exploration::GraphConstructorConfig &config,
+			uint32_t level);
+
 private:
 
 	ros::NodeHandle _nh;
@@ -113,14 +117,6 @@ private:
 	std::shared_ptr<CollisionChecker> _collision_checker;
 
 	/**
-	 * @brief Maximal sensor range that is considered for gain calculation in m
-	 */
-	double _sensor_range;
-	/**
-	 * @brief Squared maximal sensor range that is considered for gain calculation in m
-	 */
-	double _sensor_range_squared;
-	/**
 	 * @brief If the inflation of nodes (wavefront) is active
 	 */
 	bool _inflation_active;
@@ -152,6 +148,14 @@ private:
 	 * @set Ordered list of path indices where the paths are inactive and can be replaced with a new path
 	 */
 	std::set<int> _available_paths;
+	/**
+	 * @brief Radius of the RRG around the robot in m
+	 */
+	double _local_graph_radius;
+	/**
+	 * @brief Squared radius of the RRG around the robot in m
+	 */
+	double _local_graph_radius_squared;
 
 	/**
 	 * @brief Iterates through the given node's path to the robot in the local graph and adds all nodes

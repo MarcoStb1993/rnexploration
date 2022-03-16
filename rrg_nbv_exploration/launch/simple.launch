@@ -1,7 +1,7 @@
 <!-- Launch all nodes of RNE -->
 
 <launch>
-	<arg name="update_frequency" default="20" />
+	<arg name="update_frequency" default="1" />
 	<arg name="sensor_max_range" default="5" />
 	<arg name="sensor_min_range" default="0.5" />
 	<arg name="sensor_height" default="0.5" />
@@ -24,6 +24,7 @@
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="grid_map_occupied" default="100" />
 	<arg name="grid_map_unknown" default="-1" />
+	<arg name="local_graph_radius" default="true" />	
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="min_edge_distance" default="1.0" />
 	<arg name="max_edge_distance" default="2.0" />	
@@ -39,6 +40,7 @@
 	<arg name="move_nodes" default="true" />		
 	<arg name="auto_homing" default="false" />	
 	<arg name="reupdate_nodes" default="true" />	
+	<arg name="samples_per_loop" default="10" />	
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" launch-prefix="gdb -ex run --args"
 		output="screen" >
@@ -56,7 +58,8 @@
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
 		<param name="grid_map_unknown" type="int" value="$(arg grid_map_unknown)" />
-		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />	
+		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />
+		<param name="local_graph_radius" type="double" value="$(arg local_graph_radius)" />	
 		<param name="max_consecutive_failed_goals" type="int" value="$(arg max_consecutive_failed_goals)" />		
 		<param name="gain_factor" type="double" value="$(arg gain_factor)" />
 		<param name="distance_factor" type="double" value="$(arg distance_factor)" />
@@ -68,7 +71,8 @@
 		<param name="inflation_active" type="bool" value="$(arg inflation_active)" />
 		<param name="move_nodes" type="bool" value="$(arg move_nodes)" />		
 		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />	
-		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />							
+		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />	
+		<param name="samples_per_loop" type="int" value="$(arg samples_per_loop)" />							
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
