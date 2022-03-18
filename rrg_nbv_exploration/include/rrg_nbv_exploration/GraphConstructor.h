@@ -43,18 +43,18 @@ public:
 	 */
 	void initialization(geometry_msgs::Point seed = geometry_msgs::Point());
 	/**
-	 * @brief Starts the tree GraphConstructor when stopped
+	 * @brief Starts the exploration if not running
 	 */
-	void startRrgConstruction();
+	void startExploration();
 	/**
-	 * @brief Stops the GraphConstructor when running
+	 * @brief Stops the exploration if running
 	 */
-	void stopRrgConstruction();
+	void stopExploration();
 	/**
 	 * @brief GraphConstructor main function, publishes it in topic rrg
 	 * @param kd-tree for faster nearest neighbour queries
 	 */
-	void runRrgConstruction();
+	void runExploration();
 
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
@@ -74,7 +74,7 @@ private:
 	ros::ServiceServer _set_rrg_state_service;
 	ros::ServiceServer _get_rrg_state_service;
 	ros::ServiceServer _reset_rrg_state_service;
-	ros::Timer _exploration_finished_timer;
+	ros::Timer _local_exploration_finished_timer;
 
 	std::default_random_engine _generator;
 	std::shared_ptr<octomap::AbstractOcTree> _abstract_octree;
@@ -105,9 +105,13 @@ private:
 	 */
 	rrg_nbv_exploration_msgs::Graph _rrg;
 	/**
-	 * @brief State of the GraphConstructor (running or stopped)
+	 * @brief State of the exploration (running or stopped)
 	 */
 	bool _running;
+	/**
+	 * @brief State of the local exploration (running or stopped)
+	 */
+	bool _local_running;
 	/**
 	 * @brief Current min value of bounding box of the 3D map as x, y and z value
 	 */
@@ -169,9 +173,10 @@ private:
 	 */
 	int _last_updated_node;
 	/**
-	 * @brief Time until exploration counts as finished because no new nodes were placed
+	 * @brief Time until local exploration counts as finished because no goals are available and
+	 * no new nodes were placed
 	 */
-	double _exploration_finished_timer_duration;
+	double _local_exploration_finished_timer_duration;
 	/**
 	 * @brief If the robot already moved past a neighbor node towards the current goal
 	 */
@@ -221,10 +226,6 @@ private:
 	 */
 	std::list<int> _failed_nodes_to_recover;
 	/**
-	 * @brief Return to the root node if all nodes were either explored or failed
-	 */
-	bool _auto_homing;
-	/**
 	 * @brief If active nodes' gain should be recalculated when the robot's nearest neighbors changes
 	 */
 	bool _reupdate_nodes;
@@ -256,12 +257,27 @@ private:
 	 * @brief The number of attempted samples each loop
 	 */
 	int _samples_per_loop;
+	/**
+	 * @brief If a global goal from a frontier is available to be used for navigation
+	 */
+	bool _global_goal_available;
 
 	/**
-	 * @brief Initialize the RRG with a root node at seed, initialize helper classes and nodes ordered by gain list with root node
-	 * @param Seed position for RRG at which the root node is placed
+	 * @brief Initialize the exploration with a root node at seed, initialize helper classes and nodes
+	 * ordered by gain list with root node
+	 * @param Seed position for RRG and global graph at which the root node is placed
 	 */
-	void initRrg(const geometry_msgs::Point &seed);
+	void initExploration(const geometry_msgs::Point &seed);
+	/**
+	 * @brief Initialize the RRG with a root node at the given position and insert it into lists for
+	 * updating
+	 * @param Point at which the root of the RRG will be placed
+	 */
+	void initLocalGraph(const geometry_msgs::Point &root_position);
+	/**
+	 * @brief (Re-)Initialize helper classes GraphSearcher, NodeComparator and CollisionChecker
+	 */
+	void resetHelperClasses();
 	/**
 	 * @brief Samples new nodes and tries to connect them to the graph
 	 * @param If the paths of possibly connected nodes should be updated
@@ -351,7 +367,7 @@ private:
 	/**
 	 * @brief Updates the current goal and the goals around it depending on the status navigation returned
 	 */
-	void handleCurrentGoalFinished();
+	void handleCurrentLocalGoalFinished();
 
 	/**
 	 * @brief Try to recover failed nodes by repeating the collision check and queue them up for gain
@@ -458,10 +474,16 @@ private:
 			std::set<int> &connected_nodes);
 
 	/**
+	 * @brief Calculate which frontier will be the next goal and clear the local graph, if no frontier
+	 * is available, exploration is finished
+	 */
+	void switchFromLocalToGlobalExploration();
+
+	/**
 	 * Timer callback for setting exploration to finished
 	 * @param event
 	 */
-	void explorationFinishedTimerCallback(const ros::TimerEvent &event);
+	void localExplorationFinishedTimerCallback(const ros::TimerEvent &event);
 
 	bool requestGoal(rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 			rrg_nbv_exploration_msgs::RequestGoal::Response &res);

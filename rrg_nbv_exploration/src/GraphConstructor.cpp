@@ -22,11 +22,10 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_robot_radius_squared = pow(_robot_radius, 2);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
-	private_nh.param("exploration_finished_timer_duration",
-			_exploration_finished_timer_duration, 10.0);
+	private_nh.param("local_exploration_finished_timer_duration",
+			_local_exploration_finished_timer_duration, 5.0);
 	private_nh.param("max_consecutive_failed_goals",
 			_max_consecutive_failed_goals, 5);
-	private_nh.param("auto_homing", _auto_homing, false);
 	private_nh.param("reupdate_nodes", _reupdate_nodes, true);
 	private_nh.param("samples_per_loop", _samples_per_loop, 10);
 
@@ -46,10 +45,10 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&GraphConstructor::updateCurrentGoal, this);
 
-	_exploration_finished_timer = _nh.createTimer(
-			ros::Duration(_exploration_finished_timer_duration),
-			&GraphConstructor::explorationFinishedTimerCallback, this, false,
-			false);
+	_local_exploration_finished_timer = _nh.createTimer(
+			ros::Duration(_local_exploration_finished_timer_duration),
+			&GraphConstructor::localExplorationFinishedTimerCallback, this,
+			false, false);
 
 	_set_rrg_state_service = nh.advertiseService("setRrgState",
 			&GraphConstructor::setRrgState, this);
@@ -70,21 +69,34 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_node_comparator.reset(new NodeComparator());
 	_global_graph_handler.reset(new GlobalGraphHandler());
 	_running = false;
+	_local_running = false;
 	_explored_current_goal_node_by_update = false;
+	_global_goal_available = false;
 	if (_local_sampling_radius > _sensor_range) //cannot sample outside local area
 		_local_sampling_radius = _sensor_range;
 }
 
-void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
-	_rrg.nodes.clear();
-	_rrg.edges.clear();
+void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
+	initLocalGraph(seed);
+	resetHelperClasses();
+	_global_graph_handler->initialize(_rrg.nodes[0], _graph_path_calculator,
+			_graph_searcher, _collision_checker);
+	_generator.seed(time(NULL));
+}
+
+void GraphConstructor::initLocalGraph(
+		const geometry_msgs::Point &root_position) {
 	_nodes_to_update.clear();
+	_nodes_to_reupdate.clear();
+	_last_three_nodes_path.clear();
 	_rrg.header.frame_id = "/map";
 	_rrg.ns = "rrg";
+	_rrg.nodes.clear();
+	_rrg.edges.clear();
 	_rrg.node_counter = 0;
 	_rrg.edge_counter = 0;
 	rrg_nbv_exploration_msgs::Node root;
-	root.position = seed;
+	root.position = root_position;
 	root.position.z += _sensor_height;
 	root.status = rrg_nbv_exploration_msgs::Node::VISITED;
 	root.gain = -1;
@@ -99,31 +111,23 @@ void GraphConstructor::initRrg(const geometry_msgs::Point &seed) {
 	_goal_updated = true;
 	_updating = false;
 	_sort_nodes_to_update = false;
-	_last_robot_pos = seed;
+	_global_goal_available = false;
 	_consecutive_failed_goals = 0;
-	_graph_searcher->initialize(_rrg);
+	_last_robot_pos = root_position;
 	_nodes_to_update.push_back(0);
 	_last_three_nodes_path.push_back(0);
+}
+
+void GraphConstructor::resetHelperClasses() {
+	_graph_searcher->initialize(_rrg);
 	_node_comparator->initialization();
-	_generator.seed(time(NULL));
 	_collision_checker->initialize(_rrg, _graph_searcher,
 			_graph_path_calculator);
-	_global_graph_handler->initialize(_rrg.nodes[0], _graph_path_calculator,
-			_graph_searcher, _collision_checker);
 }
 
-void GraphConstructor::startRrgConstruction() {
-	initRrg(_graph_path_calculator->getRobotPose().position);
-	_running = true;
-}
-
-void GraphConstructor::stopRrgConstruction() {
-	_running = false;
-}
-
-void GraphConstructor::runRrgConstruction() {
+void GraphConstructor::runExploration() {
 	_rrg.header.stamp = ros::Time::now();
-	if (_running && _map_min_bounding[0] && _map_min_bounding[1]
+	if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
 			&& _map_min_bounding[2]) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		bool new_nearest_node = determineNearestNodeToRobot(
@@ -148,7 +152,22 @@ void GraphConstructor::runRrgConstruction() {
 		publishBestAndCurrentNode();
 		publishNodeToUpdate();
 		if (_nodes_to_update.empty() && _current_goal_node == -1) {
-			_exploration_finished_timer.start();
+			_local_exploration_finished_timer.start();
+		}
+	}
+	if (_running && !_local_running) {
+		if (!_global_goal_available) {
+			switchFromLocalToGlobalExploration();
+		}
+		_robot_pose = _graph_path_calculator->getRobotPose();
+		if (_global_graph_handler->updateClosestWaypoint(
+				_robot_pose.position)) { //frontier reached
+			std::vector<int> connected_paths =
+					_global_graph_handler->frontierReached();
+			initLocalGraph(_graph_path_calculator->getRobotPose().position);
+			resetHelperClasses();
+			_rrg.nodes.front().connected_to = connected_paths;
+			_local_running = true;
 		}
 	}
 	_rrg_publisher.publish(_rrg);
@@ -178,7 +197,7 @@ void GraphConstructor::expandGraph(bool update_paths) {
 						"Do not update unreachable node " << node.index);
 			}
 			_graph_searcher->rebuildIndex(_rrg);
-			_exploration_finished_timer.stop();
+			_local_exploration_finished_timer.stop();
 		}
 	}
 }
@@ -650,7 +669,7 @@ void GraphConstructor::publishNodeToUpdate() {
 	}
 }
 
-void GraphConstructor::handleCurrentGoalFinished() {
+void GraphConstructor::handleCurrentLocalGoalFinished() {
 	geometry_msgs::Point update_center;
 	switch (_rrg.nodes[_current_goal_node].status) {
 	case rrg_nbv_exploration_msgs::Node::EXPLORED:
@@ -705,7 +724,7 @@ void GraphConstructor::handleCurrentGoalFinished() {
 		if (++_consecutive_failed_goals >= _max_consecutive_failed_goals) {
 			ROS_WARN_STREAM("Exploration aborted, robot stuck");
 			_rrg.node_counter = -1; //for evaluation purposes
-			stopRrgConstruction();
+			stopExploration();
 		}
 		if (_moved_to_current_goal) {
 			update_center = _last_robot_pos;
@@ -837,38 +856,65 @@ void GraphConstructor::updateMapDimensions() {
 			_map_max_bounding[2]);
 }
 
-void GraphConstructor::explorationFinishedTimerCallback(
-		const ros::TimerEvent &event) {
-	ROS_INFO_STREAM("Exploration finished");
-	_running = false;
-	_exploration_finished_timer.stop();
-	if (_auto_homing) {
-		ROS_INFO_STREAM("Return to start");
-		_current_goal_node = 0; //go back to root node
-		_goal_updated = true;
+void GraphConstructor::switchFromLocalToGlobalExploration() {
+	if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) {
+		//exploration finished
+		ROS_INFO_STREAM("Exploration finished");
+		_running = false;
+	} else {
+		_global_goal_available = true;
+		_local_running = false;
 	}
+}
+
+void GraphConstructor::localExplorationFinishedTimerCallback(
+		const ros::TimerEvent &event) {
+	_local_exploration_finished_timer.stop();
+	ROS_INFO_STREAM(
+			"Local exploration without goals, switch to global exploration");
+	switchFromLocalToGlobalExploration();
+//
+//	if (_auto_homing) {
+//		ROS_INFO_STREAM("Return to start");
+//		_current_goal_node = 0; //go back to root node
+//		_goal_updated = true;
+//	}
 }
 
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
-	res.goal_available = _goal_updated && _current_goal_node != -1;
-	res.exploration_finished = !_running
-			&& (!_auto_homing || _rrg.nearest_node == 0);
-	if (res.goal_available) {
-		if (_rrg.nodes[_current_goal_node].status
-				== rrg_nbv_exploration_msgs::Node::VISITED) {
-			_rrg.nodes[_current_goal_node].status =
-					rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED;
-		} else if (_rrg.nodes[_current_goal_node].status
-				== rrg_nbv_exploration_msgs::Node::INITIAL) {
-			_rrg.nodes[_current_goal_node].status =
-					rrg_nbv_exploration_msgs::Node::ACTIVE;
+	res.exploration_finished = !_running;
+	if (_local_running) { // local goal
+		res.goal_available = _goal_updated && _current_goal_node != -1;
+		if (res.goal_available) {
+			if (_rrg.nodes[_current_goal_node].status
+					== rrg_nbv_exploration_msgs::Node::VISITED) {
+				_rrg.nodes[_current_goal_node].status =
+						rrg_nbv_exploration_msgs::Node::ACTIVE_VISITED;
+			} else if (_rrg.nodes[_current_goal_node].status
+					== rrg_nbv_exploration_msgs::Node::INITIAL) {
+				_rrg.nodes[_current_goal_node].status =
+						rrg_nbv_exploration_msgs::Node::ACTIVE;
+			}
+			res.goal = _rrg.nodes[_current_goal_node].position;
+			res.best_yaw = _graph_path_calculator->determineGoalYaw(
+					_current_goal_node, _rrg, _last_robot_pos, !_running);
+			_goal_updated = false;
 		}
-		res.goal = _rrg.nodes[_current_goal_node].position;
-		res.best_yaw = _graph_path_calculator->determineGoalYaw(
-				_current_goal_node, _rrg, _last_robot_pos, !_running);
-		_goal_updated = false;
+	} else { //global goal
+		geometry_msgs::Point goal;
+		double yaw;
+		if (_global_goal_available
+				&& _global_graph_handler->getFrontierGoal(goal, yaw,
+						_robot_pose.position)) {
+			res.goal_available = _global_goal_available;
+			res.goal = goal;
+			res.best_yaw = yaw;
+		} else {
+			_global_goal_available = false; //set to false to recalculate frontier
+			res.goal_available = _global_goal_available;
+		}
 	}
 	return true;
 }
@@ -876,12 +922,23 @@ bool GraphConstructor::requestGoal(
 bool GraphConstructor::requestPath(
 		rrg_nbv_exploration_msgs::RequestPath::Request &req,
 		rrg_nbv_exploration_msgs::RequestPath::Response &res) {
-	if (_current_goal_node != -1) {
-		std::vector<geometry_msgs::PoseStamped> rrt_path;
-		_graph_path_calculator->getNavigationPath(rrt_path, _rrg,
-				_current_goal_node, _last_robot_pos);
-		res.path = rrt_path;
-		return true;
+	if (_local_running) { // local path
+		if (_current_goal_node != -1) {
+			std::vector<geometry_msgs::PoseStamped> rrg_path;
+			_graph_path_calculator->getLocalNavigationPath(rrg_path, _rrg,
+					_current_goal_node, _robot_pose.position);
+			res.path = rrg_path;
+			return true;
+		}
+	} else { //global path
+		std::vector<geometry_msgs::PoseStamped> path;
+		if (_global_graph_handler->getFrontierPath(path,
+				_robot_pose.position)) {
+//			_graph_path_calculator->getLocalNavigationPath(path, _rrg,
+//					connecting_node, _robot_pose.position);
+			res.path = path;
+			return true;
+		}
 	}
 	return false;
 }
@@ -889,16 +946,36 @@ bool GraphConstructor::requestPath(
 bool GraphConstructor::updateCurrentGoal(
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
-	if (!_running)
-		_auto_homing = false; //end exploration when navigation to home node is finished (even if it failed)
-	if (_current_goal_node != -1 && !_updating) {
-		_updating = true;
-		_rrg.nodes[_current_goal_node].status = req.status;
-		handleCurrentGoalFinished();
+	if (_local_running) {
+//		if (!_running)
+//			_auto_homing = false; //end exploration when navigation to home node is finished (even if it failed)
+		if (_current_goal_node != -1 && !_updating) {
+			_updating = true;
+			_rrg.nodes[_current_goal_node].status = req.status;
+			handleCurrentLocalGoalFinished();
+		}
+		res.success = true;
+		res.message = "Changed current goal's status";
+	} else {
+		if (req.status == rrg_nbv_exploration_msgs::Node::VISITED) { //reached frontier goal
+			ROS_INFO_STREAM("Frontier goal reached");
+		} else { //failed to reach frontier goal
+			ROS_INFO_STREAM("Navigation to frontier goal aborted/failed");
+			//TODO: try other frontier if close to waypoints
+		}
 	}
-	res.success = true;
-	res.message = "Changed current goal's status";
 	return true;
+}
+
+void GraphConstructor::startExploration() {
+	initExploration(_graph_path_calculator->getRobotPose().position);
+	_running = true;
+	_local_running = true;
+}
+
+void GraphConstructor::stopExploration() {
+	_running = false;
+	_local_running = false;
 }
 
 bool GraphConstructor::setRrgState(std_srvs::SetBool::Request &req,
@@ -908,7 +985,7 @@ bool GraphConstructor::setRrgState(std_srvs::SetBool::Request &req,
 			res.success = false;
 			res.message = "Tree construction already running";
 		} else {
-			startRrgConstruction();
+			startExploration();
 			res.success = true;
 			res.message = "Tree construction started";
 		}
@@ -917,7 +994,7 @@ bool GraphConstructor::setRrgState(std_srvs::SetBool::Request &req,
 			res.success = false;
 			res.message = "Tree construction already stopped";
 		} else {
-			stopRrgConstruction();
+			stopExploration();
 			res.success = true;
 			res.message = "Tree construction stopped";
 		}
@@ -935,7 +1012,7 @@ bool GraphConstructor::getRrgState(std_srvs::Trigger::Request &req,
 bool GraphConstructor::resetRrgState(std_srvs::Trigger::Request &req,
 		std_srvs::Trigger::Response &res) {
 	_running = false;
-	initRrg(geometry_msgs::Point());
+	initExploration(geometry_msgs::Point());
 	res.message = true;
 	res.message = "Tree reset";
 	return true;

@@ -231,7 +231,7 @@ void RneVisualizer::initializeGgVisualization(
 	path_lines.action = visualization_msgs::Marker::ADD;
 	path_lines.pose.orientation.w = 1.0;
 	path_lines.type = visualization_msgs::Marker::LINE_LIST;
-	path_lines.scale.x = _robot_radius * 0.1f;
+	path_lines.scale.x = _robot_radius * 0.125f;
 	path_lines.color.g = 1.0f;
 	path_lines.color.a = 1.0f;
 }

@@ -81,15 +81,16 @@ public:
 			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
 	/**
-	 * @brief Returns a path from the node closest to the robot to the goal node moving only along the tree's edges
+	 * @brief Adds a path from the node closest to the robot to the goal node moving only along the tree's edges
+	 * to the provided navigation path
 	 * @param Reference to the calculated path
 	 * @param Current tree
 	 * @param Node to go to
 	 * @param Actual position of the robot
 	 */
-	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
+	void getLocalNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
 			rrg_nbv_exploration_msgs::Graph &rrg, int goal_node,
-			geometry_msgs::Point robot_pose);
+			geometry_msgs::Point &robot_pos);
 
 	/**
 	 * @brief Returns if the two given nodes are next to each other by searching the graphs edges
@@ -145,6 +146,32 @@ public:
 	 */
 	int findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			int neighbor_node);
+
+	/**
+	 * @brief Adds a path along the given waypoints to the provided navigation path (waypoints start at
+	 * the frontier and end at the connected node)
+	 * @param Reference to a path to add waypoints to
+	 * @param Reference to the waypoints to add
+	 * @Reference to the robot's position
+	 * @param Index of the waypoint closest to the robot
+	 */
+	void getNavigationPath(std::vector<geometry_msgs::PoseStamped> &path,
+			std::vector<geometry_msgs::Point> &waypoints,
+			geometry_msgs::Point &robot_pos, int closest_waypoint);
+
+	/**
+	 * @brief Find the shortest route between the start node and the target node in the RRG using
+	 * Dijkstra's algorithm and return the path and the distance between the nodes
+	 * @param Reference to the RRG
+	 * @param Index of the start node
+	 * @param Index of the target node
+	 * @param Reference to the path which will be filled with the nodes between start and target
+	 * @param Reference to the distance between start and target along the graph's edges, is initialized
+	 * as distance threshold above which the newest addition to the path will be discarded
+	 */
+	void findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
+			int start_node, int target_node, std::vector<int> &path,
+			double &distance);
 
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
@@ -231,14 +258,14 @@ private:
 			geometry_msgs::Quaternion orientation, double yaw, double distance);
 
 	/**
-	 * @brief Calculate a straight path from the robot to the given node
+	 * @brief Calculate a straight path from the robot to the given position
 	 * @param Current robot position
-	 * @param Goal node for the path
-	 * @param Reference to the RRG
+	 * @param Goal position
+	 * @param Best yaw at the position
 	 * @param Reference to the path to be calculated
 	 */
-	void getPathFromRobotToNode(geometry_msgs::Point robot_pose, int goal_node,
-			rrg_nbv_exploration_msgs::Graph &rrg,
+	void getPathFromRobotToPosition(geometry_msgs::Point robot_pose,
+			geometry_msgs::Point goal, int best_yaw,
 			std::vector<geometry_msgs::PoseStamped> &path);
 
 	/**

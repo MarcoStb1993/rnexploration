@@ -18,7 +18,7 @@
 	<arg name="min_view_score" default="0.1" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
-	<arg name="exploration_finished_timer_duration" default="1.0" />
+	<arg name="local_exploration_finished_timer_duration" default="5.0" />
 	<arg name="check_init_position" default="false" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
@@ -50,7 +50,7 @@
 		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />		
 		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
 		<param name="robot_width" type="double" value="$(arg robot_width)" />
-		<param name="exploration_finished_timer_duration" type="double" value="$(arg exploration_finished_timer_duration)" />
+		<param name="local_exploration_finished_timer_duration" type="double" value="$(arg local_exploration_finished_timer_duration)" />
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
 		<param name="robot_frame" type="string" value="$(arg robot_frame)" />

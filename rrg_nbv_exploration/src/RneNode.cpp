@@ -7,7 +7,7 @@
 boost::shared_ptr<rrg_nbv_exploration::GraphConstructor> graph_constructor;
 
 void loopCallback(const ros::TimerEvent&) {
-	graph_constructor->runRrgConstruction();
+	graph_constructor->runExploration();
 }
 
 int main(int argc, char **argv) {

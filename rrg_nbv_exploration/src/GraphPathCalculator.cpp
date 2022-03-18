@@ -342,17 +342,17 @@ int GraphPathCalculator::findExistingEdge(rrg_nbv_exploration_msgs::Graph &rrg,
 	return -1;
 }
 
-void GraphPathCalculator::getNavigationPath(
+void GraphPathCalculator::getLocalNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		rrg_nbv_exploration_msgs::Graph &rrg, int goal_node,
-		geometry_msgs::Point robot_pose) {
+		geometry_msgs::Point &robot_pos) {
 	if (rrg.nearest_node == goal_node) { //nearest node to robot and goal node are the same
-		getPathFromRobotToNode(robot_pose, goal_node, rrg, path);
-	} else { //build a path from start to root and from goal to root until they meet
-//compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
+		getPathFromRobotToPosition(robot_pos, rrg.nodes[goal_node].position,
+				rrg.nodes[goal_node].best_yaw, path);
+	} else { //build navigation path from path to robot of nearest node to goal node
 		ros::Time timestamp = ros::Time::now();
 		std::vector<int> path_to_robot = rrg.nodes[goal_node].path_to_robot;
-		if (path_to_robot.size() >= 2) {
+		if (path_to_robot.size() >= 2) { //compare robot distance to second node on path with edge length between first and second node to decide if first is discarded
 			double distance_first_second_squared = pow(
 					rrg.nodes[path_to_robot.at(0)].position.x
 							- rrg.nodes[path_to_robot.at(1)].position.x, 2)
@@ -361,9 +361,9 @@ void GraphPathCalculator::getNavigationPath(
 									- rrg.nodes[path_to_robot.at(1)].position.y,
 							2);
 			double distance_second_squared = pow(
-					robot_pose.x - rrg.nodes[path_to_robot.at(1)].position.x, 2)
+					robot_pos.x - rrg.nodes[path_to_robot.at(1)].position.x, 2)
 					+ pow(
-							robot_pose.y
+							robot_pos.y
 									- rrg.nodes[path_to_robot.at(1)].position.y,
 							2);
 			if (distance_first_second_squared > distance_second_squared) {
@@ -371,7 +371,8 @@ void GraphPathCalculator::getNavigationPath(
 			}
 		}
 		if (path_to_robot.size() < 2) { //only path from robot to goal node necessary
-			getPathFromRobotToNode(robot_pose, goal_node, rrg, path);
+			getPathFromRobotToPosition(robot_pos, rrg.nodes[goal_node].position,
+					rrg.nodes[goal_node].best_yaw, path);
 			return;
 		}
 		for (auto &i : path_to_robot) { //iterate through nodes in path and add as waypoints for path
@@ -382,16 +383,16 @@ void GraphPathCalculator::getNavigationPath(
 			tf2::Quaternion quaternion;
 			double yaw, distance;
 			if (i == path_to_robot.front()) { //if node is first element in list, add poses between robot and node
-				robot_pose.z = rrg.nodes[i].position.z;
-				yaw = atan2(rrg.nodes[i].position.y - robot_pose.y,
-						rrg.nodes[i].position.x - robot_pose.x);
+				robot_pos.z = rrg.nodes[i].position.z;
+				yaw = atan2(rrg.nodes[i].position.y - robot_pos.y,
+						rrg.nodes[i].position.x - robot_pos.x);
 				distance = sqrt(
-						pow(rrg.nodes[i].position.x - robot_pose.x, 2)
-								+ pow(rrg.nodes[i].position.y - robot_pose.y,
+						pow(rrg.nodes[i].position.x - robot_pos.x, 2)
+								+ pow(rrg.nodes[i].position.y - robot_pos.y,
 										2));
 				quaternion.setRPY(0, 0, yaw);
 				quaternion.normalize();
-				addInterNodes(path, robot_pose, rrg.nodes[i].position,
+				addInterNodes(path, robot_pos, rrg.nodes[i].position,
 						tf2::toMsg(quaternion), yaw, distance);
 			}
 			if (i != path_to_robot.back()) { //if node is not last element in list, get orientation between this node and the next
@@ -422,32 +423,29 @@ void GraphPathCalculator::getNavigationPath(
 	}
 }
 
-void GraphPathCalculator::getPathFromRobotToNode(
-		geometry_msgs::Point robot_pose, int goal_node,
-		rrg_nbv_exploration_msgs::Graph &rrg,
-		std::vector<geometry_msgs::PoseStamped> &path) {
+void GraphPathCalculator::getPathFromRobotToPosition(
+		geometry_msgs::Point robot_pose, geometry_msgs::Point goal,
+		int best_yaw, std::vector<geometry_msgs::PoseStamped> &path) {
 	ros::Time timestamp = ros::Time::now();
 	geometry_msgs::PoseStamped path_pose;
 	path_pose.header.frame_id = "map";
 	path_pose.header.stamp = timestamp;
-	robot_pose.z = rrg.nodes[goal_node].position.z;
-	double yaw = atan2(rrg.nodes[goal_node].position.y - robot_pose.y,
-			rrg.nodes[goal_node].position.x - robot_pose.x);
+	robot_pose.z = goal.z;
+	double yaw = atan2(goal.y - robot_pose.y, goal.x - robot_pose.x);
 	double distance = sqrt(
-			pow(rrg.nodes[goal_node].position.x - robot_pose.x, 2)
-					+ pow(rrg.nodes[goal_node].position.y - robot_pose.y, 2));
+			pow(goal.x - robot_pose.x, 2) + pow(goal.y - robot_pose.y, 2));
 	tf2::Quaternion quaternion;
 	quaternion.setRPY(0, 0, yaw);
 	quaternion.normalize();
-	addInterNodes(path, robot_pose, rrg.nodes[goal_node].position,
-			tf2::toMsg(quaternion), yaw, distance);	//add poses between robot and node
-	path_pose.pose.position = rrg.nodes[goal_node].position;
-	if (_sensor_horizontal_fov == 360) { //use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
+	addInterNodes(path, robot_pose, goal, tf2::toMsg(quaternion), yaw,
+			distance);	//add poses between robot and node
+	path_pose.pose.position = goal;
+	if (_sensor_horizontal_fov == 360 || best_yaw == -1) { //use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
 		path_pose.pose.orientation = tf2::toMsg(quaternion);
 	} else {
 		tf2::Quaternion quaternion_goal;
 		quaternion_goal.setRPY(0, 0,
-		M_PI * rrg.nodes[goal_node].best_yaw / 180.0);
+		M_PI * (double) best_yaw / 180.0);
 		quaternion_goal.normalize();
 		path_pose.pose.orientation = tf2::toMsg(quaternion_goal);
 	}
@@ -473,6 +471,81 @@ bool GraphPathCalculator::getHeadingBetweenNodes(int start_node, int end_node,
 	ROS_WARN_STREAM(
 			"Get Heading failed for start node " << start_node << " and end node " << end_node);
 	return false;
+}
+
+void GraphPathCalculator::getNavigationPath(
+		std::vector<geometry_msgs::PoseStamped> &path,
+		std::vector<geometry_msgs::Point> &waypoints,
+		geometry_msgs::Point &robot_pos, int closest_waypoint) {
+	ROS_INFO_STREAM(
+			"Get global Navigation path from closest waypoint " << closest_waypoint);
+	ros::Time timestamp = ros::Time::now();
+	if (closest_waypoint >= 1) { //compare robot distance to second waypoint on path with distance between first and second waypoint to decide if first is discarded
+		double distance_first_second_squared = pow(
+				waypoints.at(closest_waypoint).x
+						- waypoints.at(closest_waypoint - 1).x, 2)
+				+ pow(
+						waypoints.at(closest_waypoint).y
+								- waypoints.at(closest_waypoint - 1).y, 2);
+		double distance_second_squared = pow(
+				robot_pos.x - waypoints.at(closest_waypoint - 1).x, 2)
+				+ pow(robot_pos.y - waypoints.at(closest_waypoint - 1).y, 2);
+		if (distance_first_second_squared > distance_second_squared) {
+			ROS_INFO_STREAM("Remove first waypoint");
+			closest_waypoint -= 1; //remove first node from path since it leads backwards on the path
+		}
+	}
+	if (closest_waypoint == 0) { //only path from robot to last waypoint
+		ROS_INFO_STREAM("Only path from robot to frontier");
+		getPathFromRobotToPosition(robot_pos, waypoints.back(), -1, path);
+		return;
+	}
+	//add poses between robot and waypoint
+
+	ROS_INFO_STREAM(
+			"Add poses between robot and first waypoint " << waypoints.size() - 1);
+	geometry_msgs::PoseStamped path_pose;
+	path_pose.header.frame_id = "map";
+	path_pose.header.stamp = timestamp;
+	tf2::Quaternion quaternion;
+	robot_pos.z = waypoints.at(closest_waypoint).z;
+	double yaw = atan2(waypoints.at(closest_waypoint).y - robot_pos.y,
+			waypoints.at(closest_waypoint).x - robot_pos.x);
+	double distance = sqrt(
+			pow(waypoints.at(closest_waypoint).x - robot_pos.x, 2)
+					+ pow(waypoints.at(closest_waypoint).y - robot_pos.y, 2));
+	quaternion.setRPY(0, 0, yaw);
+	quaternion.normalize();
+	addInterNodes(path, robot_pos, waypoints.at(waypoints.size() - 1),
+			tf2::toMsg(quaternion), yaw, distance);
+	for (int i = closest_waypoint; i >= 0; i--) { //waypoints start at frontier (index 0) and end at closest waypoint to robot
+		ROS_INFO_STREAM("Add waypoint " << i);
+		geometry_msgs::PoseStamped path_pose;
+		path_pose.header.frame_id = "map";
+		path_pose.header.stamp = timestamp;
+		path_pose.pose.position = waypoints.at(i);
+		tf2::Quaternion quaternion;
+		double yaw, distance;
+		if (i != 0) { //if waypoint is not first element in list, get orientation between this waypoint and the previous
+			yaw = atan2(waypoints.at(i - 1).y - waypoints.at(i).y,
+					waypoints.at(i - 1).x - waypoints.at(i).x);
+			distance = sqrt(
+					pow(waypoints.at(i).x - waypoints.at(i - 1).x, 2)
+							+ pow(waypoints.at(i).y - waypoints.at(i - 1).y,
+									2));
+		} else { //waypoint at frontier
+			yaw = atan2(waypoints.at(i).y - waypoints.at(i + 1).y,
+					waypoints.at(i).x - waypoints.at(i + 1).x);
+		}
+		quaternion.setRPY(0, 0, yaw);
+		quaternion.normalize();
+		path_pose.pose.orientation = tf2::toMsg(quaternion);
+		path.push_back(path_pose);
+		if (i != 0) { //add in between nodes
+			addInterNodes(path, waypoints.at(i), waypoints.at(i - 1),
+					tf2::toMsg(quaternion), yaw, distance);
+		}
+	}
 }
 
 void GraphPathCalculator::addInterNodes(
@@ -523,6 +596,93 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 			return true;
 	}
 	return false;
+}
+
+void GraphPathCalculator::findShortestRoutes(
+		rrg_nbv_exploration_msgs::Graph &rrg, int start_node, int target_node,
+		std::vector<int> &path, double &distance) {
+	std::vector<std::pair<int, int>> node_queue; //node index (first) and depth of the node (second)
+	node_queue.push_back(std::make_pair(start_node, 0));
+	std::vector<std::pair<int, double>> path_with_distance; //node index (first) and distance to this node (second)
+	path_with_distance.push_back(std::make_pair(start_node, 0.0));
+	ROS_INFO_STREAM(
+			"Find shortest route between " << start_node << " and " << target_node << " with max distance " << distance);
+	int previous_depth = -1; //start value to not pop any node from path
+	while (!node_queue.empty()) {
+		int current_node = node_queue.back().first;
+		int current_depth = node_queue.back().second;
+		node_queue.pop_back();
+		ROS_INFO_STREAM(
+				"Current node " << current_node << " at depth " << current_depth << " (prev: " << previous_depth << ")");
+		if (current_depth == previous_depth) { //remove last element from path, trying alternative edges
+			ROS_INFO_STREAM("Remove last element from path");
+			path_with_distance.pop_back();
+		} else if (current_depth < previous_depth) { //jump back in depth, remove depth difference + 1 nodes
+			int depth_difference = previous_depth - current_depth + 1;
+			ROS_INFO_STREAM(
+					"Remove "<< depth_difference <<" elements from path");
+			path_with_distance.erase(
+					std::prev(path_with_distance.end(), depth_difference + 1),
+					path_with_distance.end()); //end is one element beyond last->+1
+		}
+		previous_depth = current_depth;
+		for (auto edge : rrg.nodes[current_node].edges) {
+			if (!rrg.edges.at(edge).inactive) {
+				int neighbor_node_index =
+						rrg.edges[edge].first_node == current_node ?
+								rrg.edges[edge].second_node :
+								rrg.edges[edge].first_node;
+				ROS_INFO_STREAM(
+						"Edge " << edge << " to " << neighbor_node_index);
+				if (neighbor_node_index == target_node) { //found target
+					ROS_INFO_STREAM("Found target node");
+					path_with_distance.push_back(
+							std::make_pair(neighbor_node_index,
+									path_with_distance.back().second
+											+ rrg.edges.at(edge).length));
+					if (path_with_distance.back().second < distance) { //store path to target node if it improves the distance
+						ROS_INFO_STREAM(
+								"Distance improved to " << path_with_distance.back().second << " store path");
+						for (auto elem : path_with_distance) {
+							path.clear();
+							path.push_back(elem.first);
+							distance = path_with_distance.back().second;
+						}
+					}
+				} else if (rrg.nodes.at(neighbor_node_index).status
+						!= rrg_nbv_exploration_msgs::Node::INACTIVE
+						&& std::find(path.begin(), path.end(),
+								neighbor_node_index) != path.end()) { //don't allow loops and failed nodes in path
+					ROS_INFO_STREAM("Inactive or already in path");
+					continue;
+				}
+				double new_distance = path_with_distance.back().second
+						+ rrg.edges.at(edge).length;
+				ROS_INFO_STREAM(
+						"New distance is " << new_distance << " compared to threshold: " << distance);
+				if (new_distance < distance) { //discard any path above distance threshold
+					ROS_INFO_STREAM(
+							"Added node with distance " << new_distance << " to path");
+					path_with_distance.push_back(
+							std::make_pair(neighbor_node_index, new_distance));
+					node_queue.push_back(
+							std::make_pair(neighbor_node_index,
+									current_depth + 1));
+				}
+			}
+		}
+		std::string cur = "";
+		for (auto p : path_with_distance) {
+			cur += std::to_string(p.first) + " (" + std::to_string(p.second)
+					+ "),";
+		}
+		ROS_INFO_STREAM("Current path: " << cur);
+	}
+	std::string best = "";
+	for (auto p : path) {
+		best += p + ",";
+	}
+	ROS_INFO_STREAM("Best path: " << best << " with distance " << distance);
 }
 
 void GraphPathCalculator::dynamicReconfigureCallback(

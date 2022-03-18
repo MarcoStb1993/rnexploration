@@ -81,6 +81,49 @@ public:
 	void checkPathsWaypoints(rrg_nbv_exploration_msgs::Graph &rrg,
 			int new_node);
 
+	/**
+	 * @brief Calculates and stores the frontier to be explored next when the local graph has no more goals
+	 * @param Reference to the RRG
+	 * @return If a frontier goal could be calculated, false if no frontier available, exploration finished
+	 */
+	bool calculateNextFrontierGoal(rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Gets the position of the next frontier and the yaw orientation derived from the incoming
+	 * waypoint or the robot position if there is only one waypoint in the path to this frontier
+	 * @param Reference to the frontier position which will be inserted
+	 * @param Reference to the desired yaw at the frontier position which will be calculated
+	 * @param Reference to the robot position
+	 * @return If a valid next frontier and path to this frontier are available
+	 */
+	bool getFrontierGoal(geometry_msgs::Point &goal, double &yaw,
+			geometry_msgs::Point &robot_pos);
+
+	/**
+	 * @brief Get the waypoints from the path to the next frontier and the node in the local graph
+	 * connected to the path and return a navigation path along those waypoints
+	 * @param Reference to the navigation path which will be filled
+	 * @param Reference to robot position
+	 * @return If a valid next frontier and path to this frontier are available
+	 */
+	bool getFrontierPath(std::vector<geometry_msgs::PoseStamped> &path,
+			geometry_msgs::Point &robot_pos);
+
+	/**
+	 * @brief Deactivate next frontier and its paths from global graph and use the frontier as the new root
+	 * location for the RRG and its paths to other frontiers as new paths to the local graph for the
+	 * particular frontiers
+	 * @param Returns a list of all paths which are connected to the new local graph's root node
+	 */
+	std::vector<int> frontierReached();
+
+	/**
+	 * @brief Updates the waypoint in the active path that is closest to the robot's current position
+	 * @param Reference to the robot position
+	 * @return Return if the frontier is the closest waypoint
+	 */
+	bool updateClosestWaypoint(geometry_msgs::Point &robot_pos);
+
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
 			uint32_t level);
@@ -156,6 +199,18 @@ private:
 	 * @brief Squared radius of the RRG around the robot in m
 	 */
 	double _local_graph_radius_squared;
+	/**
+	 * @brief Index of the frontier (first) to be explored next with its path to follow (second)
+	 */
+	std::pair<int, int> _next_frontier_with_path;
+	/**
+	 * @brief While global navigation is active, holds the index of the followed path and the closest waypoint
+	 */
+	std::pair<int, int> _active_paths_closest_waypoint;
+	/**
+	 * @brief Return to the origin node when all nodes frontiers were explored
+	 */
+	bool _auto_homing;
 
 	/**
 	 * @brief Iterates through the given node's path to the robot in the local graph and adds all nodes
@@ -329,6 +384,7 @@ private:
 	 */
 	void improvePathToConnectedFrontier(int frontier_path, int path,
 			int other_frontier, int other_path);
+	bool checkIfNextFrontierWithPathIsValid();
 };
 
 } /* namespace rrg_nbv_exploration */
