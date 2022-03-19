@@ -113,9 +113,10 @@ public:
 	 * @brief Deactivate next frontier and its paths from global graph and use the frontier as the new root
 	 * location for the RRG and its paths to other frontiers as new paths to the local graph for the
 	 * particular frontiers
+	 * @param Reference to the frontier's viewpoint which will be inserted
 	 * @param Returns a list of all paths which are connected to the new local graph's root node
 	 */
-	std::vector<int> frontierReached();
+	std::vector<int> frontierReached(geometry_msgs::Point &position);
 
 	/**
 	 * @brief Updates the waypoint in the active path that is closest to the robot's current position

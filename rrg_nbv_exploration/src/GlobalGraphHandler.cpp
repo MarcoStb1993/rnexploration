@@ -607,11 +607,12 @@ void GlobalGraphHandler::checkPathsWaypoints(
 								new_node, closest_waypoint_to_frontier, rrg);
 //						ROS_INFO_STREAM(
 //								"Prev path length: " << _gg.paths.at(path).length << " + " <<rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new "<< new_path_length << " + "<<rrg.nodes.at(new_node).distance_to_robot);
-						if ((new_path_length
-								+ rrg.nodes.at(new_node).distance_to_robot)
-								< (_gg.paths.at(path).length
-										+ rrg.nodes.at(
-												_gg.paths.at(path).connecting_node).distance_to_robot)) { //only re-route path if length decreases
+//						if ((new_path_length
+//								+ rrg.nodes.at(new_node).distance_to_robot)
+//								< (_gg.paths.at(path).length
+//										+ rrg.nodes.at(
+//												_gg.paths.at(path).connecting_node).distance_to_robot)) { //only re-route path if length decreases
+						if (new_path_length < _gg.paths.at(path).length) { //only re-route path if length decreases
 							ROS_INFO_STREAM(
 									"Reduced path "<< path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " (prev " << neighbor_node << ") from "<< (_gg.paths.at(path).length+rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot) << " to " <<(new_path_length + rrg.nodes.at(new_node).distance_to_robot));
 							rewirePathToNewNode(path,
@@ -982,11 +983,11 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 				"Connected all frontiers directly to nearest node " << rrg.nearest_node);
 
 		//TODO: call TSP solver to get next frontier goal
-
 		double distance_to_frontier = std::numeric_limits<double>::infinity();
 		for (auto frontier : _gg.frontiers) {
-			if (frontier.index
-					!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) { //origin is always last goal
+			if (!frontier.inactive
+					&& frontier.index
+							!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) { //origin is always last goal
 				if (_gg.paths.at(frontier.paths.front()).length
 						< distance_to_frontier) {
 					best_frontier = frontier.index;
@@ -1081,11 +1082,13 @@ bool GlobalGraphHandler::getFrontierPath(
 	}
 }
 
-std::vector<int> GlobalGraphHandler::frontierReached() {
+std::vector<int> GlobalGraphHandler::frontierReached(
+		geometry_msgs::Point &position) {
 	ROS_INFO_STREAM("+++++ frontierReached");
 	std::vector<int> connected_paths;
 	if (checkIfNextFrontierWithPathIsValid()) {
 		int frontier = _next_frontier_with_path.first;
+		position = _gg.frontiers.at(frontier).viewpoint;
 		ROS_INFO_STREAM("Frontier " << frontier);
 		_next_frontier_with_path = std::make_pair(-1, -1);
 		std::set<int> pruned_frontiers;

@@ -162,9 +162,10 @@ void GraphConstructor::runExploration() {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_global_graph_handler->updateClosestWaypoint(
 				_robot_pose.position)) { //frontier reached
+			geometry_msgs::Point frontier;
 			std::vector<int> connected_paths =
-					_global_graph_handler->frontierReached();
-			initLocalGraph(_graph_path_calculator->getRobotPose().position);
+					_global_graph_handler->frontierReached(frontier);
+			initLocalGraph(frontier);
 			resetHelperClasses();
 			_rrg.nodes.front().connected_to = connected_paths;
 			_local_running = true;
