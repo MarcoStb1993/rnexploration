@@ -72,9 +72,9 @@ public:
 			geometry_msgs::Point robot_position);
 
 	/**
-	 * @brief Checks if a new node in the RRG can reduce the global paths, which have a connection to
-	 * a neighbor node of the new node, if their nearest respective waypoint would be connected to
-	 * the new node
+	 * @brief Checks if a new node in the RRG can reduce the global paths, if their nearest respective
+	 * waypoint would be connected to the new node. If this waypoint is the frontier itself, remove the
+	 * frontier from the global graph
 	 * @param Reference to the RRG
 	 * @param Index of the new node
 	 */
@@ -125,11 +125,36 @@ public:
 	 */
 	bool updateClosestWaypoint(geometry_msgs::Point &robot_pos);
 
+	/**
+	 * @brief Checks if the next frontier and the respective path exist
+	 * @return If the next frontier and path are valid
+	 */
+	bool checkIfNextFrontierWithPathIsValid();
+
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
 			uint32_t level);
 
 private:
+
+	/**
+	 * @brief Structure to store a connection through the local graph between two connecting nodes
+	 * to frontiers including the nodes in the path and the distance of the path
+	 */
+	struct ShortestFrontierConnectionStruct {
+		int connecting_node_one;
+		int connecting_node_two;
+		std::vector<int> path;
+		double distance;
+
+		ShortestFrontierConnectionStruct(int one, int two, std::vector<int> p,
+				double dis) {
+			connecting_node_one = std::max(one, two);
+			connecting_node_two = std::min(one, two);
+			path = p;
+			distance = dis;
+		}
+	};
 
 	ros::NodeHandle _nh;
 	ros::Publisher _global_graph_publisher;
@@ -177,13 +202,17 @@ private:
 	 */
 	double _robot_width;
 	/**
-	 * Minimum required distance between two nodes for a box collision object to be inserted
+	 * Half the minimum required distance between two nodes for a box collision object to be inserted
 	 */
-	double _path_box_distance_thres;
+	double _half_path_box_distance_thres;
 	/**
 	 * @brief Squared max distance between two nodes in the graph
 	 */
 	double _max_edge_distance_squared;
+	/**
+	 * @brief Squared min distance between two nodes in the graph
+	 */
+	double _min_edge_distance_squared;
 	/**
 	 * @brief Ordered list of frontier indices where the frontiers are inactive and can be replaced with a new frontier
 	 */
@@ -322,8 +351,9 @@ private:
 			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
 
 	/**
-	 * @brief Determine the waypoint from the given node which is closest to the frontier of the give path
-	 * and can be connected to the new node which
+	 * @brief Determine the waypoint closest to the frontier of the given path which can be connected to
+	 * the new node, if the closest waypoint is directly at the frontier, the new node must engulf the
+	 * waypoint, otherwise the next waypoint is chosen
 	 * @param Index of the path
 	 * @param Index of the new node in the RRG
 	 * @param List of waypoints of the given path that could potentially be connected to the new node
@@ -385,7 +415,6 @@ private:
 	 */
 	void improvePathToConnectedFrontier(int frontier_path, int path,
 			int other_frontier, int other_path);
-	bool checkIfNextFrontierWithPathIsValid();
 };
 
 } /* namespace rrg_nbv_exploration */

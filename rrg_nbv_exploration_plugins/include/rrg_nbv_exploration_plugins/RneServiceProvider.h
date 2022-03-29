@@ -13,7 +13,7 @@
 #include <rsm_msgs/GoalStatus.h>
 #include <rrg_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <rrg_nbv_exploration_msgs/Node.h>
-#include <rrg_nbv_exploration_msgs/BestAndCurrentNode.h>
+#include <rrg_nbv_exploration_msgs/ExplorationGoalObsolete.h>
 #include <std_srvs/Trigger.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/String.h>
@@ -34,7 +34,7 @@ private:
 	ros::Subscriber _exploration_goal_subscriber;
 	ros::ServiceClient _update_current_goal_service;
 	ros::ServiceClient _set_rrt_state_service;
-	ros::Subscriber _best_and_current_goal_subscriber;
+	ros::Subscriber _exploration_goal_obsolete_subscriber;
 	ros::Subscriber _exploration_mode_subscriber;
 	ros::Subscriber _state_info_subscriber;
 	ros::Publisher _goal_obsolete_publisher;
@@ -79,8 +79,8 @@ private:
 	void explorationGoalCallback(
 			const rsm_msgs::GoalStatus::ConstPtr &goal_status);
 
-	void bestGoalCallback(
-			const rrg_nbv_exploration_msgs::BestAndCurrentNode::ConstPtr &best_goal);
+	void explorationGoalObsoleteCallback(
+			const rrg_nbv_exploration_msgs::ExplorationGoalObsolete::ConstPtr &best_goal);
 
 	void stateInfoCallback(const std_msgs::String::ConstPtr &state_info);
 

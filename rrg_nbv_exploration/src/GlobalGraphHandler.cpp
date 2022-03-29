@@ -16,11 +16,14 @@ GlobalGraphHandler::GlobalGraphHandler() {
 	private_nh.param("inflation_active", _inflation_active, true);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
-	_path_box_distance_thres = sqrt(
+	_half_path_box_distance_thres = sqrt(
 			pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 	double max_edge_distance;
+	double min_edge_distance;
 	private_nh.param("max_edge_distance", max_edge_distance, 1.0);
+	private_nh.param("min_edge_distance", min_edge_distance, 1.0);
 	_max_edge_distance_squared = pow(max_edge_distance, 2);
+	_min_edge_distance_squared = pow(min_edge_distance, 2);
 	_robot_radius_squared = pow(_robot_radius, 2);
 	private_nh.param("auto_homing", _auto_homing, false);
 	ros::NodeHandle nh("rne");
@@ -394,7 +397,8 @@ void GlobalGraphHandler::deactivateFrontiersInLocalGraph(
 														node_in_range.first).squared_radius
 														- pow(_robot_width / 2,
 																2))
-												+ _path_box_distance_thres, 2) :
+												+ _half_path_box_distance_thres,
+										2) :
 								_robot_radius_squared;
 				if (node_in_range.second <= compare_distance
 						|| (!_inflation_active
@@ -571,40 +575,54 @@ void GlobalGraphHandler::deactivatePath(int pruned_path) {
 void GlobalGraphHandler::checkPathsWaypoints(
 		rrg_nbv_exploration_msgs::Graph &rrg, int new_node) {
 	ROS_INFO_STREAM("+++++ checkPathsWaypoints at node " << new_node);
-	for (int edge : rrg.nodes.at(new_node).edges) { //iterate over all neighbors of a new node in the RRG
-		int neighbor_node =
-				rrg.edges.at(edge).first_node == new_node ?
-						rrg.edges.at(edge).second_node :
-						rrg.edges.at(edge).first_node;
-//		ROS_INFO_STREAM(
-//				"Neighbor " << neighbor_node << " has " << rrg.nodes.at(neighbor_node).connected_to.size() << " connections");
-		std::vector<int> removed_connections; //paths that have to be removed from neighbor node
-		for (int path : rrg.nodes.at(neighbor_node).connected_to) { //iterate over paths connected to this neighbor
-			if (_gg.paths.at(path).waypoints.size() > 1) { //only try to prune paths with more than one waypoint
-				_global_path_waypoint_searcher->rebuildIndex(
-						_gg.paths.at(path));
-				std::vector<std::pair<int, double>> waypoints_near_new_node =
-						_global_path_waypoint_searcher->searchInRadius(
-								rrg.nodes.at(new_node).position,
-								_inflation_active ?
-										pow(
-												_robot_radius
-														+ rrg.nodes.at(
-																neighbor_node).radius,
-												2) :
-										_max_edge_distance_squared); //all waypoints that can be connected to the new node
-//				ROS_INFO_STREAM(
-//						"For path " << path << ", " << waypoints_near_new_node.size() << " waypoints are nearby");
-				if (waypoints_near_new_node.size() > 0) {
-					int closest_waypoint_to_frontier =
-							getClosestWaypointToFrontier(path, new_node,
-									waypoints_near_new_node, rrg);
+	std::set<int> pruned_frontiers;
+	std::set<int> pruned_paths;
+	for (auto frontier : _gg.frontiers) { //iterate over all paths to local graph
+		if (frontier.inactive) {
+			continue;
+		}
+		int path = frontier.paths.front(); //path to local graph
+		_global_path_waypoint_searcher->rebuildIndex(_gg.paths.at(path));
+		std::vector<std::pair<int, double>> waypoints_near_new_node =
+				_global_path_waypoint_searcher->searchInRadius(
+						rrg.nodes.at(new_node).position,
+						_inflation_active ?
+								pow(
+										_robot_radius
+												+ rrg.nodes.at(new_node).radius,
+										2) :
+								_max_edge_distance_squared); //all waypoints that can be connected to the new node
+		ROS_INFO_STREAM(
+				"For path " << path << " to frontier " << frontier.index << ", " << waypoints_near_new_node.size() << " waypoints are nearby");
+		if (waypoints_near_new_node.size() > 0) {
+			if (frontier.index
+					== rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) { //remove waypoint at frontier from list, must not be pruned for origin
+				if (waypoints_near_new_node.size() == 1) { //only origin as waypoint, skip
+					continue;
+				} else {
+					for (int i = 0; i < waypoints_near_new_node.size(); i++) {
+						if (waypoints_near_new_node.at(i).first == 0) { //waypoint at frontier
+							waypoints_near_new_node.erase(
+									std::next(waypoints_near_new_node.begin(),
+											i));
+							ROS_INFO_STREAM(
+									"Remove waypoint 0 from path to origin from list of waypoints near new node at pos " << i);
+							break;
+						}
+					}
+				}
+			}
+			int closest_waypoint_to_frontier = getClosestWaypointToFrontier(
+					path, new_node, waypoints_near_new_node, rrg);
 //					ROS_INFO_STREAM(
 //							"Closest connectable waypoint: " << closest_waypoint_to_frontier);
-					if (closest_waypoint_to_frontier
-							< (_gg.paths.at(path).waypoints.size() - 1)) { //if path can be pruned
-						double new_path_length = calculateNewPathLength(path,
-								new_node, closest_waypoint_to_frontier, rrg);
+			if (closest_waypoint_to_frontier == 0) { //connectable waypoint is frontier itself, it can be removed
+				addFrontierToBePruned(frontier.index, pruned_frontiers,
+						pruned_paths, rrg);
+			} else if (closest_waypoint_to_frontier
+					< (_gg.paths.at(path).waypoints.size() - 1)) { //if path can be pruned
+				double new_path_length = calculateNewPathLength(path, new_node,
+						closest_waypoint_to_frontier, rrg);
 //						ROS_INFO_STREAM(
 //								"Prev path length: " << _gg.paths.at(path).length << " + " <<rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new "<< new_path_length << " + "<<rrg.nodes.at(new_node).distance_to_robot);
 //						if ((new_path_length
@@ -612,29 +630,21 @@ void GlobalGraphHandler::checkPathsWaypoints(
 //								< (_gg.paths.at(path).length
 //										+ rrg.nodes.at(
 //												_gg.paths.at(path).connecting_node).distance_to_robot)) { //only re-route path if length decreases
-						if (new_path_length < _gg.paths.at(path).length) { //only re-route path if length decreases
-							ROS_INFO_STREAM(
-									"Reduced path "<< path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " (prev " << neighbor_node << ") from "<< (_gg.paths.at(path).length+rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot) << " to " <<(new_path_length + rrg.nodes.at(new_node).distance_to_robot));
-							rewirePathToNewNode(path,
-									closest_waypoint_to_frontier,
-									new_path_length, new_node, rrg);
-							removed_connections.push_back(path);
-							tryToImproveConnectionsToOtherFrontiers(new_node,
-									path, rrg);
-							rrg.nodes.at(new_node).connected_to.push_back(path);
-						}
-					}
+				if (new_path_length < _gg.paths.at(path).length) { //only re-route path if length decreases
+					ROS_INFO_STREAM(
+							"Reduced path "<< path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " from "<< (_gg.paths.at(path).length+rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot) << " to " <<(new_path_length + rrg.nodes.at(new_node).distance_to_robot));
+					rewirePathToNewNode(path, closest_waypoint_to_frontier,
+							new_path_length, new_node, rrg);
+					tryToImproveConnectionsToOtherFrontiers(new_node, path,
+							rrg);
+					rrg.nodes.at(new_node).connected_to.push_back(path);
 				}
 			}
 		}
-		for (int removed_connection : removed_connections) { //remove connected paths from neighbor node that were moved to new node
-			rrg.nodes.at(neighbor_node).connected_to.erase(
-					std::remove(
-							rrg.nodes.at(neighbor_node).connected_to.begin(),
-							rrg.nodes.at(neighbor_node).connected_to.end(),
-							removed_connection),
-					rrg.nodes.at(neighbor_node).connected_to.end());
-		}
+	}
+	if (pruned_frontiers.size() > 0) {
+		handlePrunedFrontiers(pruned_frontiers);
+		handlePrunedPaths(pruned_paths);
 	}
 	ROS_INFO_STREAM("----- checkedPathsWaypoints at node " << new_node);
 }
@@ -644,13 +654,26 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("getClosestWaypointToFrontier");
 	int closest_waypoint_to_frontier = _gg.paths.at(path).waypoints.size() - 1; //index of last waypoint in list
-//find connectable waypoint closest to the frontier (most path reduction)
+	//find connectable waypoint closest to the frontier (most path reduction)
 	if (_inflation_active) {
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
 			//							ROS_INFO_STREAM(
 			//									"Waypoint " << waypoint_near_new_node.first << " at distance " << waypoint_near_new_node.second << " (" << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).x << ", " << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).y << ")");
-			closest_waypoint_to_frontier = std::min(
-					waypoint_near_new_node.first, closest_waypoint_to_frontier);
+			if (waypoint_near_new_node.first < closest_waypoint_to_frontier
+					&& (waypoint_near_new_node.first != 0
+							|| waypoint_near_new_node.second
+									<= pow(
+											sqrt(
+													rrg.nodes.at(new_node).squared_radius
+															- pow(
+																	_robot_width
+																			/ 2,
+																	2))
+													+ _half_path_box_distance_thres,
+											2))) { //new node must overlap with waypoint at frontier for re-wiring
+				closest_waypoint_to_frontier = waypoint_near_new_node.first;
+			}
+
 		}
 	} else {
 		std::sort(waypoints_near_new_node.begin(),
@@ -663,11 +686,14 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
 			//							ROS_INFO_STREAM(
 			//									"Waypoint " << waypoint_near_new_node.first << " at distance " << waypoint_near_new_node.second << " (" << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).x << ", " << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).y << ")");
-			if (_collision_checker->checkConnectionToFrontier(rrg,
-					waypoint_near_new_node.first,
-					rrg.nodes.at(new_node).position,
-					sqrt(waypoint_near_new_node.second))) {
-				//check if a connection can be made
+			if ((waypoint_near_new_node.first != 0
+					|| waypoint_near_new_node.second
+							<= std::max(_min_edge_distance_squared,
+									_robot_radius_squared)) //new node must intersect waypoint at frontier for re-wiring or not allow a node to be placed at frontier (min distance)
+					&& _collision_checker->checkConnectionToFrontier(rrg,
+							waypoint_near_new_node.first,
+							rrg.nodes.at(new_node).position,
+							sqrt(waypoint_near_new_node.second))) { //check if a connection can be made
 				closest_waypoint_to_frontier = waypoint_near_new_node.first;
 				break;
 			}
@@ -708,6 +734,12 @@ void GlobalGraphHandler::rewirePathToNewNode(int path,
 		int closest_waypoint_to_frontier, double new_path_length, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("rewirePathToNewNode");
+	rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.erase(
+			std::remove(
+					rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(),
+					rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(),
+					path),
+			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end()); //remove path from connecting node in RRG
 	_gg.paths.at(path).waypoints.erase(
 			_gg.paths.at(path).waypoints.begin() + closest_waypoint_to_frontier
 					+ 1, _gg.paths.at(path).waypoints.end());
@@ -794,6 +826,7 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 	} else {
 		ROS_INFO_STREAM(
 				"Connect all frontiers with nearest node " << rrg.nearest_node << " and each other");
+		std::vector<ShortestFrontierConnectionStruct> frontier_connections;
 		for (auto &frontier : _gg.frontiers) { //establish all missing connection between frontiers through the RRG
 			if (!frontier.inactive
 					&& frontier.paths_counter < active_frontiers.size()) { //one path to every other frontier + 1 to RRG required
@@ -811,7 +844,7 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 				for (auto missing_frontier : missing_frontiers) { //build the missing paths
 					if (frontier.index > missing_frontier) { //only build paths where this frontier will be frontier in path
 						ROS_INFO_STREAM(
-								"Establish missing connection between " << frontier.index <<" and " << missing_frontier);
+								"Establish missing connection between frontiers " << frontier.index <<" and " << missing_frontier);
 						int frontier_connecting_node = _gg.paths.at(
 								frontier.paths.front()).connecting_node;
 						int missing_frontier_connecting_node =
@@ -823,97 +856,124 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 										+ rrg.nodes.at(
 												missing_frontier_connecting_node).distance_to_robot;
 						ROS_INFO_STREAM(
-								"Frontier connecting node " << frontier_connecting_node << " missing frontier connecting node " << missing_frontier_connecting_node << " min path length " << minimum_local_path_length);
+								"Frontier connecting node " << frontier_connecting_node << ", missing frontier connecting node " << missing_frontier_connecting_node << ", min path length " << minimum_local_path_length);
 						std::vector<int> shortest_local_path; //the remaining path between the frontiers in the local graph
-						for (auto rit =
-								rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin();
-								rit
-										!= std::prev(
-												rrg.nodes.at(
-														frontier_connecting_node).path_to_robot.rend()); //reverse end is connecting node
-								++rit) { //find mutual node in path and length of the local path through this node
-							ROS_INFO_STREAM(
-									"Check if node " << *rit << " from frontier's path to robot is also present in missing frontier's path to robot");
-							auto it =
-									std::find(
-											std::next(
-													rrg.nodes.at(
-															missing_frontier_connecting_node).path_to_robot.begin()), //first node is connecting node
-											rrg.nodes.at(
-													missing_frontier_connecting_node).path_to_robot.end(),
-											*rit); //find occurence of node in both paths
-							if (it
-									!= rrg.nodes.at(
-											missing_frontier_connecting_node).path_to_robot.end()) { //found mutual node in paths
+						bool found_existing_connection = false;
+						for (auto frontier_connection : frontier_connections) {
+							if (frontier_connection.connecting_node_one
+									== std::max(frontier_connecting_node,
+											missing_frontier_connecting_node)
+									&& frontier_connection.connecting_node_two
+											== std::min(
+													frontier_connecting_node,
+													missing_frontier_connecting_node)) {
 								ROS_INFO_STREAM(
-										"First mutual node in local RRG is " << *it);
-								first_mutual_node_in_path = *it;
+										"Reuse existing connection between " << frontier_connection.connecting_node_one << " and " << frontier_connection.connecting_node_two);
+								found_existing_connection = true;
+								minimum_local_path_length =
+										frontier_connection.distance;
+								shortest_local_path = frontier_connection.path;
+								break;
+							}
+						}
+						if (!found_existing_connection) {
+							for (auto rit =
+									rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin();
+									rit
+											!= std::prev(
+													rrg.nodes.at(
+															frontier_connecting_node).path_to_robot.rend()); //reverse end is connecting node
+									++rit) { //find mutual node in path and length of the local path through this node
+								ROS_INFO_STREAM(
+										"Check if node " << *rit << " from frontier's path to robot is also present in missing frontier's path to robot");
+								auto it =
+										std::find(
+												std::next(
+														rrg.nodes.at(
+																missing_frontier_connecting_node).path_to_robot.begin()), //first node is connecting node
+												rrg.nodes.at(
+														missing_frontier_connecting_node).path_to_robot.end(),
+												*rit); //find occurence of node in both paths
+								if (it
+										!= rrg.nodes.at(
+												missing_frontier_connecting_node).path_to_robot.end()) { //found mutual node in paths
+									ROS_INFO_STREAM(
+											"First mutual node in local RRG is " << *it);
+									first_mutual_node_in_path = *it;
+									shortest_local_path.insert(
+											shortest_local_path.end(),
+											rrg.nodes.at(
+													frontier_connecting_node).path_to_robot.rbegin(),
+											rit);
+									shortest_local_path.insert(
+											shortest_local_path.end(), it,
+											rrg.nodes.at(
+													missing_frontier_connecting_node).path_to_robot.end());
+									std::string rempa = "";
+									for (int rem : shortest_local_path) {
+										rempa += std::to_string(rem) + ",";
+									}
+									ROS_INFO_STREAM(
+											"Remaining path in local RRG is: " << rempa);
+									double length = 0;
+									for (int i = 0;
+											i < shortest_local_path.size() - 1;
+											i++) { //iterate over edges in remaining path to calculate length
+										int edge =
+												_graph_path_calculator->findExistingEdge(
+														rrg,
+														shortest_local_path.at(
+																i),
+														shortest_local_path.at(
+																i + 1));
+										if (edge != -1) {
+											length += rrg.edges.at(edge).length;
+										} else {
+											ROS_WARN_STREAM(
+													"Unable to calculate minimum local path, node " << shortest_local_path.at(i) << " has no edge to " << shortest_local_path.at(i+1));
+											length = 0;
+											break;
+										}
+									}
+									if (length > 0) {
+										minimum_local_path_length = length;
+										ROS_INFO_STREAM(
+												"Minimum local path length at mutual node "<< *it << " is " << minimum_local_path_length);
+										break;
+									}
+									ROS_INFO_STREAM(
+											"Continue looking for mutual node");
+								}
+							}
+							if (shortest_local_path.empty()) {
+								ROS_INFO_STREAM(
+										"No mutual node, use full paths to robot");
 								shortest_local_path.insert(
 										shortest_local_path.end(),
 										rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin(),
-										rit);
+										rrg.nodes.at(frontier_connecting_node).path_to_robot.rend());
 								shortest_local_path.insert(
 										shortest_local_path.end(),
-										std::next(it), //skip it, already present in path
+										std::next(
+												rrg.nodes.at(
+														frontier_connecting_node).path_to_robot.begin()), //skip it, already present in path
 										rrg.nodes.at(
 												missing_frontier_connecting_node).path_to_robot.end());
-								std::string rempa = "";
-								for (int rem : shortest_local_path) {
-									rempa += std::to_string(rem) + ",";
-								}
-								ROS_INFO_STREAM(
-										"Remaining path in local RRG is: " << rempa);
-								double length = 0;
-								for (int i = 0;
-										i < shortest_local_path.size() - 1;
-										i++) { //iterate over edges in remaining path to calculate length
-									int edge =
-											_graph_path_calculator->findExistingEdge(
-													rrg,
-													shortest_local_path.at(i),
-													shortest_local_path.at(
-															i + 1));
-									if (edge != -1) {
-										length += rrg.edges.at(edge).length;
-									} else {
-										ROS_WARN_STREAM(
-												"Unable to calculate minimum local path, node " << shortest_local_path.at(i) << " has no edge to " << shortest_local_path.at(i+1));
-										break;
-									}
-								}
-								if (length > 0) {
-									minimum_local_path_length = length;
-									ROS_INFO_STREAM(
-											"Minimum local path length at mutual node "<< *it << " is " << minimum_local_path_length);
-									break;
-								}
-								ROS_INFO_STREAM(
-										"Continue looking for mutual node");
 							}
+							std::vector<int> path;
+							double distance = 0;
+							_graph_path_calculator->findShortestRoutes(rrg,
+									frontier_connecting_node,
+									missing_frontier_connecting_node, path,
+									minimum_local_path_length); //add verbose output
+							if (!path.empty())
+								shortest_local_path = path;
+							frontier_connections.emplace_back(
+									frontier_connecting_node,
+									missing_frontier_connecting_node,
+									shortest_local_path,
+									minimum_local_path_length); //store connection to be reusable for other frontiers
 						}
-						if (shortest_local_path.empty()) {
-							ROS_INFO_STREAM(
-									"No mutual node, use full paths to robot");
-							shortest_local_path.insert(
-									shortest_local_path.end(),
-									rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin(),
-									rrg.nodes.at(frontier_connecting_node).path_to_robot.rend());
-							shortest_local_path.insert(
-									shortest_local_path.end(),
-									std::next(
-											rrg.nodes.at(
-													frontier_connecting_node).path_to_robot.begin()), //skip it, already present in path
-									rrg.nodes.at(
-											missing_frontier_connecting_node).path_to_robot.end());
-						}
-						std::vector<int> path;
-						double distance = 0;
-						_graph_path_calculator->findShortestRoutes(rrg,
-								frontier_connecting_node,
-								missing_frontier_connecting_node, path,
-								minimum_local_path_length); //add verbose output
-						if (!path.empty())
-							shortest_local_path = path;
 						//build path
 						ROS_INFO_STREAM(
 								"Build path between " << frontier.index << " and " <<missing_frontier);

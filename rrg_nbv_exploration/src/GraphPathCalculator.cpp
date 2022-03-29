@@ -601,30 +601,37 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 void GraphPathCalculator::findShortestRoutes(
 		rrg_nbv_exploration_msgs::Graph &rrg, int start_node, int target_node,
 		std::vector<int> &path, double &distance) {
-	std::vector<std::pair<int, int>> node_queue; //node index (first) and depth of the node (second)
-	node_queue.push_back(std::make_pair(start_node, 0));
-	std::vector<std::pair<int, double>> path_with_distance; //node index (first) and distance to this node (second)
-	path_with_distance.push_back(std::make_pair(start_node, 0.0));
+	std::vector<ShortestPathQueueStruct> node_stack;
+	node_stack.emplace_back(start_node, 0, 0.0);
+	std::vector<std::pair<int, double>> path_with_distance; //node index (first) and distance to this node from start node (second)
 	ROS_INFO_STREAM(
 			"Find shortest route between " << start_node << " and " << target_node << " with max distance " << distance);
 	int previous_depth = -1; //start value to not pop any node from path
-	while (!node_queue.empty()) {
-		int current_node = node_queue.back().first;
-		int current_depth = node_queue.back().second;
-		node_queue.pop_back();
+	while (!node_stack.empty()) {
+		int current_node = node_stack.back().node;
+		int current_depth = node_stack.back().depth;
+		double current_distance = node_stack.back().distance;
+		node_stack.pop_back();
 		ROS_INFO_STREAM(
-				"Current node " << current_node << " at depth " << current_depth << " (prev: " << previous_depth << ")");
+				"Current node " << current_node << " at depth " << current_depth << " (prev: " << previous_depth << ") with distance " << current_distance);
 		if (current_depth == previous_depth) { //remove last element from path, trying alternative edges
 			ROS_INFO_STREAM("Remove last element from path");
 			path_with_distance.pop_back();
-		} else if (current_depth < previous_depth) { //jump back in depth, remove depth difference + 1 nodes
+		} else if (current_depth < previous_depth) { //jumped back in depth, remove depth difference + 1 nodes
 			int depth_difference = previous_depth - current_depth + 1;
 			ROS_INFO_STREAM(
 					"Remove "<< depth_difference <<" elements from path");
 			path_with_distance.erase(
-					std::prev(path_with_distance.end(), depth_difference + 1),
-					path_with_distance.end()); //end is one element beyond last->+1
+					std::prev(path_with_distance.end(), depth_difference),
+					path_with_distance.end());
 		}
+		path_with_distance.emplace_back(current_node, current_distance);
+		std::string cur = "";
+		for (auto p : path_with_distance) {
+			cur += std::to_string(p.first) + " (" + std::to_string(p.second)
+					+ "),";
+		}
+		ROS_INFO_STREAM("Current path: " << cur);
 		previous_depth = current_depth;
 		for (auto edge : rrg.nodes[current_node].edges) {
 			if (!rrg.edges.at(edge).inactive) {
@@ -636,51 +643,46 @@ void GraphPathCalculator::findShortestRoutes(
 						"Edge " << edge << " to " << neighbor_node_index);
 				if (neighbor_node_index == target_node) { //found target
 					ROS_INFO_STREAM("Found target node");
-					path_with_distance.push_back(
-							std::make_pair(neighbor_node_index,
-									path_with_distance.back().second
-											+ rrg.edges.at(edge).length));
-					if (path_with_distance.back().second < distance) { //store path to target node if it improves the distance
+					double new_distance = path_with_distance.back().second
+							+ rrg.edges.at(edge).length;
+					if (new_distance < distance) { //store path to target node if it improves the distance
 						ROS_INFO_STREAM(
-								"Distance improved to " << path_with_distance.back().second << " store path");
+								"Distance improved to " << path_with_distance.back().second << ", store path");
+						path.clear();
+						distance = new_distance;
 						for (auto elem : path_with_distance) {
-							path.clear();
 							path.push_back(elem.first);
-							distance = path_with_distance.back().second;
 						}
+						path.push_back(neighbor_node_index);
 					}
 				} else if (rrg.nodes.at(neighbor_node_index).status
-						!= rrg_nbv_exploration_msgs::Node::INACTIVE
-						&& std::find(path.begin(), path.end(),
-								neighbor_node_index) != path.end()) { //don't allow loops and failed nodes in path
+						== rrg_nbv_exploration_msgs::Node::INACTIVE
+						|| std::find_if(path_with_distance.begin(),
+								path_with_distance.end(),
+								[neighbor_node_index](
+										std::pair<int, double> node_with_distance) {
+									return node_with_distance.first
+											== neighbor_node_index;
+								}) != path_with_distance.end()) { //don't allow loops and failed nodes in path
 					ROS_INFO_STREAM("Inactive or already in path");
-					continue;
-				}
-				double new_distance = path_with_distance.back().second
-						+ rrg.edges.at(edge).length;
-				ROS_INFO_STREAM(
-						"New distance is " << new_distance << " compared to threshold: " << distance);
-				if (new_distance < distance) { //discard any path above distance threshold
+				} else {
+					double new_distance = current_distance
+							+ rrg.edges.at(edge).length;
 					ROS_INFO_STREAM(
-							"Added node with distance " << new_distance << " to path");
-					path_with_distance.push_back(
-							std::make_pair(neighbor_node_index, new_distance));
-					node_queue.push_back(
-							std::make_pair(neighbor_node_index,
-									current_depth + 1));
+							"New distance is " << new_distance << " compared to threshold: " << distance);
+					if (new_distance < distance) { //discard any path above distance threshold
+						ROS_INFO_STREAM(
+								"Added node "<< neighbor_node_index << " with distance " << new_distance << " to queue");;
+						node_stack.emplace_back(neighbor_node_index,
+								current_depth + 1, new_distance);
+					}
 				}
 			}
 		}
-		std::string cur = "";
-		for (auto p : path_with_distance) {
-			cur += std::to_string(p.first) + " (" + std::to_string(p.second)
-					+ "),";
-		}
-		ROS_INFO_STREAM("Current path: " << cur);
 	}
 	std::string best = "";
 	for (auto p : path) {
-		best += p + ",";
+		best += std::to_string(p) + ",";
 	}
 	ROS_INFO_STREAM("Best path: " << best << " with distance " << distance);
 }

@@ -11,7 +11,7 @@
 #include <rrg_nbv_exploration_msgs/Node.h>
 #include <rrg_nbv_exploration_msgs/Edge.h>
 #include <rrg_nbv_exploration_msgs/NodeToUpdate.h>
-#include <rrg_nbv_exploration_msgs/BestAndCurrentNode.h>
+#include <rrg_nbv_exploration_msgs/ExplorationGoalObsolete.h>
 #include <rrg_nbv_exploration_msgs/RequestGoal.h>
 #include <rrg_nbv_exploration_msgs/RequestPath.h>
 #include <rrg_nbv_exploration_msgs/UpdateCurrentGoal.h>
@@ -64,7 +64,7 @@ private:
 	ros::NodeHandle _nh;
 
 	ros::Publisher _rrg_publisher;
-	ros::Publisher _best_and_current_goal_publisher;
+	ros::Publisher _exploration_goal_obsolete_publisher;
 	ros::Publisher _node_to_update_publisher;
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
@@ -182,9 +182,13 @@ private:
 	 */
 	bool _moved_to_current_goal;
 	/**
-	 * @brief Indicator if current goal was already updated before a new goal can be requested
+	 * @brief Indicator if current local goal was already updated before a new goal can be requested
 	 */
-	bool _goal_updated;
+	bool _local_goal_updated;
+	/**
+	 * @brief Indicator if current global goal was already updated before a new goal can be requested
+	 */
+	bool _global_goal_updated;
 	/**
 	 * @brief Radius that includes robot's footprint in m
 	 */
@@ -194,9 +198,13 @@ private:
 	 */
 	double _robot_radius_squared;
 	/**
-	 * @brief If current goal is currently updating
+	 * @brief If current local goal is currently updating which blocks attempts to update it again
 	 */
-	bool _updating;
+	bool _updating_local_goal;
+	/**
+	 * @brief If current global goal is currently updating which blocks attempts to update it again
+	 */
+	bool _updating_global_goal;
 	/**
 	 * @brief If sorting the list of nodes to update is required
 	 */
@@ -258,9 +266,25 @@ private:
 	 */
 	int _samples_per_loop;
 	/**
-	 * @brief If a global goal from a frontier is available to be used for navigation
+	 * @brief If there is a better goal than the currently pursued goal
 	 */
-	bool _global_goal_available;
+	bool _goal_obsolete;
+	/**
+	 * @brief If a local goal was pursued before global exploration starts again
+	 */
+	bool _pursued_local_goal;
+	/**
+	 * @brief If the frontier goal was reached by the robot
+	 */
+	bool _reached_frontier_goal;
+	/**
+	 * @brief If the global frontier currently active became obsolete
+	 */
+	bool _global_frontier_obsolete;
+	/**
+	 * @brief If a global goal is currently pursued, false if a local goal is pursued
+	 */
+	bool _pursuing_global_goal;
 
 	/**
 	 * @brief Initialize the exploration with a root node at seed, initialize helper classes and nodes
@@ -325,9 +349,9 @@ private:
 	 */
 	bool determineNearestNodeToRobot(geometry_msgs::Point robot_pos);
 	/**
-	 * @brief Publish the node that currently has the best gain-cost-ratio
+	 * @brief Publish if there is a better goal than the currently pursued goal
 	 */
-	void publishBestAndCurrentNode();
+	void publishExplorationGoalObsolete();
 	/**
 	 * @brief Sorts the nodes which gain needs to be (re)calculated by their distance to the robot (closest first)
 	 */

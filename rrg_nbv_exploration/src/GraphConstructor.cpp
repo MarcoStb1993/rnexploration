@@ -35,9 +35,9 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 			rrg_nbv_exploration_msgs::NodeToUpdate>("node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
 			&GraphConstructor::updatedNodeCallback, this);
-	_best_and_current_goal_publisher = nh.advertise<
-			rrg_nbv_exploration_msgs::BestAndCurrentNode>("bestAndCurrentGoal",
-			1);
+	_exploration_goal_obsolete_publisher = nh.advertise<
+			rrg_nbv_exploration_msgs::ExplorationGoalObsolete>(
+			"explorationGoalObsolete", 1);
 	_request_goal_service = nh.advertiseService("requestGoal",
 			&GraphConstructor::requestGoal, this);
 	_request_path_service = nh.advertiseService("requestPath",
@@ -70,13 +70,15 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_global_graph_handler.reset(new GlobalGraphHandler());
 	_running = false;
 	_local_running = false;
-	_explored_current_goal_node_by_update = false;
-	_global_goal_available = false;
 	if (_local_sampling_radius > _sensor_range) //cannot sample outside local area
 		_local_sampling_radius = _sensor_range;
 }
 
 void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
+	_pursuing_global_goal = false;
+	_reached_frontier_goal = false;
+	_global_goal_updated = true;
+	_updating_global_goal = false;
 	initLocalGraph(seed);
 	resetHelperClasses();
 	_global_graph_handler->initialize(_rrg.nodes[0], _graph_path_calculator,
@@ -108,10 +110,12 @@ void GraphConstructor::initLocalGraph(
 	_current_goal_node = -1;
 	_last_goal_node = -1;
 	_last_updated_node = -1;
-	_goal_updated = true;
-	_updating = false;
+	_local_goal_updated = true;
+	_updating_local_goal = false;
 	_sort_nodes_to_update = false;
-	_global_goal_available = false;
+	_goal_obsolete = false;
+	_pursued_local_goal = false;
+	_explored_current_goal_node_by_update = false;
 	_consecutive_failed_goals = 0;
 	_last_robot_pos = root_position;
 	_nodes_to_update.push_back(0);
@@ -127,49 +131,55 @@ void GraphConstructor::resetHelperClasses() {
 
 void GraphConstructor::runExploration() {
 	_rrg.header.stamp = ros::Time::now();
-	if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
-			&& _map_min_bounding[2]) {
+	if (_running) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
-		bool new_nearest_node = determineNearestNodeToRobot(
-				_robot_pose.position); //check if nearest node to robot changed which means robot moved
-		expandGraph(!new_nearest_node);
-		if (new_nearest_node) { //robot moved, update paths
-			pruneLocalGraph(); //remove nodes from local RRG that are too far away
-			_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node, _rrg,
-					_robot_pose, true, _nodes_to_update, _sort_nodes_to_update);
-			determineNextNodeInPath();
-			_global_graph_handler->deactivateFrontiersInLocalGraph(_rrg,
-					_last_robot_pos); //remove frontiers that can be connected to the RRG
-		} else { //check if robot heading changed and update heading
-			if (_graph_path_calculator->updateHeadingToRobot(_rrg.nearest_node,
-					_rrg, _robot_pose, _next_node, _edge_to_next_node,
-					_distance_to_nearest_node_squared, _nodes_to_update,
-					_sort_nodes_to_update))
-				_node_comparator->robotMoved();
+		if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
+				&& _map_min_bounding[2]) {
+			bool new_nearest_node = determineNearestNodeToRobot(
+					_robot_pose.position); //check if nearest node to robot changed which means robot moved
+			expandGraph(!new_nearest_node);
+			if (new_nearest_node) { //robot moved, update paths
+				pruneLocalGraph(); //remove nodes from local RRG that are too far away
+				_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node,
+						_rrg, _robot_pose, true, _nodes_to_update,
+						_sort_nodes_to_update);
+				determineNextNodeInPath();
+//			_global_graph_handler->deactivateFrontiersInLocalGraph(_rrg,
+//					_last_robot_pos); //remove frontiers that can be connected to the RRG
+			} else { //check if robot heading changed and update heading
+				if (_graph_path_calculator->updateHeadingToRobot(
+						_rrg.nearest_node, _rrg, _robot_pose, _next_node,
+						_edge_to_next_node, _distance_to_nearest_node_squared,
+						_nodes_to_update, _sort_nodes_to_update))
+					_node_comparator->robotMoved();
+			}
+			_node_comparator->maintainList(_rrg);
+			checkCurrentGoal();
+			publishNodeToUpdate();
+			if (_nodes_to_update.empty() && _current_goal_node == -1) {
+				_local_exploration_finished_timer.start();
+			}
+		} else if (!_local_running) {
+			if (!_global_graph_handler->checkIfNextFrontierWithPathIsValid()) {
+				if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) { //exploration finished
+					ROS_INFO_STREAM("Exploration finished");
+					_running = false;
+				} else {
+					_global_goal_updated = true;
+					_updating_global_goal = false;
+				}
+			} else if (_global_graph_handler->updateClosestWaypoint(
+					_robot_pose.position)) { //frontier reached
+				geometry_msgs::Point frontier;
+				std::vector<int> connected_paths =
+						_global_graph_handler->frontierReached(frontier);
+				initLocalGraph(frontier);
+				resetHelperClasses();
+				_rrg.nodes.front().connected_to = connected_paths;
+				_local_running = true;
+			}
 		}
-		_node_comparator->maintainList(_rrg);
-		checkCurrentGoal();
-		publishBestAndCurrentNode();
-		publishNodeToUpdate();
-		if (_nodes_to_update.empty() && _current_goal_node == -1) {
-			_local_exploration_finished_timer.start();
-		}
-	}
-	if (_running && !_local_running) {
-		if (!_global_goal_available) {
-			switchFromLocalToGlobalExploration();
-		}
-		_robot_pose = _graph_path_calculator->getRobotPose();
-		if (_global_graph_handler->updateClosestWaypoint(
-				_robot_pose.position)) { //frontier reached
-			geometry_msgs::Point frontier;
-			std::vector<int> connected_paths =
-					_global_graph_handler->frontierReached(frontier);
-			initLocalGraph(frontier);
-			resetHelperClasses();
-			_rrg.nodes.front().connected_to = connected_paths;
-			_local_running = true;
-		}
+		publishExplorationGoalObsolete();
 	}
 	_rrg_publisher.publish(_rrg);
 	_global_graph_handler->publishGlobalGraph();
@@ -445,6 +455,13 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 
 void GraphConstructor::deactivateNode(int node) {
 	ROS_INFO_STREAM("deactivateNode " << node);
+	if (node == _current_goal_node) {
+		ROS_INFO_STREAM("Pruned current goal node " << node);
+		_updating_local_goal = true;
+		_rrg.nodes[_current_goal_node].status =
+				rrg_nbv_exploration_msgs::Node::ABORTED;
+		handleCurrentLocalGoalFinished();
+	}
 	if (_rrg.nodes[node].gain > 0) {
 		removeNodeFromUpdateLists(node);
 		_global_graph_handler->addFrontier(node, _rrg);
@@ -514,8 +531,11 @@ void GraphConstructor::checkCurrentGoal() {
 	if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
 		_current_goal_node = _node_comparator->getBestNode();
 		_moved_to_current_goal = false;
-		_goal_updated = true;
-		_updating = false;
+		_explored_current_goal_node_by_update = false;
+		_goal_obsolete = false;
+		_updating_local_goal = false;
+		_local_goal_updated = true;
+		_pursued_local_goal = true;
 		determineNextNodeInPath();
 		ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 	}
@@ -599,16 +619,28 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 	return false;
 }
 
-void GraphConstructor::publishBestAndCurrentNode() {
-	rrg_nbv_exploration_msgs::BestAndCurrentNode msg;
-	msg.current_goal = _current_goal_node;
-	msg.best_node =
-			_node_comparator->isEmpty() ?
-					(_explored_current_goal_node_by_update ?
-							-1 : _current_goal_node) :
-					_node_comparator->getBestNode(); //set best node to -1 if current goal was explored and no unexplored nodes are available
-	msg.goal_updated = _goal_updated;
-	_best_and_current_goal_publisher.publish(msg);
+void GraphConstructor::publishExplorationGoalObsolete() {
+	rrg_nbv_exploration_msgs::ExplorationGoalObsolete msg;
+	if ((!_pursuing_global_goal
+			&& ((!_node_comparator->isEmpty()
+					&& _node_comparator->getBestNode() != _current_goal_node)
+					|| _explored_current_goal_node_by_update))
+			|| (_pursuing_global_goal
+					&& (_global_frontier_obsolete
+							|| (!_reached_frontier_goal
+									&& _current_goal_node != -1)))) {
+//		if (!_goal_obsolete) {
+//			_goal_obsolete = true;
+		ROS_WARN_STREAM(
+				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _explored_current_goal_node_by_update << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
+//		}
+		msg.goal_obsolete = true;
+	} else {
+		msg.goal_obsolete = false;
+	}
+	msg.goal_updated =
+			_pursuing_global_goal ? _global_goal_updated : _local_goal_updated;
+	_exploration_goal_obsolete_publisher.publish(msg);
 }
 
 void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
@@ -858,14 +890,13 @@ void GraphConstructor::updateMapDimensions() {
 }
 
 void GraphConstructor::switchFromLocalToGlobalExploration() {
-	if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) {
-		//exploration finished
-		ROS_INFO_STREAM("Exploration finished");
-		_running = false;
-	} else {
-		_global_goal_available = true;
-		_local_running = false;
+	if (!_pursued_local_goal) { //if a current frontier goal is active, it became obsolete
+		_global_frontier_obsolete = true;
+		publishExplorationGoalObsolete();
+		_global_frontier_obsolete = false;
+		_pursued_local_goal = true;
 	}
+	_local_running = false;
 }
 
 void GraphConstructor::localExplorationFinishedTimerCallback(
@@ -874,20 +905,16 @@ void GraphConstructor::localExplorationFinishedTimerCallback(
 	ROS_INFO_STREAM(
 			"Local exploration without goals, switch to global exploration");
 	switchFromLocalToGlobalExploration();
-//
-//	if (_auto_homing) {
-//		ROS_INFO_STREAM("Return to start");
-//		_current_goal_node = 0; //go back to root node
-//		_goal_updated = true;
-//	}
 }
 
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
+	ROS_INFO_STREAM(
+			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
 	res.exploration_finished = !_running;
 	if (_local_running) { // local goal
-		res.goal_available = _goal_updated && _current_goal_node != -1;
+		res.goal_available = _local_goal_updated && _current_goal_node != -1;
 		if (res.goal_available) {
 			if (_rrg.nodes[_current_goal_node].status
 					== rrg_nbv_exploration_msgs::Node::VISITED) {
@@ -901,20 +928,22 @@ bool GraphConstructor::requestGoal(
 			res.goal = _rrg.nodes[_current_goal_node].position;
 			res.best_yaw = _graph_path_calculator->determineGoalYaw(
 					_current_goal_node, _rrg, _last_robot_pos, !_running);
-			_goal_updated = false;
+			_local_goal_updated = false;
+			_pursuing_global_goal = false;
 		}
 	} else { //global goal
 		geometry_msgs::Point goal;
 		double yaw;
-		if (_global_goal_available
-				&& _global_graph_handler->getFrontierGoal(goal, yaw,
-						_robot_pose.position)) {
-			res.goal_available = _global_goal_available;
+		if (_global_graph_handler->getFrontierGoal(goal, yaw,
+				_robot_pose.position)) {
+			res.goal_available = true;
 			res.goal = goal;
 			res.best_yaw = yaw;
+			_global_goal_updated = false;
+			_pursuing_global_goal = true;
+			_reached_frontier_goal = false;
 		} else {
-			_global_goal_available = false; //set to false to recalculate frontier
-			res.goal_available = _global_goal_available;
+			res.goal_available = false;
 		}
 	}
 	return true;
@@ -947,24 +976,27 @@ bool GraphConstructor::requestPath(
 bool GraphConstructor::updateCurrentGoal(
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Request &req,
 		rrg_nbv_exploration_msgs::UpdateCurrentGoal::Response &res) {
-	if (_local_running) {
-//		if (!_running)
-//			_auto_homing = false; //end exploration when navigation to home node is finished (even if it failed)
-		if (_current_goal_node != -1 && !_updating) {
-			_updating = true;
+	if (!_pursuing_global_goal) { //local goal
+		if (_current_goal_node != -1 && !_updating_local_goal) {
+			_updating_local_goal = true;
 			_rrg.nodes[_current_goal_node].status = req.status;
 			handleCurrentLocalGoalFinished();
 		}
-		res.success = true;
-		res.message = "Changed current goal's status";
-	} else {
-		if (req.status == rrg_nbv_exploration_msgs::Node::VISITED) { //reached frontier goal
-			ROS_INFO_STREAM("Frontier goal reached");
-		} else { //failed to reach frontier goal
-			ROS_INFO_STREAM("Navigation to frontier goal aborted/failed");
-			//TODO: try other frontier if close to waypoints
+	} else { //global goal
+		if (!_updating_global_goal) {
+			_updating_global_goal = true;
+			if (req.status == rrg_nbv_exploration_msgs::Node::VISITED
+					|| req.status == rrg_nbv_exploration_msgs::Node::ABORTED) { //reached frontier goal or aborted it for new one
+				ROS_INFO_STREAM("Frontier goal reached");
+				_reached_frontier_goal = true;
+			} else { //failed to reach frontier goal
+				ROS_INFO_STREAM("Navigation to frontier goal failed");
+				//TODO: try other frontier if close to waypoints
+			}
 		}
 	}
+	res.success = true;
+	res.message = "Changed current goal's status";
 	return true;
 }
 

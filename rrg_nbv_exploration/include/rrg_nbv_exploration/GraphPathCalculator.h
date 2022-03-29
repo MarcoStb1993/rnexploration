@@ -178,6 +178,23 @@ public:
 			uint32_t level);
 
 private:
+
+	/**
+	 * @brief Structure to store the node index as well as the path depth and distance for
+	 * finding the shortest path in the RRG between two frontiers
+	 */
+	struct ShortestPathQueueStruct {
+		int node;
+		int depth;
+		double distance;
+
+		ShortestPathQueueStruct(int n, int d, double dis) {
+			node = n;
+			depth = d;
+			distance = dis;
+		}
+	};
+
 	ros::NodeHandle _nh;
 
 	tf2_ros::Buffer _tf_buffer;

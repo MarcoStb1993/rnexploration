@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
    Graph.msg
    Node.msg
    Edge.msg
-   BestAndCurrentNode.msg
+   ExplorationGoalObsolete.msg
    NodeToUpdate.msg
    GlobalPath.msg
    GlobalFrontier.msg
