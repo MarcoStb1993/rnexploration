@@ -7,7 +7,7 @@ CollisionChecker::CollisionChecker() {
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
 	private_nh.param("sensor_max_range", _sensor_range, 5.0);
-	private_nh.param("check_init_position", _check_init_position, false);
+	private_nh.param("local_graph_radius", _local_graph_radius, 5.0);
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	std::string occupancy_grid_topic;
 	private_nh.param<std::string>("occupancy_grid_topic", occupancy_grid_topic,
@@ -480,7 +480,7 @@ void CollisionChecker::calculateNextInflatedCircleLinesOffset() {
 				* _grid_map_resolution + _grid_map_resolution; //round up radius to next full grid map tile
 		prevOffsetSet = _circle_lines_offset;
 	} else if (_inflated_ring_lines_offsets.back().first + _grid_map_resolution
-			> _sensor_range) {
+			> _local_graph_radius) {
 		return; //abort, all inflation ring offsets are calculated
 	} else { //new inflation ring
 		new_radius = _inflated_ring_lines_offsets.back().first

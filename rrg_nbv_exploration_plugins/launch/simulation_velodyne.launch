@@ -27,7 +27,7 @@
 	<arg name="robot_radius" default="0.7" />
 	<arg name="min_view_score" default="0.03" />
 	<arg name="local_sampling_radius" default="5" />
-	<arg name="local_graph_radius" default="5" />
+	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
 	<!-- Robot starting position in world -->

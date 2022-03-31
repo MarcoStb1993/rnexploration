@@ -415,6 +415,35 @@ private:
 	 */
 	void improvePathToConnectedFrontier(int frontier_path, int path,
 			int other_frontier, int other_path);
+
+	/**
+	 * @brief Store the given path from the provided frontier to another frontier as the other frontier's
+	 * path to local graph (in a reverse order of the provided frontier has a higher index then the other)
+	 * @param Index of the path connecting both frontiers
+	 * @param Index of the frontier which will be removed and where the local graph will begin
+	 * @param Reference to a list of path indices which will be connected to the root node of the new
+	 * local graph (Indices of the other frontier's paths to the local graph)
+	 */
+	void overwritePathToLocalGraph(int path, int frontier,
+			std::vector<int> &connected_paths);
+
+	/**
+	 * @brief Connect all frontier paths to the local graph directly to the nearest node to the robot
+	 * by attaching the connecting node's path and distance to robot to the frontier path
+	 * @param Reference to the RRG
+	 */
+	void connectPathsToLocalGraphToNearestNode(
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Find the shortest connection between active frontiers in the local graph that do not have a
+	 * connecting path yet
+	 * @param List of active frontiers that must be connected to all other frontiers
+	 * @param Reference to the RRG
+	 */
+	void establishMissingFrontierToFrontierConnections(
+			std::vector<int> active_frontiers,
+			rrg_nbv_exploration_msgs::Graph &rrg);
 };
 
 } /* namespace rrg_nbv_exploration */

@@ -246,9 +246,9 @@ private:
 	 */
 	nav_msgs::OccupancyGrid _vis_map;
 	/**
-	 * If the initial position when starting exploration has to be checked for obstacles
+	 * @brief Radius of the RRG around the robot in m
 	 */
-	bool _check_init_position;
+	double _local_graph_radius;
 	/**
 	 * @brief Grid map cell edge length in m
 	 */
@@ -362,7 +362,7 @@ private:
 
 	/**
 	 * @brief Calculate the x and y offsets and the x start for the current inflation radius up to the
-	 * sensor range
+	 * local graph radius
 	 */
 	void calculateNextInflatedCircleLinesOffset();
 
