@@ -55,7 +55,7 @@ void GraphPathCalculator::updatePathsToRobot(int start_node,
 	int robot_yaw = getRobotYaw(robot_pos); //get current robot orientation (yaw) for heading change calculation
 	_last_robot_yaw = robot_yaw;
 	//run Dijkstra on RRG and assign distance and path to each node
-	std::set<int> node_queue;
+	std::set<std::pair<double, int>> node_queue; //node's cost function (first) and index (second)
 	if (reset) { //robot moved and is currently at startNode's position
 		for (auto &node : rrg.nodes) {
 			node.distance_to_robot = std::numeric_limits<double>::infinity();
@@ -76,10 +76,14 @@ void GraphPathCalculator::updatePathsToRobot(int start_node,
 						!= rrg_nbv_exploration_msgs::Node::FAILED) {
 			initializeStartingNode(_last_nearest_node, robot_pos, robot_yaw,
 					rrg);
-			node_queue.insert(_last_nearest_node);
+			node_queue.insert(
+					std::make_pair(
+							rrg.nodes.at(_last_nearest_node).cost_function,
+							_last_nearest_node));
 		}
 	}
-	node_queue.insert(start_node);
+	node_queue.insert(
+			std::make_pair(rrg.nodes.at(start_node).cost_function, start_node));
 	findBestRoutes(node_queue, rrg, reset, nodes_to_update,
 			added_node_to_update);
 	if (reset)
@@ -110,7 +114,7 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 	initializeStartingNode(start_node, robot_pos, robot_yaw, rrg);
 	rrg.nodes[start_node].cost_function = calculateCostFunction(
 			rrg.nodes[start_node]);
-	std::set<int> node_queue; //queue to nodes that were updates
+	std::set<std::pair<double, int>> node_queue; //node's cost function (first) and index (second)
 	if (distance_to_nearest_node_squared <= _robot_radius_squared) { //robot in proximity to nearest node
 		for (int edge : rrg.nodes[start_node].edges) { //find nodes with direct edge to start node and calculate the difference
 			int direct_neighbor_node = -1;
@@ -155,11 +159,16 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 								+ rrg.nodes[direct_neighbor_node].radius;
 				rrg.nodes[direct_neighbor_node].cost_function =
 						calculateCostFunction(rrg.nodes[direct_neighbor_node]);
-				node_queue.insert(direct_neighbor_node);
+				node_queue.insert(
+						std::make_pair(
+								rrg.nodes.at(direct_neighbor_node).cost_function,
+								direct_neighbor_node));
 			}
 		}
 	} else {
-		node_queue.insert(start_node);
+		node_queue.insert(
+				std::make_pair(rrg.nodes.at(start_node).cost_function,
+						start_node));
 		if (next_node != -1 && edge_to_next_node != -1
 				&& rrg.nodes[next_node].status
 						!= rrg_nbv_exploration_msgs::Node::FAILED) { // ignore start node for distance, path, traversability and radii
@@ -170,7 +179,9 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 					rrg.edges[edge_to_next_node].traversability_cost;
 			rrg.nodes[next_node].traversability_weight_to_robot +=
 					rrg.edges[edge_to_next_node].traversability_weight;
-			node_queue.insert(next_node);
+			node_queue.insert(
+					std::make_pair(rrg.nodes.at(next_node).cost_function,
+							next_node));
 		}
 	}
 	findBestRoutes(node_queue, rrg, true, nodes_to_update,
@@ -202,52 +213,58 @@ void GraphPathCalculator::initializeStartingNode(int node,
 	rrg.nodes[node].cost_function = calculateCostFunction(rrg.nodes[node]);
 }
 
-void GraphPathCalculator::findBestRoutes(std::set<int> node_queue,
+void GraphPathCalculator::findBestRoutes(
+		std::set<std::pair<double, int>> &node_queue,
 		rrg_nbv_exploration_msgs::Graph &rrg, bool reset,
 		std::list<int> &nodes_to_update, bool &added_node_to_update) {
 	while (!node_queue.empty()) {
-		int current_node = *node_queue.begin();
+		int current_node = node_queue.begin()->second;
 		node_queue.erase(node_queue.begin());
 		for (auto edge : rrg.nodes[current_node].edges) {
-			int neighbor_node_index =
-					rrg.edges[edge].first_node == current_node ?
-							rrg.edges[edge].second_node :
-							rrg.edges[edge].first_node;
-			if (isNodeInPath(neighbor_node_index, current_node, rrg)
-					|| rrg.nodes[neighbor_node_index].status
-							== rrg_nbv_exploration_msgs::Node::FAILED) { //don't allow loops and failed nodes in path
-				continue;
-			}
-			rrg_nbv_exploration_msgs::Node node_with_new_connection =
-					calculateCostFunctionForConnection(current_node,
-							neighbor_node_index, edge, rrg);
-			if (node_with_new_connection.cost_function
-					< rrg.nodes[neighbor_node_index].cost_function) {
-				if (!reset
-						&& std::isinf(
-								rrg.nodes[neighbor_node_index].cost_function)) { //add previously unreachable node to list of nodes to update
-					nodes_to_update.push_back(neighbor_node_index);
-					added_node_to_update = true;
+			if (!rrg.edges.at(edge).inactive) {
+				int neighbor_node_index =
+						rrg.edges[edge].first_node == current_node ?
+								rrg.edges[edge].second_node :
+								rrg.edges[edge].first_node;
+				if (isNodeInPath(neighbor_node_index, current_node, rrg)
+						|| rrg.nodes[neighbor_node_index].status
+								== rrg_nbv_exploration_msgs::Node::FAILED) { //don't allow loops and failed nodes in path
+					continue;
 				}
-				rrg.nodes[neighbor_node_index].distance_to_robot =
-						node_with_new_connection.distance_to_robot;
-				rrg.nodes[neighbor_node_index].path_to_robot =
-						node_with_new_connection.path_to_robot;
-				rrg.nodes[neighbor_node_index].radii_to_robot =
-						node_with_new_connection.radii_to_robot;
-				rrg.nodes[neighbor_node_index].heading_in =
-						node_with_new_connection.heading_in;
-				rrg.nodes[neighbor_node_index].heading_change_to_robot =
-						node_with_new_connection.heading_change_to_robot;
-				rrg.nodes[neighbor_node_index].heading_change_to_robot_best_view =
-						node_with_new_connection.heading_change_to_robot_best_view;
-				rrg.nodes[neighbor_node_index].traversability_cost_to_robot =
-						node_with_new_connection.traversability_cost_to_robot;
-				rrg.nodes[neighbor_node_index].traversability_weight_to_robot =
-						node_with_new_connection.traversability_weight_to_robot;
-				rrg.nodes[neighbor_node_index].cost_function =
-						node_with_new_connection.cost_function;
-				node_queue.insert(neighbor_node_index);
+				rrg_nbv_exploration_msgs::Node node_with_new_connection =
+						calculateCostFunctionForConnection(current_node,
+								neighbor_node_index, edge, rrg);
+				if (node_with_new_connection.cost_function
+						< rrg.nodes[neighbor_node_index].cost_function) {
+					if (!reset
+							&& std::isinf(
+									rrg.nodes[neighbor_node_index].cost_function)) { //add previously unreachable node to list of nodes to update
+						nodes_to_update.push_back(neighbor_node_index);
+						added_node_to_update = true;
+					}
+					rrg.nodes[neighbor_node_index].distance_to_robot =
+							node_with_new_connection.distance_to_robot;
+					rrg.nodes[neighbor_node_index].path_to_robot =
+							node_with_new_connection.path_to_robot;
+					rrg.nodes[neighbor_node_index].radii_to_robot =
+							node_with_new_connection.radii_to_robot;
+					rrg.nodes[neighbor_node_index].heading_in =
+							node_with_new_connection.heading_in;
+					rrg.nodes[neighbor_node_index].heading_change_to_robot =
+							node_with_new_connection.heading_change_to_robot;
+					rrg.nodes[neighbor_node_index].heading_change_to_robot_best_view =
+							node_with_new_connection.heading_change_to_robot_best_view;
+					rrg.nodes[neighbor_node_index].traversability_cost_to_robot =
+							node_with_new_connection.traversability_cost_to_robot;
+					rrg.nodes[neighbor_node_index].traversability_weight_to_robot =
+							node_with_new_connection.traversability_weight_to_robot;
+					rrg.nodes[neighbor_node_index].cost_function =
+							node_with_new_connection.cost_function;
+					node_queue.insert(
+							std::make_pair(
+									rrg.nodes.at(neighbor_node_index).cost_function,
+									neighbor_node_index));
+				}
 			}
 		}
 	}
@@ -599,92 +616,81 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 }
 
 void GraphPathCalculator::findShortestRoutes(
-		rrg_nbv_exploration_msgs::Graph &rrg, int start_node, int target_node,
-		std::vector<int> &path, double &distance) {
-	std::vector<ShortestPathQueueStruct> node_stack;
-	node_stack.emplace_back(start_node, 0, 0.0);
-	std::vector<std::pair<int, double>> path_with_distance; //node index (first) and distance to this node from start node (second)
+		rrg_nbv_exploration_msgs::Graph &rrg, int frontier_connecting_node,
+		std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
+		std::vector<std::pair<std::vector<int>, double>> &local_paths,
+		double max_distance_threshold) {
+	std::vector<LocalNode> local_nodes; //copy of all RRG nodes including only relevant information
+	for (auto node : rrg.nodes) {
+		local_nodes.emplace_back(node.index,
+				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
+	}
+	std::string mfwcn = "";
+	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { //link node copies with connected missing frontiers
+		local_nodes.at(missing_frontier_with_connecting_node.second).missing_frontiers.push_back(
+				missing_frontier_with_connecting_node.first);
+		mfwcn += std::to_string(missing_frontier_with_connecting_node.second)
+				+ " ("
+				+ std::to_string(missing_frontier_with_connecting_node.first)
+				+ "),";
+		std::vector<int> path;
+		local_paths.push_back(std::make_pair(path, 0.0));
+	}
+	std::set<std::pair<double, int>> node_queue; //node's distance to frontier connected node (first) and index (second)
+	local_nodes.at(frontier_connecting_node).path_length = 0;
+	local_nodes.at(frontier_connecting_node).path_to_frontier.push_back(
+			frontier_connecting_node);
+	node_queue.insert(std::make_pair(0, frontier_connecting_node));
 	ROS_INFO_STREAM(
-			"Find shortest route between " << start_node << " and " << target_node << " with max distance " << distance);
-	int previous_depth = -1; //start value to not pop any node from path
-	while (!node_stack.empty()) {
-		int current_node = node_stack.back().node;
-		int current_depth = node_stack.back().depth;
-		double current_distance = node_stack.back().distance;
-		node_stack.pop_back();
-		ROS_INFO_STREAM(
-				"Current node " << current_node << " at depth " << current_depth << " (prev: " << previous_depth << ") with distance " << current_distance);
-		if (current_depth == previous_depth) { //remove last element from path, trying alternative edges
-			ROS_INFO_STREAM("Remove last element from path");
-			path_with_distance.pop_back();
-		} else if (current_depth < previous_depth) { //jumped back in depth, remove depth difference + 1 nodes
-			int depth_difference = previous_depth - current_depth + 1;
-			ROS_INFO_STREAM(
-					"Remove "<< depth_difference <<" elements from path");
-			path_with_distance.erase(
-					std::prev(path_with_distance.end(), depth_difference),
-					path_with_distance.end());
-		}
-		path_with_distance.emplace_back(current_node, current_distance);
-		std::string cur = "";
-		for (auto p : path_with_distance) {
-			cur += std::to_string(p.first) + " (" + std::to_string(p.second)
-					+ "),";
-		}
-		ROS_INFO_STREAM("Current path: " << cur);
-		previous_depth = current_depth;
+			"Find shortest route with thres:" << max_distance_threshold <<" between " << frontier_connecting_node << " and " << mfwcn);
+	while (!node_queue.empty()) {
+		int current_node = node_queue.begin()->second;
+		node_queue.erase(node_queue.begin());
 		for (auto edge : rrg.nodes[current_node].edges) {
-			if (!rrg.edges.at(edge).inactive) {
+			if (!rrg.edges.at(edge).inactive) { //only traverse active edges
 				int neighbor_node_index =
 						rrg.edges[edge].first_node == current_node ?
 								rrg.edges[edge].second_node :
 								rrg.edges[edge].first_node;
-				ROS_INFO_STREAM(
-						"Edge " << edge << " to " << neighbor_node_index);
-				if (neighbor_node_index == target_node) { //found target
-					ROS_INFO_STREAM("Found target node");
-					double new_distance = path_with_distance.back().second
-							+ rrg.edges.at(edge).length;
-					if (new_distance < distance) { //store path to target node if it improves the distance
-						ROS_INFO_STREAM(
-								"Distance improved to " << path_with_distance.back().second << ", store path");
-						path.clear();
-						distance = new_distance;
-						for (auto elem : path_with_distance) {
-							path.push_back(elem.first);
+				double new_length = local_nodes.at(current_node).path_length
+						+ rrg.edges.at(edge).length;
+				if (new_length <= max_distance_threshold
+						&& new_length
+								< local_nodes.at(neighbor_node_index).path_length) { //improved path to neighbor node
+					local_nodes.at(neighbor_node_index).path_length =
+							new_length;
+					local_nodes.at(neighbor_node_index).path_to_frontier =
+							local_nodes.at(current_node).path_to_frontier;
+					local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+							neighbor_node_index);
+					node_queue.insert(
+							std::make_pair(new_length, neighbor_node_index));
+					if (!local_nodes.at(neighbor_node_index).missing_frontiers.empty()) {
+						std::string frons = "";
+						for (int i = 0;
+								i
+										< local_nodes.at(neighbor_node_index).missing_frontiers.size();
+								i++) {
+							local_paths.at(i).first = local_nodes.at(
+									neighbor_node_index).path_to_frontier;
+							local_paths.at(i).second = local_nodes.at(
+									neighbor_node_index).path_length;
+							frons +=
+									std::to_string(
+											local_nodes.at(neighbor_node_index).missing_frontiers.at(
+													i)) + ",";
 						}
-						path.push_back(neighbor_node_index);
-					}
-				} else if (rrg.nodes.at(neighbor_node_index).status
-						== rrg_nbv_exploration_msgs::Node::INACTIVE
-						|| std::find_if(path_with_distance.begin(),
-								path_with_distance.end(),
-								[neighbor_node_index](
-										std::pair<int, double> node_with_distance) {
-									return node_with_distance.first
-											== neighbor_node_index;
-								}) != path_with_distance.end()) { //don't allow loops and failed nodes in path
-					ROS_INFO_STREAM("Inactive or already in path");
-				} else {
-					double new_distance = current_distance
-							+ rrg.edges.at(edge).length;
-					ROS_INFO_STREAM(
-							"New distance is " << new_distance << " compared to threshold: " << distance);
-					if (new_distance < distance) { //discard any path above distance threshold
+						std::string best = "";
+						for (auto p : local_nodes.at(neighbor_node_index).path_to_frontier) {
+							best += std::to_string(p) + ",";
+						}
 						ROS_INFO_STREAM(
-								"Added node "<< neighbor_node_index << " with distance " << new_distance << " to queue");;
-						node_stack.emplace_back(neighbor_node_index,
-								current_depth + 1, new_distance);
+								"New best path for frontier " << frons << ": " << best << " with distance " << local_nodes.at( neighbor_node_index).path_length);
 					}
 				}
 			}
 		}
 	}
-	std::string best = "";
-	for (auto p : path) {
-		best += std::to_string(p) + ",";
-	}
-	ROS_INFO_STREAM("Best path: " << best << " with distance " << distance);
 }
 
 void GraphPathCalculator::dynamicReconfigureCallback(

@@ -12,7 +12,6 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("sensor_max_range", _sensor_range, 5.0);
 	_radius_search_range = pow(2 * _sensor_range, 2);
 	private_nh.param("local_graph_radius", _local_graph_radius, 5.0);
-	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 	private_nh.param("sensor_height", _sensor_height, 0.5);
 	double min_edge_distance;
 	private_nh.param("min_edge_distance", _min_edge_distance, 1.0);
@@ -63,6 +62,10 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GraphConstructor::convertOctomapMsgToOctree, this);
 
+	_local_graph_radius = std::max(_local_graph_radius, 2 * _robot_radius); //cannot fall below the robot diameter
+	_local_graph_radius_squared = pow(_local_graph_radius, 2);
+	_local_sampling_radius = std::min(_sensor_range, _local_graph_radius); //cannot exceed local graph radius
+
 	_graph_searcher.reset(new GraphSearcher());
 	_collision_checker.reset(new CollisionChecker());
 	_graph_path_calculator.reset(new GraphPathCalculator());
@@ -70,8 +73,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_global_graph_handler.reset(new GlobalGraphHandler());
 	_running = false;
 	_local_running = false;
-	if (_local_sampling_radius > _sensor_range) //cannot sample outside local area
-		_local_sampling_radius = _sensor_range;
+	if (_local_sampling_radius > _local_graph_radius_squared) //cannot sample outside local area
+		_local_sampling_radius = _local_graph_radius_squared;
 }
 
 void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
@@ -115,7 +118,7 @@ void GraphConstructor::initLocalGraph(
 	_sort_nodes_to_update = false;
 	_goal_obsolete = false;
 	_pursued_local_goal = false;
-	_explored_current_goal_node_by_update = false;
+	_local_goal_obsolete = false;
 	_consecutive_failed_goals = 0;
 	_last_robot_pos = root_position;
 	_nodes_to_update.push_back(0);
@@ -188,28 +191,31 @@ void GraphConstructor::runExploration() {
 void GraphConstructor::expandGraph(bool update_paths) {
 	for (int i = 0; i < _samples_per_loop; i++) {
 		geometry_msgs::Point rand_sample;
-		bool sampling_success =
-				(_local_sampling_radius > 0 && i % 2 != 0) ?
-						samplePointLocally(rand_sample) :
-						samplePoint(rand_sample); //every first sample is global, every second local
-		rrg_nbv_exploration_msgs::Node node;
-		if (sampling_success
-				&& _collision_checker->steer(_rrg, node, rand_sample,
-						_robot_pose)) {
-			if (!std::isinf(node.cost_function)) { //do not update unreachable nodes
-				if (update_paths)
-					_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
-							_robot_pose, false, _nodes_to_update,
-							_sort_nodes_to_update); //check if new connection could improve other distances
-				_nodes_to_update.push_back(node.index);
-				_sort_nodes_to_update = true;
-			} else {
-				ROS_INFO_STREAM(
-						"Do not update unreachable node " << node.index);
-			}
-			_graph_searcher->rebuildIndex(_rrg);
-			_local_exploration_finished_timer.stop();
+		insertNewNode(samplePoint(rand_sample), rand_sample, update_paths);
+		if (_local_sampling_radius > 0)
+			insertNewNode(samplePointLocally(rand_sample), rand_sample,
+					update_paths);
+	}
+}
+
+void GraphConstructor::insertNewNode(bool sampling_success,
+		const geometry_msgs::Point &rand_sample, bool update_paths) {
+	rrg_nbv_exploration_msgs::Node node;
+	if (sampling_success
+			&& _collision_checker->steer(_rrg, node, rand_sample,
+					_robot_pose)) {
+		if (!std::isinf(node.cost_function)) { //do not update unreachable nodes
+			if (update_paths)
+				_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
+						_robot_pose, false, _nodes_to_update,
+						_sort_nodes_to_update); //check if new connection could improve other distances
+			_nodes_to_update.push_back(node.index);
+			_sort_nodes_to_update = true;
+		} else {
+			ROS_INFO_STREAM("Do not update unreachable node " << node.index);
 		}
+		_graph_searcher->rebuildIndex(_rrg);
+		_local_exploration_finished_timer.stop();
 	}
 }
 
@@ -456,11 +462,7 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 void GraphConstructor::deactivateNode(int node) {
 	ROS_INFO_STREAM("deactivateNode " << node);
 	if (node == _current_goal_node) {
-		ROS_INFO_STREAM("Pruned current goal node " << node);
-		_updating_local_goal = true;
-		_rrg.nodes[_current_goal_node].status =
-				rrg_nbv_exploration_msgs::Node::ABORTED;
-		handleCurrentLocalGoalFinished();
+		_local_goal_obsolete = true;
 	}
 	if (_rrg.nodes[node].gain > 0) {
 		removeNodeFromUpdateLists(node);
@@ -531,7 +533,7 @@ void GraphConstructor::checkCurrentGoal() {
 	if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
 		_current_goal_node = _node_comparator->getBestNode();
 		_moved_to_current_goal = false;
-		_explored_current_goal_node_by_update = false;
+		_local_goal_obsolete = false;
 		_goal_obsolete = false;
 		_updating_local_goal = false;
 		_local_goal_updated = true;
@@ -624,7 +626,7 @@ void GraphConstructor::publishExplorationGoalObsolete() {
 	if ((!_pursuing_global_goal
 			&& ((!_node_comparator->isEmpty()
 					&& _node_comparator->getBestNode() != _current_goal_node)
-					|| _explored_current_goal_node_by_update))
+					|| _local_goal_obsolete))
 			|| (_pursuing_global_goal
 					&& (_global_frontier_obsolete
 							|| (!_reached_frontier_goal
@@ -632,7 +634,7 @@ void GraphConstructor::publishExplorationGoalObsolete() {
 //		if (!_goal_obsolete) {
 //			_goal_obsolete = true;
 		ROS_WARN_STREAM(
-				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _explored_current_goal_node_by_update << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
+				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _local_goal_obsolete << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
 //		}
 		msg.goal_obsolete = true;
 	} else {
@@ -813,7 +815,7 @@ void GraphConstructor::updatedNodeCallback(
 			if (updated_node->status == rrg_nbv_exploration_msgs::Node::EXPLORED
 					&& _current_goal_node == updated_node->index
 					&& _node_comparator->isEmpty()) { //current goal is explored, change goal
-				_explored_current_goal_node_by_update = true;
+				_local_goal_obsolete = true;
 			}
 		}
 		if (check_waypoints) //node was just added
@@ -910,8 +912,8 @@ void GraphConstructor::localExplorationFinishedTimerCallback(
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
-	ROS_INFO_STREAM(
-			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
+//	ROS_INFO_STREAM(
+//			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
 	res.exploration_finished = !_running;
 	if (_local_running) { // local goal
 		res.goal_available = _local_goal_updated && _current_goal_node != -1;
@@ -1053,11 +1055,11 @@ bool GraphConstructor::resetRrgState(std_srvs::Trigger::Request &req,
 
 void GraphConstructor::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
+	_local_graph_radius = std::max(config.local_graph_radius,
+			2 * _robot_radius); //cannot fall below the robot diameter
+	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 	_local_sampling_radius = std::min(_sensor_range,
 			config.local_sampling_radius); //cannot exceed sensor range
-	_local_graph_radius = std::max(config.local_graph_radius,
-			2 * _robot_radius);
-	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 	_node_comparator->dynamicReconfigureCallback(config, level);
 	_graph_path_calculator->dynamicReconfigureCallback(config, level);
 	_global_graph_handler->dynamicReconfigureCallback(config, level);

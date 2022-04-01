@@ -444,6 +444,83 @@ private:
 	void establishMissingFrontierToFrontierConnections(
 			std::vector<int> active_frontiers,
 			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @Build a global path between the given frontier and the missing frontier with the provided length
+	 * and nodes in the local graph and store it in the global graph
+	 * @param Reference to the frontier for which missing paths are added
+	 * @param Index of the other frontier that currently has no connection to the frontier
+	 * @param Length of the path through the local graph connecting both frontiers in m
+	 * @param List of nodes in the local graph connecting both frontiers
+	 * @param Reference to the RRG
+	 */
+	void buildMissingPathBetweenFrontiers(
+			rrg_nbv_exploration_msgs::GlobalFrontier_<std::allocator<void> > &frontier,
+			int missing_frontier, double path_length,
+			std::vector<int> &local_path, rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Iterate over the paths to the node nearest to the robot in the RRG of the connecting nodes
+	 * of the frontier and the missing frontier and find a mutual node in both paths that leads to a path
+	 * connecting both frontiers with minimal length
+	 * @param Index of the local node connected to the frontier
+	 * @param Index of the local node connected to the frontier with a missing connection to the former
+	 * @param Reference to the max distance threshold that will be updated with the minimal path length
+	 * @param Reference to the RRG
+	 */
+	void findShortestPathThroughMutualNode(int frontier_connecting_node,
+			int missing_frontier_connecting_node,
+			double &max_distance_threshold,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Get a set of all frontiers the given frontier is not yet connected with through a global
+	 * path
+	 * @param Reference to the list of active frontier indices
+	 * @param Reference to the frontier for which missing connections are determined
+	 * @return A set of indices of frontier which do not have a global path to the given frontier
+	 */
+	std::set<int> getMissingFrontierConnections(
+			std::vector<int> &active_frontiers,
+			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
+
+	/**
+	 * @brief Calculate the route length by summing up all path lengths from one frontier to the next
+	 * @param Reference to the route including frontier indices (first) and indices of the paths to the
+	 * next frontier in the route (second)
+	 * @return The route length in m
+	 */
+	double calculateRouteLength(std::vector<std::pair<int, int>> &route);
+
+	/**
+	 * @brief Reverse the order of the frontiers in the route between and including indices i and k
+	 * and update the paths to the next frontier if necessary
+	 * @param Reference to the current route
+	 * @param Reference to the new route that this method builds
+	 * @param Index of the route index where the reversing begins
+	 * @param Index of the route index where the reversing stops
+	 * @return If there are paths from every frontier to the next in the new route
+	 */
+	bool twoOptSwap(std::vector<std::pair<int, int>> &route,
+			std::vector<std::pair<int, int>> &new_route, int i, int k);
+
+	/**
+	 * @brief Retrieve the global path index connecting the current and the next frontier
+	 * @param Current frontier index
+	 * @param Next frontier index
+	 * @return Index of the global path connecting both frontiers, -1 if none was found
+	 */
+	int findPathToNextFrontier(int current_frontier, int next_frontier);
+
+	/**
+	 * @brief Use the 2-opt method to solve the TSP of visiting every frontier starting at the local
+	 * graph where the robot is
+	 * @param A list of active frontiers which will be regarded for the TSP
+	 * @return The indices of the next frontier (first) and path to next frontier (second) or -1 for
+	 * both if no solution was found
+	 */
+	std::pair<int, int> findBestFrontierWithTspTwoOpt(
+			std::vector<int> &active_frontiers);
 };
 
 } /* namespace rrg_nbv_exploration */

@@ -258,15 +258,16 @@ private:
 	 */
 	double _distance_to_nearest_node_squared;
 	/**
-	 * @brief If the current goal node was set to explored by an update
+	 * @brief If the current goal node became obsolete because if became explored due to an update or
+	 * because it was pruned from the local graph
 	 */
-	bool _explored_current_goal_node_by_update;
+	bool _local_goal_obsolete;
 	/**
 	 * @brief The number of attempted samples each loop
 	 */
 	int _samples_per_loop;
 	/**
-	 * @brief If there is a better goal than the currently pursued goal
+	 * @brief If there currently is a better goal than the currently pursued goal
 	 */
 	bool _goal_obsolete;
 	/**
@@ -307,6 +308,15 @@ private:
 	 * @param If the paths of possibly connected nodes should be updated
 	 */
 	void expandGraph(bool update_paths);
+
+	/**
+	 * @brief Inserts a new node from the given random sample into the RRG if the sampling was a success
+	 * @param If the sampling was successful
+	 * @param Reference to the sampled point
+	 * @param If the paths of possibly connected nodes should be updated
+	 */
+	void insertNewNode(bool sampling_success,
+			const geometry_msgs::Point &rand_sample, bool update_paths);
 
 	/**
 	 * @brief Removes nodes that are outside the sliding RRG radius around the robot including

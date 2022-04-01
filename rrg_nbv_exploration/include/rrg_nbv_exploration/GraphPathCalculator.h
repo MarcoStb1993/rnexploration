@@ -160,18 +160,25 @@ public:
 			geometry_msgs::Point &robot_pos, int closest_waypoint);
 
 	/**
-	 * @brief Find the shortest route between the start node and the target node in the RRG using
-	 * Dijkstra's algorithm and return the path and the distance between the nodes
+	 * @brief Find the shortest route between a given frontier's connecting node in the RRG and the
+	 * connecting nodes of the given frontier's the former frontier lacks a global path to using
+	 * Dijkstra's algorithm
 	 * @param Reference to the RRG
-	 * @param Index of the start node
-	 * @param Index of the target node
-	 * @param Reference to the path which will be filled with the nodes between start and target
-	 * @param Reference to the distance between start and target along the graph's edges, is initialized
-	 * as distance threshold above which the newest addition to the path will be discarded
+	 * @param Index of the start node in the RRG which is the connecting node of a frontier in the global
+	 * graph
+	 * @param Reference to the list of frontiers to which a global path is missing from the given frontier
+	 * (frontier index=first, connecting node index=second)
+	 * @param Reference to the list of paths and distances in the RRG that will connect the given frontier
+	 * to the missing frontiers (list of node indices in the RRG connecting both frontiers=first, length
+	 * of this path=second) which will be populated in this method
+	 * @param Maximum path length threshold above which any path is discarded because there exists a path
+	 * between the given frontier and all missing frontiers with this length or less
 	 */
 	void findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
-			int start_node, int target_node, std::vector<int> &path,
-			double &distance);
+			int frontier_connecting_node,
+			std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
+			std::vector<std::pair<std::vector<int>, double>> &local_paths,
+			double max_distance_threshold);
 
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
@@ -180,18 +187,21 @@ public:
 private:
 
 	/**
-	 * @brief Structure to store the node index as well as the path depth and distance for
-	 * finding the shortest path in the RRG between two frontiers
+	 * @brief Structure to store a RRG node index together with the path to a node connecting to a
+	 * global frontier and the path's length, also stores a list of all missing frontiers that are
+	 * connected to this node and if the node is active or was pruned from the RRG
 	 */
-	struct ShortestPathQueueStruct {
+	struct LocalNode {
 		int node;
-		int depth;
-		double distance;
+		bool inactive;
+		std::vector<int> path_to_frontier;
+		double path_length;
+		std::vector<int> missing_frontiers;
 
-		ShortestPathQueueStruct(int n, int d, double dis) {
+		LocalNode(int n, bool i) {
 			node = n;
-			depth = d;
-			distance = dis;
+			inactive = i;
+			path_length = std::numeric_limits<double>::infinity();
 		}
 	};
 
@@ -301,14 +311,14 @@ private:
 	/**
 	 * @brief Implementation of Dijkstra's algorithm to find the path to each node with the lowest cost,
 	 * starting with the nodes already in the given queue
-	 * @param Queue of node indices for which neighbors the path cost must be checked
+	 * @param Queue of node's cost functions and indices for which neighbors the path cost must be checked
 	 * @param Reference to the RRG
 	 * @param If all current paths and distances should be reset or only a "local update" is necessary
 	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
 	 * added to this list
 	 * @param Reference to if a node was added to the list of nodes to update
 	 */
-	void findBestRoutes(std::set<int> node_queue,
+	void findBestRoutes(std::set<std::pair<double, int>> &node_queue,
 			rrg_nbv_exploration_msgs::Graph &rrg, bool reset,
 			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
