@@ -71,7 +71,9 @@ void GlobalGraphHandler::initialize(rrg_nbv_exploration_msgs::Node &root,
 	root.connected_to.push_back(path.index);
 	_available_frontiers.clear();
 	_available_paths.clear();
-	_next_frontier_with_path = std::make_pair(-1, -1);
+	_global_route.clear();
+	_next_global_goal = -1;
+	_previous_global_goal_failed = false;
 	_active_paths_closest_waypoint = std::make_pair(-1, -1);
 	_global_graph_searcher->initialize(_gg);
 }
@@ -757,8 +759,6 @@ void GlobalGraphHandler::improvePathToConnectedFrontier(int frontier_path,
 bool GlobalGraphHandler::calculateNextFrontierGoal(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("+++++ Calculate Next Frontier Goal");
-	int best_frontier = -1;
-	int best_path = -1;
 	std::vector<int> active_frontiers;
 	for (auto &frontier : _gg.frontiers) {
 		if (!frontier.inactive)
@@ -766,8 +766,8 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 	}
 	if (active_frontiers.size() == 1 && _auto_homing) { //only origin remains
 		ROS_INFO_STREAM("only one frontier remaining->origin");
-		best_frontier = 0;
-		best_path = 0;
+		_global_route.push_back(std::make_pair(0, 0));
+		_next_global_goal = 0;
 	} else if (active_frontiers.size() <= 1) {
 		ROS_INFO_STREAM("----- Calculate Next Frontier Goal, no frontier");
 		return false;
@@ -779,16 +779,17 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 		if (next_frontier_with_path.first == -1
 				|| next_frontier_with_path.second == -1)
 			return false;
-		best_frontier = next_frontier_with_path.first;
-		best_path = next_frontier_with_path.second;
+		_next_global_goal = 1;
 		ROS_INFO_STREAM(
-				"Next frontier goal is " << best_frontier << " with path " << best_path);
+				"Next frontier goal is " << _global_route.at(_next_global_goal).first << " with path " << _global_route.at(_next_global_goal).second);
 
 	}
-	_next_frontier_with_path = std::make_pair(best_frontier, best_path);
-	_global_path_waypoint_searcher->rebuildIndex(_gg.paths.at(best_path));
-	_active_paths_closest_waypoint = std::make_pair(best_path,
-			_gg.paths.at(best_path).waypoints.size() - 1); //start at waypoint at nearest node in RRG
+	_global_path_waypoint_searcher->rebuildIndex(
+			_gg.paths.at(_global_route.at(_next_global_goal).second));
+	_active_paths_closest_waypoint =
+			std::make_pair(_global_route.at(_next_global_goal).second,
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size()
+							- 1); //start at waypoint at nearest node in RRG
 	ROS_INFO_STREAM("----- Calculate Next Frontier Goal");
 	return true;
 }
@@ -796,7 +797,7 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 		std::vector<std::pair<int, int> > &route) {
 	double best_distance = calculateRouteLength(route);
-//	ROS_INFO_STREAM("Start distance: " << best_distance);
+	ROS_INFO_STREAM("Start distance: " << best_distance);
 	for (int i = 1; i < route.size() - 1; i++) {
 		//omit first frontier (robot position/local graph)
 		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
@@ -805,25 +806,25 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 			if (twoOptSwap(route, new_route, i, k)) {
 				//if swap resulted in traversable route
 				double new_distance = calculateRouteLength(new_route);
-//				ROS_INFO_STREAM(
-//						"Swapped " << i << " to " << k << " new distance: " << new_distance);
-//				std::string route_info = "Swapped route: ";
-//				for (auto n : new_route) {
-//					route_info += std::to_string(n.first) + " ("
-//							+ std::to_string(n.second) + ")->";
-//				}
-//				ROS_INFO_STREAM(route_info);
+				ROS_INFO_STREAM(
+						"Swapped " << i << " to " << k << " new distance: " << new_distance);
+				std::string route_info = "Swapped route: ";
+				for (auto n : new_route) {
+					route_info += std::to_string(n.first) + " ("
+							+ std::to_string(n.second) + ")->";
+				}
+				ROS_INFO_STREAM(route_info);
 				if (new_distance < best_distance) {
 					route = new_route;
 					best_distance = new_distance;
-//					route_info = "Swap improved route: ";
-//					for (auto n : route) {
-//						route_info += std::to_string(n.first) + " ("
-//								+ std::to_string(n.second) + ")->";
-//					}
-//					route_info += " with distance="
-//							+ std::to_string(best_distance);
-//					ROS_INFO_STREAM(route_info);
+					route_info = "Swap improved route: ";
+					for (auto n : route) {
+						route_info += std::to_string(n.first) + " ("
+								+ std::to_string(n.second) + ")->";
+					}
+					route_info += " with distance="
+							+ std::to_string(best_distance);
+					ROS_INFO_STREAM(route_info);
 					return true;
 				}
 			}
@@ -842,7 +843,7 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 		std::vector<int> &active_frontiers) {
 	ROS_INFO_STREAM("+++++ Start TSP 2-opt");
-	std::vector<std::pair<int, int> > route; //frontier index (first) and path index to next frontier in path (second)
+	std::vector<std::pair<int, int> > route; //frontier index (first) and path index from previous frontier in route (second)
 	auto origin = std::find(active_frontiers.begin(), active_frontiers.end(),
 			rrg_nbv_exploration_msgs::GlobalPath::ORIGIN);
 	if (origin != active_frontiers.end()) { //remove origin from active frontiers (will be pushed back later when homing)
@@ -850,22 +851,24 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 	}
 	route.push_back(
 			std::make_pair(rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH,
-					_gg.frontiers.at(active_frontiers.front()).paths.front())); //start at robot position (local graph) with path to first active frontier
+					-1)); //start at robot position (local graph) with no path
 	if (_auto_homing) {
 		active_frontiers.push_back(
 				rrg_nbv_exploration_msgs::GlobalPath::ORIGIN); //origin as last frontier
 	}
-	for (int i = 0; i < active_frontiers.size() - 1; i++) { //add frontier index and index of path to next frontier to route except for last entry
-		int path_index = findPathToNextFrontier(active_frontiers.at(i),
-				active_frontiers.at(i + 1));
+	route.push_back(
+			std::make_pair(active_frontiers.front(),
+					_gg.frontiers.at(active_frontiers.front()).paths.front())); //add first active frontier and path to local graph to route
+	for (int i = 1; i < active_frontiers.size(); i++) { //add frontier index and index of path from previous frontier to route except for first entry
+		int path_index = findPathToNextFrontier(active_frontiers.at(i - 1),
+				active_frontiers.at(i));
 		if (path_index == -1) {
 			ROS_WARN_STREAM(
-					"Found no path from active frontier " << active_frontiers.at(i) << " to " << active_frontiers.at(i+1));
+					"Found no path from active frontier " << active_frontiers.at(i-1) << " to " << active_frontiers.at(i));
 			return std::make_pair(-1, -1);
 		}
 		route.push_back(std::make_pair(active_frontiers.at(i), path_index));
 	}
-	route.push_back(std::make_pair(active_frontiers.back(), -1)); //no path from last to first frontier in route required
 	std::string route_info = "Route: ";
 	for (auto n : route) {
 		route_info += std::to_string(n.first) + " (" + std::to_string(n.second)
@@ -880,7 +883,8 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 		improved = iterateOverTwoOptSwaps(route);
 	}
 	ROS_INFO_STREAM("----- End TSP 2-opt");
-	return std::make_pair(route.at(1).first, route.front().second);
+	_global_route = route;
+	return std::make_pair(route.at(1).first, route.at(1).second);
 }
 
 int GlobalGraphHandler::findPathToNextFrontier(int current_frontier,
@@ -909,7 +913,7 @@ int GlobalGraphHandler::findPathToNextFrontier(int current_frontier,
 double GlobalGraphHandler::calculateRouteLength(
 		std::vector<std::pair<int, int>> &route) {
 	double distance = 0.0;
-	for (int i = 0; i < route.size() - 1; i++) { //omit last frontier in route
+	for (int i = 1; i < route.size(); i++) { //omit first frontier (local graph) in route
 		distance += _gg.paths.at(route.at(i).second).length;
 	}
 	return distance;
@@ -917,40 +921,22 @@ double GlobalGraphHandler::calculateRouteLength(
 
 bool GlobalGraphHandler::twoOptSwap(std::vector<std::pair<int, int>> &route,
 		std::vector<std::pair<int, int>> &new_route, int i, int k) {
-//	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k);
+	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k);
 	for (int j = 0; j < i; j++) {
 		new_route.push_back(route.at(j));
 	}
-	int path_index = findPathToNextFrontier(new_route.back().first,
-			route.at(k).first);
-	if (path_index == -1) {
-//		ROS_WARN_STREAM(
-//				"Found no path from active frontier " << new_route.back().first << " to " << route.at(k).first);
-		return false;
-	}
-	new_route.back().second = path_index;
-//	ROS_INFO_STREAM("Start reversing");
+	ROS_INFO_STREAM("Start reversing");
 	for (int l = k; l >= i; l--) {
+		int path_index = findPathToNextFrontier(new_route.back().first,
+				route.at(l).first);
 		new_route.push_back(route.at(l));
-		if (l > i || k < route.size() - 1) { //if not last element in reversed order or if it is, not last element in route
-			path_index = findPathToNextFrontier(new_route.back().first,
-					(l == i ? route.at(k + 1).first : route.at(l - 1).first));
-			if (path_index == -1) {
-				ROS_WARN_STREAM(
-						"Found no path from active frontier " << new_route.back().first << " to " << (l == i ? route.at(k + 1).first : route.at(l - 1).first));
-				return false;
-			}
-		} else { //last element in route
-			path_index = -1; //no path from last to first frontier in route required
-		}
 		new_route.back().second = path_index;
 	}
-//	ROS_INFO_STREAM("Finished reversing");
+	ROS_INFO_STREAM("Finished reversing");
 	for (int m = k + 1; m < route.size(); m++) {
 		new_route.push_back(route.at(m));
 	}
-	new_route.back().second = -1; //no path from last to first frontier in route required
-//	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k << " finished");
+	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k << " finished");
 	return true;
 }
 
@@ -1178,35 +1164,37 @@ void GlobalGraphHandler::connectPathsToLocalGraphToNearestNode(
 }
 
 bool GlobalGraphHandler::checkIfNextFrontierWithPathIsValid() {
-	return _next_frontier_with_path.first >= 0
-			&& _next_frontier_with_path.first < _gg.frontiers_counter
-			&& _next_frontier_with_path.second >= 0
-			&& _next_frontier_with_path.second < _gg.paths_counter;
+	return _next_global_goal >= 0 && _next_global_goal < _global_route.size()
+			&& _global_route.at(_next_global_goal).first >= 0
+			&& _global_route.at(_next_global_goal).first < _gg.frontiers_counter
+			&& _global_route.at(_next_global_goal).second >= 0
+			&& _global_route.at(_next_global_goal).second < _gg.paths_counter;
 }
 
 bool GlobalGraphHandler::getFrontierGoal(geometry_msgs::Point &goal,
 		double &yaw, geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
-		goal = _gg.frontiers.at(_next_frontier_with_path.first).viewpoint;
-		if (_gg.paths.at(_next_frontier_with_path.second).waypoints.size()
+		goal =
+				_gg.frontiers.at(_global_route.at(_next_global_goal).first).viewpoint;
+		if (_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size()
 				> 1) {
 //			int waypoint_index =
-//					_gg.paths.at(_next_frontier_with_path.second).frontier
-//							== _next_frontier_with_path.first ?
+//					_gg.paths.at(_global_route.at(_next_global_goal).second).frontier
+//							== _global_route.at(_next_global_goal).first ?
 //							1 :
 //							*std::prev(
 //									_gg.paths.at(
-//											_next_frontier_with_path.second).waypoints.end(),
+//											_global_route.at(_next_global_goal).second).waypoints.end(),
 //									2); //if frontier goal is frontier in path, second waypoint index is relevant for yaw, otherwise second to last (frontier is always first waypoint, connection last)
 			yaw =
 					(int) (atan2(
 							goal.y
 									- _gg.paths.at(
-											_next_frontier_with_path.second).waypoints.at(
+											_global_route.at(_next_global_goal).second).waypoints.at(
 											1).y,
 							goal.x
 									- _gg.paths.at(
-											_next_frontier_with_path.second).waypoints.at(
+											_global_route.at(_next_global_goal).second).waypoints.at(
 											1).x) * 180 / M_PI);
 		} else { //frontier directly next to robot, define yaw from robot position
 			yaw = (int) (atan2(goal.y - robot_pos.y, goal.x - robot_pos.x) * 180
@@ -1226,12 +1214,18 @@ bool GlobalGraphHandler::getFrontierPath(
 	if (checkIfNextFrontierWithPathIsValid()) {
 		ROS_INFO_STREAM("Get frontier path");
 		std::vector<geometry_msgs::Point> waypoints;
-		int connecting_node;
-		waypoints.insert(waypoints.end(),
-				_gg.paths.at(_next_frontier_with_path.second).waypoints.begin(),
-				_gg.paths.at(_next_frontier_with_path.second).waypoints.end());
-		connecting_node =
-				_gg.paths.at(_next_frontier_with_path.second).connecting_node;
+		if (_previous_global_goal_failed) { //go back to former local graph to start navigation to next frontier from there
+			waypoints.insert(waypoints.end(),
+					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rbegin(),
+					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rend());
+			waypoints.insert(waypoints.end(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+		} else {
+			waypoints.insert(waypoints.end(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+		}
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;
@@ -1247,10 +1241,12 @@ std::vector<int> GlobalGraphHandler::frontierReached(
 	ROS_INFO_STREAM("+++++ frontierReached");
 	std::vector<int> connected_paths;
 	if (checkIfNextFrontierWithPathIsValid()) {
-		int frontier = _next_frontier_with_path.first;
+		int frontier = _global_route.at(_next_global_goal).first;
 		position = _gg.frontiers.at(frontier).viewpoint;
 		ROS_INFO_STREAM("Frontier " << frontier);
-		_next_frontier_with_path = std::make_pair(-1, -1);
+		_next_global_goal = -1;
+		_global_route.clear();
+		_previous_global_goal_failed = false;
 		std::set<int> pruned_frontiers;
 		std::set<int> pruned_paths;
 		pruned_frontiers.insert(frontier);
@@ -1268,6 +1264,18 @@ std::vector<int> GlobalGraphHandler::frontierReached(
 	}
 	return connected_paths;
 	ROS_INFO_STREAM("----- frontierReached");
+}
+
+bool GlobalGraphHandler::frontierFailed() {
+	if (_next_global_goal >= _global_route.size() - 1) { //last frontier in route, exploration finished
+		return true;
+	} else {
+		_previous_global_goal_failed = true;
+		_next_global_goal++;
+		ROS_INFO_STREAM(
+				"Frontier " << _global_route.at(_next_global_goal-1).first << " failed, try next frontier " << _global_route.at(_next_global_goal).first);
+		return false;
+	}
 }
 
 void GlobalGraphHandler::overwritePathToLocalGraph(int path, int frontier,
@@ -1314,7 +1322,22 @@ bool GlobalGraphHandler::updateClosestWaypoint(
 		_active_paths_closest_waypoint.second = nearest_node;
 		ROS_INFO_STREAM("New closest waypoint is " << nearest_node);
 		if (nearest_node == 0) { //frontier reached
+			_active_paths_closest_waypoint = std::make_pair(-1, -1);
 			return true;
+		} else if (_previous_global_goal_failed
+				&& nearest_node
+						== _gg.paths.at(_active_paths_closest_waypoint.first).waypoints.size()
+								- 1) { //reached start of path, transfer to path to next frontier
+			ROS_INFO_STREAM(
+					"Reached start of path to failed frontier, follow path to next frontier");
+			_active_paths_closest_waypoint =
+					std::make_pair(_global_route.at(_next_global_goal).second,
+							_gg.paths.at(
+									_global_route.at(_next_global_goal).second).waypoints.size()
+									- 1);
+			_global_path_waypoint_searcher->rebuildIndex(
+					_gg.paths.at(_global_route.at(_next_global_goal).second));
+			_previous_global_goal_failed = false;
 		}
 	}
 	return false;

@@ -991,9 +991,19 @@ bool GraphConstructor::updateCurrentGoal(
 					|| req.status == rrg_nbv_exploration_msgs::Node::ABORTED) { //reached frontier goal or aborted it for new one
 				ROS_INFO_STREAM("Frontier goal reached");
 				_reached_frontier_goal = true;
+				_consecutive_failed_goals = 0;
 			} else { //failed to reach frontier goal
 				ROS_INFO_STREAM("Navigation to frontier goal failed");
-				//TODO: try other frontier if close to waypoints
+				if (++_consecutive_failed_goals
+						>= _max_consecutive_failed_goals) {
+					ROS_WARN_STREAM("Exploration aborted, robot stuck");
+					_rrg.node_counter = -1; //for evaluation purposes
+					stopExploration();
+				}
+				if (_global_graph_handler->frontierFailed()) {
+					ROS_INFO_STREAM("Exploration finished");
+					_running = false;
+				}
 			}
 		}
 	}

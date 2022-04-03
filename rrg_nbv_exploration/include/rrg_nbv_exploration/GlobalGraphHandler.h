@@ -119,6 +119,13 @@ public:
 	std::vector<int> frontierReached(geometry_msgs::Point &position);
 
 	/**
+	 * @brief Initiates navigation to the next frontier if the current frontier goal is not the last
+	 * in the global route
+	 * @return If the exploration is finished because no more frontiers are available
+	 */
+	bool frontierFailed();
+
+	/**
 	 * @brief Updates the waypoint in the active path that is closest to the robot's current position
 	 * @param Reference to the robot position
 	 * @return Return if the frontier is the closest waypoint
@@ -210,9 +217,14 @@ private:
 	 */
 	double _local_graph_radius_squared;
 	/**
-	 * @brief Index of the frontier (first) to be explored next with its path to follow (second)
+	 * @brief Indices of frontiers (first) in the order of global exploration and the indices of paths
+	 * leading to them from the previous frontier (second)
 	 */
-	std::pair<int, int> _next_frontier_with_path;
+	std::vector<std::pair<int, int>> _global_route;
+	/**
+	 * @brief Index of the entry in the global route that will be the next goal
+	 */
+	int _next_global_goal;
 	/**
 	 * @brief While global navigation is active, holds the index of the followed path and the closest waypoint
 	 */
@@ -221,6 +233,10 @@ private:
 	 * @brief Return to the origin node when all nodes frontiers were explored
 	 */
 	bool _auto_homing;
+	/**
+	 * @brief If the navigation to the previous global goal failed
+	 */
+	bool _previous_global_goal_failed;
 
 	/**
 	 * @brief Iterates through the given node's path to the robot in the local graph and adds all nodes
