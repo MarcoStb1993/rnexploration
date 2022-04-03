@@ -169,12 +169,11 @@ public:
 	 * graph
 	 * @param Reference to the list of frontiers to which a global path is missing from the given frontier
 	 * (frontier index=first, connecting node index=second)
-	 * @param Reference to the list of paths and distances in the RRG that will connect the given frontier
-	 * to the missing frontiers (list of node indices in the RRG connecting both frontiers=first, length
-	 * of this path=second) which will be populated in this method
+	 * @param Reference to the list of paths in the RRG that will connect the given frontier
+	 * to the missing frontiers which will be populated in this method
 	 * @param Maximum path length threshold above which any path is discarded because there exists a path
 	 * between the given frontier and all missing frontiers with this length or less
-	 * @return Map of frontiers (first) and corresponding local path (second)
+	 * @return Map of frontier indices (first) and corresponding local path index (second)
 	 */
 	std::map<int, int> findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
 			int frontier_connecting_node,
@@ -344,6 +343,22 @@ private:
 	 */
 	bool isNodeInPath(int neighbor_node_index, int current_node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Extract the local paths from the frontier's connecting node to the missing frontiers'
+	 * connecting nodes and return a map which local path index belongs to which frontier(s)
+	 * @param Index of the node connected to the frontier
+	 * @param Reference to the list of local nodes with paths and path lengths to the connecting node
+	 * @param Reference to the list of paths in the RRG that will connect the given frontier
+	 * to the missing frontiers which will be populated in this method
+	 * @param Reference to the list of frontiers to which a global path is missing from the given frontier
+	 * (frontier index=first, connecting node index=second)
+	 * @return Map of frontier indices (first) and corresponding local path index (second)
+	 */
+	std::map<int, int> extractLocalPaths(int frontier_connecting_node,
+			std::vector<LocalNode> &local_nodes,
+			std::vector<ShortestFrontierConnectionStruct> &local_paths,
+			std::vector<std::pair<int, int> > &missing_frontiers_with_connecting_node);
 }
 ;
 }

@@ -330,7 +330,7 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 		if (*pruned_edge == _rrg.edge_counter - 1) {
 			int next_pruned_edge =
 					std::next(pruned_edge) == pruned_edges.rend() ?
-							(*pruned_edge - 1) : *std::next(pruned_edge);
+							-1 : *std::next(pruned_edge); //if last pruned edge, try to remove inactive edges up to index 0
 			for (int i = *pruned_edge; i > next_pruned_edge; i--) {
 				if (_rrg.edges.at(i).inactive) {
 					ROS_INFO_STREAM(
@@ -378,7 +378,7 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 		if (*pruned_node == _rrg.node_counter - 1) {
 			int next_pruned_node =
 					std::next(pruned_node) == pruned_nodes.rend() ?
-							(*pruned_node - 1) : *std::next(pruned_node);
+							-1 : *std::next(pruned_node); //if last pruned node, try to remove inactive nodes up to root
 			for (int i = *pruned_node; i > next_pruned_node; i--) {
 				if (_rrg.nodes.at(i).status
 						== rrg_nbv_exploration_msgs::Node::INACTIVE) {
@@ -633,8 +633,8 @@ void GraphConstructor::publishExplorationGoalObsolete() {
 									&& _current_goal_node != -1)))) {
 //		if (!_goal_obsolete) {
 //			_goal_obsolete = true;
-		ROS_WARN_STREAM(
-				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _local_goal_obsolete << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
+//		ROS_WARN_STREAM(
+//				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _local_goal_obsolete << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
 //		}
 		msg.goal_obsolete = true;
 	} else {

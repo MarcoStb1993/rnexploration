@@ -389,7 +389,7 @@ void GlobalGraphHandler::addFrontierToBePruned(int frontier_to_prune,
 void GlobalGraphHandler::handlePrunedFrontiers(
 		const std::set<int> &pruned_frontiers) {
 	ROS_INFO_STREAM(
-			"Handle pruned frontiers, frontier counter " << _gg.frontiers_counter);
+			"Handle pruned frontiers, frontier counter " << _gg.frontiers_counter << " ############");
 	bool removed_frontiers = false;
 	auto pruned_frontier = pruned_frontiers.rbegin();
 	while (pruned_frontier != pruned_frontiers.rend()) { //remove or add inactive frontiers
@@ -397,8 +397,7 @@ void GlobalGraphHandler::handlePrunedFrontiers(
 		if (*pruned_frontier == _gg.frontiers_counter - 1) {
 			int next_pruned_frontier =
 					std::next(pruned_frontier) == pruned_frontiers.rend() ?
-							(*pruned_frontier - 1) :
-							*std::next(pruned_frontier);
+							0 : *std::next(pruned_frontier); //if last pruned frontier, try to remove inactive frontiers up to index 1 (origin can't be pruned)
 			for (int i = *pruned_frontier; i > next_pruned_frontier; i--) {
 				if (_gg.frontiers.at(i).inactive) {
 					ROS_INFO_STREAM(
@@ -434,7 +433,8 @@ void GlobalGraphHandler::handlePrunedFrontiers(
 }
 
 void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
-	ROS_INFO_STREAM("Handle pruned paths, path counter " << _gg.paths_counter);
+	ROS_INFO_STREAM(
+			"Handle pruned paths, path counter " << _gg.paths_counter << " ############");
 	bool removed_paths = false;
 	auto pruned_path = pruned_paths.rbegin();
 	while (pruned_path != pruned_paths.rend()) { //remove or add inactive paths
@@ -442,7 +442,7 @@ void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
 		if (*pruned_path == _gg.paths_counter - 1) {
 			int next_pruned_path =
 					std::next(pruned_path) == pruned_paths.rend() ?
-							(*pruned_path - 1) : *std::next(pruned_path);
+							-1 : *std::next(pruned_path); //if last pruned path, try to remove inactive paths up to index 0
 			for (int i = *pruned_path; i > next_pruned_path; i--) {
 				if (_gg.paths.at(i).inactive) {
 					ROS_INFO_STREAM(
@@ -796,7 +796,7 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 		std::vector<std::pair<int, int> > &route) {
 	double best_distance = calculateRouteLength(route);
-	ROS_INFO_STREAM("Start distance: " << best_distance);
+//	ROS_INFO_STREAM("Start distance: " << best_distance);
 	for (int i = 1; i < route.size() - 1; i++) {
 		//omit first frontier (robot position/local graph)
 		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
@@ -805,25 +805,25 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 			if (twoOptSwap(route, new_route, i, k)) {
 				//if swap resulted in traversable route
 				double new_distance = calculateRouteLength(new_route);
-				ROS_INFO_STREAM(
-						"Swapped " << i << " to " << k << " new distance: " << new_distance);
-				std::string route_info = "Swapped route: ";
-				for (auto n : new_route) {
-					route_info += std::to_string(n.first) + " ("
-							+ std::to_string(n.second) + ")->";
-				}
-				ROS_INFO_STREAM(route_info);
+//				ROS_INFO_STREAM(
+//						"Swapped " << i << " to " << k << " new distance: " << new_distance);
+//				std::string route_info = "Swapped route: ";
+//				for (auto n : new_route) {
+//					route_info += std::to_string(n.first) + " ("
+//							+ std::to_string(n.second) + ")->";
+//				}
+//				ROS_INFO_STREAM(route_info);
 				if (new_distance < best_distance) {
 					route = new_route;
 					best_distance = new_distance;
-					route_info = "Swap improved route: ";
-					for (auto n : route) {
-						route_info += std::to_string(n.first) + " ("
-								+ std::to_string(n.second) + ")->";
-					}
-					route_info += " with distance="
-							+ std::to_string(best_distance);
-					ROS_INFO_STREAM(route_info);
+//					route_info = "Swap improved route: ";
+//					for (auto n : route) {
+//						route_info += std::to_string(n.first) + " ("
+//								+ std::to_string(n.second) + ")->";
+//					}
+//					route_info += " with distance="
+//							+ std::to_string(best_distance);
+//					ROS_INFO_STREAM(route_info);
 					return true;
 				}
 			}
@@ -917,19 +917,19 @@ double GlobalGraphHandler::calculateRouteLength(
 
 bool GlobalGraphHandler::twoOptSwap(std::vector<std::pair<int, int>> &route,
 		std::vector<std::pair<int, int>> &new_route, int i, int k) {
-	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k);
+//	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k);
 	for (int j = 0; j < i; j++) {
 		new_route.push_back(route.at(j));
 	}
 	int path_index = findPathToNextFrontier(new_route.back().first,
 			route.at(k).first);
 	if (path_index == -1) {
-		ROS_WARN_STREAM(
-				"Found no path from active frontier " << new_route.back().first << " to " << route.at(k).first);
+//		ROS_WARN_STREAM(
+//				"Found no path from active frontier " << new_route.back().first << " to " << route.at(k).first);
 		return false;
 	}
 	new_route.back().second = path_index;
-	ROS_INFO_STREAM("Start reversing");
+//	ROS_INFO_STREAM("Start reversing");
 	for (int l = k; l >= i; l--) {
 		new_route.push_back(route.at(l));
 		if (l > i || k < route.size() - 1) { //if not last element in reversed order or if it is, not last element in route
@@ -945,12 +945,12 @@ bool GlobalGraphHandler::twoOptSwap(std::vector<std::pair<int, int>> &route,
 		}
 		new_route.back().second = path_index;
 	}
-	ROS_INFO_STREAM("Finished reversing");
+//	ROS_INFO_STREAM("Finished reversing");
 	for (int m = k + 1; m < route.size(); m++) {
 		new_route.push_back(route.at(m));
 	}
 	new_route.back().second = -1; //no path from last to first frontier in route required
-	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k << " finished");
+//	ROS_INFO_STREAM("Two opt swap of " << i << " and " << k << " finished");
 	return true;
 }
 

@@ -665,13 +665,23 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 			}
 		}
 	}
+	return extractLocalPaths(frontier_connecting_node, local_nodes, local_paths,
+			missing_frontiers_with_connecting_node);
+}
+
+std::map<int, int> GraphPathCalculator::extractLocalPaths(
+		int frontier_connecting_node, std::vector<LocalNode> &local_nodes,
+		std::vector<ShortestFrontierConnectionStruct> &local_paths,
+		std::vector<std::pair<int, int> > &missing_frontiers_with_connecting_node) {
 	ROS_INFO_STREAM("Extract local paths");
 	std::map<int, int> node_local_path_map; //node index (key) mapped to local path index (value)
 	std::map<int, int> missing_frontier_local_path_map; //missing frontier index (key) mapped to local path index (value)
-	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { //link node copies with connected missing frontiers
+	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) {
+		//link node copies with connected missing frontiers
 		auto it = node_local_path_map.find(
 				missing_frontier_with_connecting_node.second);
-		if (it == node_local_path_map.end()) { //no local path for node index
+		if (it == node_local_path_map.end()) {
+			//no local path for node index
 			local_paths.emplace_back(frontier_connecting_node,
 					missing_frontier_with_connecting_node.second,
 					local_nodes.at(missing_frontier_with_connecting_node.second).path_to_frontier,
@@ -689,15 +699,14 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 			}
 			ROS_INFO_STREAM(
 					"Best local path ("<<local_path_index<< ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first<< " : " << best << " with distance " << local_nodes.at( local_path_index).path_length);
-
-		} else { //local path is value in node_local_path_map (second)
+		} else {
+			//local path is value in node_local_path_map (second)
 			missing_frontier_local_path_map.insert(
 					std::make_pair(missing_frontier_with_connecting_node.first,
 							it->second));
 			ROS_INFO_STREAM(
 					"Best local path ("<<it->second<< ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first);
 		}
-
 	}
 	return missing_frontier_local_path_map;
 }
