@@ -54,11 +54,13 @@ public:
 	 * @param Reference to a possible new node in the RRT
 	 * @param Randomly sampled position serving as a base for a new node's position
 	 * @param Reference to robot pose
+	 * @param If the sample position must not be moved
 	 * @return Returns true if a path between the nodes was found and false otherwise
 	 */
 	bool steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::Node &new_node,
-			geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos);
+			geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos,
+			bool unmovable_point);
 
 	/**
 	 * @brief Try to inflate an existing node which inflation was previously stopped because of

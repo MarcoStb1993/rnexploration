@@ -73,13 +73,15 @@ public:
 
 	/**
 	 * @brief Checks if a new node in the RRG can reduce the global paths, if their nearest respective
-	 * waypoint would be connected to the new node. If this waypoint is the frontier itself, remove the
-	 * frontier from the global graph
+	 * waypoint would be connected to the new node. If the new node is very close to the frontier itself,
+	 * remove the frontier from the global graph, if it is in a connectable range, return the frontier's
+	 * position
 	 * @param Reference to the RRG
 	 * @param Index of the new node
+	 * @return List of positions where to place a new node to prune frontiers
 	 */
-	void checkPathsWaypoints(rrg_nbv_exploration_msgs::Graph &rrg,
-			int new_node);
+	std::vector<geometry_msgs::Point> pruneFrontiersAndPathsAroundNewNode(
+			rrg_nbv_exploration_msgs::Graph &rrg, int new_node);
 
 	/**
 	 * @brief Calculates and stores the frontier to be explored next when the local graph has no more goals
@@ -517,7 +519,36 @@ private:
 	 */
 	std::pair<int, int> findBestFrontierWithTspTwoOpt(
 			std::vector<int> &active_frontiers);
+
+	/**
+	 * @brief Iterate over all possible 2-opt swaps in the global route and return if one of them
+	 * improved the route's path length
+	 * @param Reference to the current route
+	 * @return If the route's path length was improved
+	 */
 	bool iterateOverTwoOptSwaps(std::vector<std::pair<int, int> > &route);
+
+	/**
+	 * @brief Check if the new node is very close to a frontier, then remove the frontier from the
+	 * global graph or if it is in a connectable range, return the frontier's position
+	 * @param Index of the new node
+	 * @param Reference to the set of frontiers to be pruned
+	 * @param Reference to the set of paths to be pruned
+	 * @param Reference to the RRG
+	 * @return List of positions where to place a new node to prune frontiers
+	 */
+	std::vector<geometry_msgs::Point> pruneFrontiersAroundNewNode(int new_node,
+			std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Checks if a new node in the RRG can reduce the global paths, if their nearest respective
+	 * waypoint would be connected to the new node.
+	 * @param Index of the new node
+	 * @param Reference to the RRG
+	 */
+	void prunePathsAroundNewNode(int new_node,
+			rrg_nbv_exploration_msgs::Graph &rrg);
 };
 
 } /* namespace rrg_nbv_exploration */

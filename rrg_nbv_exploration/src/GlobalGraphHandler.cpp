@@ -522,18 +522,65 @@ void GlobalGraphHandler::deactivatePath(int pruned_path) {
 	_gg.paths.at(pruned_path).length = 0;
 }
 
-void GlobalGraphHandler::checkPathsWaypoints(
+std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAndPathsAroundNewNode(
 		rrg_nbv_exploration_msgs::Graph &rrg, int new_node) {
 	ROS_INFO_STREAM("+++++ checkPathsWaypoints at node " << new_node);
 	std::set<int> pruned_frontiers;
 	std::set<int> pruned_paths;
+	std::vector<geometry_msgs::Point> new_node_positions =
+			pruneFrontiersAroundNewNode(new_node, pruned_frontiers,
+					pruned_paths, rrg);
+	if (pruned_frontiers.size() > 0) {
+		handlePrunedFrontiers(pruned_frontiers);
+		handlePrunedPaths(pruned_paths);
+	}
+	prunePathsAroundNewNode(new_node, rrg);
+	ROS_INFO_STREAM("----- checkedPathsWaypoints at node " << new_node);
+	return new_node_positions;
+}
+
+std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAroundNewNode(
+		int new_node, std::set<int> &pruned_frontiers,
+		std::set<int> &pruned_paths, rrg_nbv_exploration_msgs::Graph &rrg) {
+	std::vector<geometry_msgs::Point> new_node_positions;
+	std::vector<std::pair<int, double> > frontiers_near_new_node =
+			_global_graph_searcher->searchInRadius(
+					rrg.nodes.at(new_node).position,
+					_inflation_active ?
+							pow(
+									sqrt(
+											rrg.nodes.at(new_node).squared_radius
+													- pow(_robot_width / 2, 2))
+											+ _half_path_box_distance_thres,
+									2) :
+							_max_edge_distance_squared); //frontiers in connectable distance
+	for (auto frontier_near_new_node : frontiers_near_new_node) {
+		if (frontier_near_new_node.second
+				<= (_inflation_active ?
+						_robot_radius_squared : _min_edge_distance_squared)) {
+			//new node nearly at frontier position, prune it
+			addFrontierToBePruned(frontier_near_new_node.first,
+					pruned_frontiers, pruned_paths, rrg);
+		} else {
+			//try to place a node at frontier position to prune it
+			ROS_INFO_STREAM(
+					"Try to place a node at frontier " << frontier_near_new_node.first << "'s viewpoint to prune it");
+			new_node_positions.push_back(
+					_gg.frontiers.at(frontier_near_new_node.first).viewpoint);
+		}
+	}
+	return new_node_positions;
+}
+
+void GlobalGraphHandler::prunePathsAroundNewNode(int new_node,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
 	for (auto frontier : _gg.frontiers) { //iterate over all paths to local graph
 		if (frontier.inactive) {
 			continue;
 		}
 		int path = frontier.paths.front(); //path to local graph
 		_global_path_waypoint_searcher->rebuildIndex(_gg.paths.at(path));
-		std::vector<std::pair<int, double>> waypoints_near_new_node =
+		std::vector<std::pair<int, double> > waypoints_near_new_node =
 				_global_path_waypoint_searcher->searchInRadius(
 						rrg.nodes.at(new_node).position,
 						_inflation_active ?
@@ -546,12 +593,15 @@ void GlobalGraphHandler::checkPathsWaypoints(
 				"For path " << path << " to frontier " << frontier.index << ", " << waypoints_near_new_node.size() << " waypoints are nearby");
 		if (waypoints_near_new_node.size() > 0) {
 			if (frontier.index
-					== rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) { //remove waypoint at frontier from list, must not be pruned for origin
-				if (waypoints_near_new_node.size() == 1) { //only origin as waypoint, skip
+					== rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) {
+				//remove waypoint at frontier from list, must not be pruned for origin
+				if (waypoints_near_new_node.size() == 1) {
+					//only origin as waypoint, skip
 					continue;
 				} else {
 					for (int i = 0; i < waypoints_near_new_node.size(); i++) {
-						if (waypoints_near_new_node.at(i).first == 0) { //waypoint at frontier
+						if (waypoints_near_new_node.at(i).first == 0) {
+							//waypoint at frontier
 							waypoints_near_new_node.erase(
 									std::next(waypoints_near_new_node.begin(),
 											i));
@@ -564,23 +614,18 @@ void GlobalGraphHandler::checkPathsWaypoints(
 			}
 			int closest_waypoint_to_frontier = getClosestWaypointToFrontier(
 					path, new_node, waypoints_near_new_node, rrg);
-//					ROS_INFO_STREAM(
-//							"Closest connectable waypoint: " << closest_waypoint_to_frontier);
-			if (closest_waypoint_to_frontier == 0) { //connectable waypoint is frontier itself, it can be removed
-				addFrontierToBePruned(frontier.index, pruned_frontiers,
-						pruned_paths, rrg);
-			} else if (closest_waypoint_to_frontier
-					< (_gg.paths.at(path).waypoints.size() - 1)) { //if path can be pruned
+			ROS_INFO_STREAM(
+					"Closest connectable waypoint: " << closest_waypoint_to_frontier);
+			if (closest_waypoint_to_frontier != 0
+					&& closest_waypoint_to_frontier
+							< (_gg.paths.at(path).waypoints.size() - 1)) {
+				//if path can be pruned
 				double new_path_length = calculateNewPathLength(path, new_node,
 						closest_waypoint_to_frontier, rrg);
-//						ROS_INFO_STREAM(
-//								"Prev path length: " << _gg.paths.at(path).length << " + " <<rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new "<< new_path_length << " + "<<rrg.nodes.at(new_node).distance_to_robot);
-//						if ((new_path_length
-//								+ rrg.nodes.at(new_node).distance_to_robot)
-//								< (_gg.paths.at(path).length
-//										+ rrg.nodes.at(
-//												_gg.paths.at(path).connecting_node).distance_to_robot)) { //only re-route path if length decreases
-				if (new_path_length < _gg.paths.at(path).length) { //only re-route path if length decreases
+				//						ROS_INFO_STREAM(
+				//								"Prev path length: " << _gg.paths.at(path).length << " + " <<rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new "<< new_path_length << " + "<<rrg.nodes.at(new_node).distance_to_robot);
+				if (new_path_length < _gg.paths.at(path).length) {
+					//only re-route path if length decreases
 					ROS_INFO_STREAM(
 							"Reduced path "<< path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " from "<< (_gg.paths.at(path).length+rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot) << " to " <<(new_path_length + rrg.nodes.at(new_node).distance_to_robot));
 					rewirePathToNewNode(path, closest_waypoint_to_frontier,
@@ -592,11 +637,6 @@ void GlobalGraphHandler::checkPathsWaypoints(
 			}
 		}
 	}
-	if (pruned_frontiers.size() > 0) {
-		handlePrunedFrontiers(pruned_frontiers);
-		handlePrunedPaths(pruned_paths);
-	}
-	ROS_INFO_STREAM("----- checkedPathsWaypoints at node " << new_node);
 }
 
 int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,

@@ -286,6 +286,10 @@ private:
 	 * @brief If a global goal is currently pursued, false if a local goal is pursued
 	 */
 	bool _pursuing_global_goal;
+	/**
+	 * @brief List of positions at which new nodes will be placed when the RRG is expanded
+	 */
+	std::vector<geometry_msgs::Point> _new_node_positions;
 
 	/**
 	 * @brief Initialize the exploration with a root node at seed, initialize helper classes and nodes
@@ -314,9 +318,11 @@ private:
 	 * @param If the sampling was successful
 	 * @param Reference to the sampled point
 	 * @param If the paths of possibly connected nodes should be updated
+	 * @param If the sample position must not be moved
 	 */
 	void insertNewNode(bool sampling_success,
-			const geometry_msgs::Point &rand_sample, bool update_paths);
+			const geometry_msgs::Point &rand_sample, bool update_paths,
+			bool unmovable_point);
 
 	/**
 	 * @brief Removes nodes that are outside the sliding RRG radius around the robot including

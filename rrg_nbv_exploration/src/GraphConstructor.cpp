@@ -94,6 +94,7 @@ void GraphConstructor::initLocalGraph(
 	_nodes_to_update.clear();
 	_nodes_to_reupdate.clear();
 	_last_three_nodes_path.clear();
+	_new_node_positions.clear();
 	_rrg.header.frame_id = "/map";
 	_rrg.ns = "rrg";
 	_rrg.nodes.clear();
@@ -191,19 +192,26 @@ void GraphConstructor::runExploration() {
 void GraphConstructor::expandGraph(bool update_paths) {
 	for (int i = 0; i < _samples_per_loop; i++) {
 		geometry_msgs::Point rand_sample;
-		insertNewNode(samplePoint(rand_sample), rand_sample, update_paths);
+		insertNewNode(samplePoint(rand_sample), rand_sample, update_paths,
+				false);
 		if (_local_sampling_radius > 0)
 			insertNewNode(samplePointLocally(rand_sample), rand_sample,
-					update_paths);
+					update_paths, false);
 	}
+	for (auto new_node_position : _new_node_positions) { //add stored positions
+		ROS_INFO_STREAM("***** Try to add new node at a frontier position");
+		insertNewNode(true, new_node_position, update_paths, true);
+	}
+	_new_node_positions.clear();
 }
 
 void GraphConstructor::insertNewNode(bool sampling_success,
-		const geometry_msgs::Point &rand_sample, bool update_paths) {
+		const geometry_msgs::Point &rand_sample, bool update_paths,
+		bool unmovable_point) {
 	rrg_nbv_exploration_msgs::Node node;
 	if (sampling_success
-			&& _collision_checker->steer(_rrg, node, rand_sample,
-					_robot_pose)) {
+			&& _collision_checker->steer(_rrg, node, rand_sample, _robot_pose,
+					unmovable_point)) {
 		if (!std::isinf(node.cost_function)) { //do not update unreachable nodes
 			if (update_paths)
 				_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
@@ -818,9 +826,13 @@ void GraphConstructor::updatedNodeCallback(
 				_local_goal_obsolete = true;
 			}
 		}
-		if (check_waypoints) //node was just added
-			_global_graph_handler->checkPathsWaypoints(_rrg,
-					updated_node->index); //if neighbor of new node is connected to frontiers, try to rewire paths
+		if (check_waypoints) { //node was just added
+			std::vector<geometry_msgs::Point> frontier_viewpoints =
+					_global_graph_handler->pruneFrontiersAndPathsAroundNewNode(
+							_rrg, updated_node->index); //if neighbor of new node is connected to frontiers, try to rewire paths
+			_new_node_positions.insert(_new_node_positions.end(),
+					frontier_viewpoints.begin(), frontier_viewpoints.end());
+		}
 		publishNodeToUpdate(); //if gain calculation is faster than update frequency, this needs to be called
 	}
 }

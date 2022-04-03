@@ -169,7 +169,8 @@ void CollisionChecker::precalculateCircleLinesOffset() {
 
 bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::Node &new_node,
-		geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos) {
+		geometry_msgs::Point rand_sample, geometry_msgs::Pose &robot_pos,
+		bool unmovable_point) {
 	int nearest_node;
 
 	new_node.position.x = rand_sample.x;
@@ -193,9 +194,9 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 			tmp_vis_map_data, node_cost, node_tiles, node_collision)) {
 		if (_inflation_active) {
 			new_node.radius = inflateCircle(rand_sample.x, rand_sample.y,
-					_move_nodes, rrg.nodes[nearest_node], map, tmp_vis_map_data,
-					node_cost, node_tiles, node_collision, _robot_radius,
-					_sensor_range);
+					unmovable_point ? false : _move_nodes,
+					rrg.nodes[nearest_node], map, tmp_vis_map_data, node_cost,
+					node_tiles, node_collision, _robot_radius, _sensor_range);
 			new_node.squared_radius = pow(new_node.radius, 2);
 			rrg.largest_node_radius = std::max(new_node.radius,
 					rrg.largest_node_radius);
