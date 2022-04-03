@@ -136,26 +136,6 @@ public:
 			uint32_t level);
 
 private:
-
-	/**
-	 * @brief Structure to store a connection through the local graph between two connecting nodes
-	 * to frontiers including the nodes in the path and the distance of the path
-	 */
-	struct ShortestFrontierConnectionStruct {
-		int connecting_node_one;
-		int connecting_node_two;
-		std::vector<int> path;
-		double distance;
-
-		ShortestFrontierConnectionStruct(int one, int two, std::vector<int> p,
-				double dis) {
-			connecting_node_one = std::max(one, two);
-			connecting_node_two = std::min(one, two);
-			path = p;
-			distance = dis;
-		}
-	};
-
 	ros::NodeHandle _nh;
 	ros::Publisher _global_graph_publisher;
 
@@ -521,6 +501,7 @@ private:
 	 */
 	std::pair<int, int> findBestFrontierWithTspTwoOpt(
 			std::vector<int> &active_frontiers);
+	bool iterateOverTwoOptSwaps(std::vector<std::pair<int, int> > &route);
 };
 
 } /* namespace rrg_nbv_exploration */

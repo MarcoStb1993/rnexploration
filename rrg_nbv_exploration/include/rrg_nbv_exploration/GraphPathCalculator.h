@@ -9,6 +9,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <rrg_nbv_exploration/GraphConstructorConfig.h>
+#include <rrg_nbv_exploration/ShortestFrontierConnectionStruct.h>
 
 namespace rrg_nbv_exploration {
 /**
@@ -173,11 +174,12 @@ public:
 	 * of this path=second) which will be populated in this method
 	 * @param Maximum path length threshold above which any path is discarded because there exists a path
 	 * between the given frontier and all missing frontiers with this length or less
+	 * @return Map of frontiers (first) and corresponding local path (second)
 	 */
-	void findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
+	std::map<int, int> findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
 			int frontier_connecting_node,
 			std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
-			std::vector<std::pair<std::vector<int>, double>> &local_paths,
+			std::vector<ShortestFrontierConnectionStruct> &local_paths,
 			double max_distance_threshold);
 
 	void dynamicReconfigureCallback(
@@ -188,15 +190,14 @@ private:
 
 	/**
 	 * @brief Structure to store a RRG node index together with the path to a node connecting to a
-	 * global frontier and the path's length, also stores a list of all missing frontiers that are
-	 * connected to this node and if the node is active or was pruned from the RRG
+	 * global frontier and the path's length, also stores if the node is active or was pruned from
+	 * the RRG
 	 */
 	struct LocalNode {
 		int node;
 		bool inactive;
 		std::vector<int> path_to_frontier;
 		double path_length;
-		std::vector<int> missing_frontiers;
 
 		LocalNode(int n, bool i) {
 			node = n;

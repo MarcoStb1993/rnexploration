@@ -793,6 +793,52 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 	return true;
 }
 
+bool GlobalGraphHandler::iterateOverTwoOptSwaps(
+		std::vector<std::pair<int, int> > &route) {
+	double best_distance = calculateRouteLength(route);
+	ROS_INFO_STREAM("Start distance: " << best_distance);
+	for (int i = 1; i < route.size() - 1; i++) {
+		//omit first frontier (robot position/local graph)
+		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
+			//omit last frontier (origin) when auto homing
+			std::vector<std::pair<int, int> > new_route;
+			if (twoOptSwap(route, new_route, i, k)) {
+				//if swap resulted in traversable route
+				double new_distance = calculateRouteLength(new_route);
+				ROS_INFO_STREAM(
+						"Swapped " << i << " to " << k << " new distance: " << new_distance);
+				std::string route_info = "Swapped route: ";
+				for (auto n : new_route) {
+					route_info += std::to_string(n.first) + " ("
+							+ std::to_string(n.second) + ")->";
+				}
+				ROS_INFO_STREAM(route_info);
+				if (new_distance < best_distance) {
+					route = new_route;
+					best_distance = new_distance;
+					route_info = "Swap improved route: ";
+					for (auto n : route) {
+						route_info += std::to_string(n.first) + " ("
+								+ std::to_string(n.second) + ")->";
+					}
+					route_info += " with distance="
+							+ std::to_string(best_distance);
+					ROS_INFO_STREAM(route_info);
+					return true;
+				}
+			}
+		}
+	}
+	std::string route_info = "No improvement found, route: ";
+	for (auto n : route) {
+		route_info += std::to_string(n.first) + " (" + std::to_string(n.second)
+				+ ")->";
+	}
+	route_info += " with distance=" + std::to_string(best_distance);
+	ROS_INFO_STREAM(route_info);
+	return false;
+}
+
 std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 		std::vector<int> &active_frontiers) {
 	ROS_INFO_STREAM("+++++ Start TSP 2-opt");
@@ -831,39 +877,7 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 	ROS_INFO_STREAM("Calculated edges");
 	bool improved = true;
 	while (improved) {
-		improved = false;
-		double best_distance = calculateRouteLength(route);
-		ROS_INFO_STREAM("Start distance: " << best_distance);
-		for (int i = 1; i < route.size() - 1; i++) { //omit first frontier (robot position/local graph)
-			for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0);
-					k++) { //omit last frontier (origin) when auto homing
-				std::vector<std::pair<int, int> > new_route;
-				if (twoOptSwap(route, new_route, i, k)) { //if swap resulted in traversable route
-					double new_distance = calculateRouteLength(new_route);
-					ROS_INFO_STREAM(
-							"Swapped " << i << " to " << k << " new distance: " << new_distance);
-					route_info = "Swapped route: ";
-					for (auto n : new_route) {
-						route_info += std::to_string(n.first) + " ("
-								+ std::to_string(n.second) + ")->";
-					}
-					ROS_INFO_STREAM(route_info);
-					if (new_distance < best_distance) {
-						ROS_INFO_STREAM("Swap improved route, keep change");
-						route = new_route;
-						best_distance = new_distance;
-						improved = true;
-					}
-				}
-			}
-		}
-		route_info = "Route: ";
-		for (auto n : route) {
-			route_info += std::to_string(n.first) + " ("
-					+ std::to_string(n.second) + ")->";
-		}
-		route_info += " with distance=" + std::to_string(best_distance);
-		ROS_INFO_STREAM(route_info);
+		improved = iterateOverTwoOptSwaps(route);
 	}
 	ROS_INFO_STREAM("----- End TSP 2-opt");
 	return std::make_pair(route.at(1).first, route.front().second);
@@ -946,17 +960,14 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 	ROS_INFO_STREAM(
 			"Connect all frontiers with nearest node " << rrg.nearest_node << " and each other");
 	std::vector<ShortestFrontierConnectionStruct> frontier_connections;
-	for (auto &frontier : _gg.frontiers) {
-		//establish all missing connection between frontiers through the RRG
+	for (auto &frontier : _gg.frontiers) { //establish all missing connection between frontiers through the RRG
 		if (!frontier.inactive
-				&& frontier.paths_counter < active_frontiers.size()) {
-			//one path to every other frontier + 1 to RRG required
+				&& frontier.paths_counter < active_frontiers.size()) { //one path to every other frontier + 1 to RRG required
 			std::set<int> missing_frontiers = getMissingFrontierConnections(
 					active_frontiers, frontier);
 			int frontier_connecting_node =
 					_gg.paths.at(frontier.paths.front()).connecting_node;
-			double max_distance_threshold =
-					std::numeric_limits<double>::infinity(); //maximum path length threshold when searching for connections
+			double max_distance_threshold = 0; //maximum path length threshold when searching for connections
 			std::vector<std::pair<int, int>> missing_frontier_connections; //missing frontier index (first) and connecting node of missing frontier to local graph (second)
 			for (auto missing_frontier : missing_frontiers) {
 				//build the missing paths
@@ -981,7 +992,7 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 							found_existing_connection = true;
 							buildMissingPathBetweenFrontiers(frontier,
 									missing_frontier,
-									frontier_connection.distance,
+									frontier_connection.path_length,
 									frontier_connection.path, rrg);
 							break;
 						}
@@ -997,22 +1008,21 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 					}
 				}
 			}
-			std::vector<std::pair<std::vector<int>, double>> local_paths; //path of node indices in RRG (first) and length of this path (second)
-			_graph_path_calculator->findShortestRoutes(rrg,
-					frontier_connecting_node, missing_frontier_connections,
-					local_paths, max_distance_threshold);
-			for (int i = 0; i < missing_frontier_connections.size(); i++) { //local paths has a corresponding entry for every missing frontier connection
-				if (!local_paths.at(i).first.empty()) {
-					frontier_connections.emplace_back(frontier_connecting_node,
-							missing_frontier_connections.at(i).second,
-							local_paths.at(i).first, local_paths.at(i).second); //store connection to be reusable for other frontiers
+			if (!missing_frontier_connections.empty()) { //only find shortest routes if a connection is missing
+				std::vector<ShortestFrontierConnectionStruct> local_paths;
+				std::map<int, int> missing_frontier_local_path_map =
+						_graph_path_calculator->findShortestRoutes(rrg,
+								frontier_connecting_node,
+								missing_frontier_connections, local_paths,
+								max_distance_threshold);
+				frontier_connections.insert(frontier_connections.end(),
+						local_paths.begin(), local_paths.end()); //add local paths to frontier connections
+				for (auto missing_frontier_local_path : missing_frontier_local_path_map) { //iterate over map (first=missing frontier index, second=local path index)
 					buildMissingPathBetweenFrontiers(frontier,
-							missing_frontier_connections.at(i).first,
-							local_paths.at(i).second, local_paths.at(i).first,
+							missing_frontier_local_path.first,
+							local_paths.at(missing_frontier_local_path.second).path_length,
+							local_paths.at(missing_frontier_local_path.second).path,
 							rrg);
-				} else {
-					ROS_WARN_STREAM(
-							"Failed to connect frontiers " << frontier.index << " and " << missing_frontier_connections.at(i).first << " through local graph");
 				}
 			}
 		}
@@ -1097,6 +1107,7 @@ void GlobalGraphHandler::findShortestPathThroughMutualNode(
 	}
 	if (mutual_node_local_path.empty()) {
 		ROS_INFO_STREAM("No mutual node, use full paths to robot");
+		max_distance_threshold = std::numeric_limits<double>::infinity(); //cannot use distance threshold
 	}
 	max_distance_threshold = std::max(max_distance_threshold,
 			minimum_local_path_length);

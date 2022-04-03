@@ -615,10 +615,10 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 	return false;
 }
 
-void GraphPathCalculator::findShortestRoutes(
+std::map<int, int> GraphPathCalculator::findShortestRoutes(
 		rrg_nbv_exploration_msgs::Graph &rrg, int frontier_connecting_node,
 		std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
-		std::vector<std::pair<std::vector<int>, double>> &local_paths,
+		std::vector<ShortestFrontierConnectionStruct> &local_paths,
 		double max_distance_threshold) {
 	std::vector<LocalNode> local_nodes; //copy of all RRG nodes including only relevant information
 	for (auto node : rrg.nodes) {
@@ -627,14 +627,10 @@ void GraphPathCalculator::findShortestRoutes(
 	}
 	std::string mfwcn = "";
 	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { //link node copies with connected missing frontiers
-		local_nodes.at(missing_frontier_with_connecting_node.second).missing_frontiers.push_back(
-				missing_frontier_with_connecting_node.first);
 		mfwcn += std::to_string(missing_frontier_with_connecting_node.second)
 				+ " ("
 				+ std::to_string(missing_frontier_with_connecting_node.first)
 				+ "),";
-		std::vector<int> path;
-		local_paths.push_back(std::make_pair(path, 0.0));
 	}
 	std::set<std::pair<double, int>> node_queue; //node's distance to frontier connected node (first) and index (second)
 	local_nodes.at(frontier_connecting_node).path_length = 0;
@@ -665,32 +661,45 @@ void GraphPathCalculator::findShortestRoutes(
 							neighbor_node_index);
 					node_queue.insert(
 							std::make_pair(new_length, neighbor_node_index));
-					if (!local_nodes.at(neighbor_node_index).missing_frontiers.empty()) {
-						std::string frons = "";
-						for (int i = 0;
-								i
-										< local_nodes.at(neighbor_node_index).missing_frontiers.size();
-								i++) {
-							local_paths.at(i).first = local_nodes.at(
-									neighbor_node_index).path_to_frontier;
-							local_paths.at(i).second = local_nodes.at(
-									neighbor_node_index).path_length;
-							frons +=
-									std::to_string(
-											local_nodes.at(neighbor_node_index).missing_frontiers.at(
-													i)) + ",";
-						}
-						std::string best = "";
-						for (auto p : local_nodes.at(neighbor_node_index).path_to_frontier) {
-							best += std::to_string(p) + ",";
-						}
-						ROS_INFO_STREAM(
-								"New best path for frontier " << frons << ": " << best << " with distance " << local_nodes.at( neighbor_node_index).path_length);
-					}
 				}
 			}
 		}
 	}
+	ROS_INFO_STREAM("Extract local paths");
+	std::map<int, int> node_local_path_map; //node index (key) mapped to local path index (value)
+	std::map<int, int> missing_frontier_local_path_map; //missing frontier index (key) mapped to local path index (value)
+	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { //link node copies with connected missing frontiers
+		auto it = node_local_path_map.find(
+				missing_frontier_with_connecting_node.second);
+		if (it == node_local_path_map.end()) { //no local path for node index
+			local_paths.emplace_back(frontier_connecting_node,
+					missing_frontier_with_connecting_node.second,
+					local_nodes.at(missing_frontier_with_connecting_node.second).path_to_frontier,
+					local_nodes.at(missing_frontier_with_connecting_node.second).path_length);
+			int local_path_index = local_paths.size() - 1;
+			node_local_path_map.insert(
+					std::make_pair(missing_frontier_with_connecting_node.second,
+							local_path_index));
+			missing_frontier_local_path_map.insert(
+					std::make_pair(missing_frontier_with_connecting_node.first,
+							local_path_index));
+			std::string best = "";
+			for (auto p : local_nodes.at(local_path_index).path_to_frontier) {
+				best += std::to_string(p) + ",";
+			}
+			ROS_INFO_STREAM(
+					"Best local path ("<<local_path_index<< ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first<< " : " << best << " with distance " << local_nodes.at( local_path_index).path_length);
+
+		} else { //local path is value in node_local_path_map (second)
+			missing_frontier_local_path_map.insert(
+					std::make_pair(missing_frontier_with_connecting_node.first,
+							it->second));
+			ROS_INFO_STREAM(
+					"Best local path ("<<it->second<< ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first);
+		}
+
+	}
+	return missing_frontier_local_path_map;
 }
 
 void GraphPathCalculator::dynamicReconfigureCallback(

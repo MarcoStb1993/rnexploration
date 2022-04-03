@@ -678,8 +678,8 @@ void GraphConstructor::sortNodesToUpdateByDistanceToRobot() {
 
 bool GraphConstructor::compareNodeDistancesToRobot(const int &node_one,
 		const int &node_two) {
-	return _rrg.nodes[node_one].distance_to_robot
-			<= _rrg.nodes[node_two].distance_to_robot;
+	return _rrg.nodes.at(node_one).distance_to_robot
+			<= _rrg.nodes.at(node_two).distance_to_robot;
 }
 
 void GraphConstructor::publishNodeToUpdate() {

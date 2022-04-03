@@ -77,9 +77,7 @@ Visualization Manager:
       Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0
       Min Color: 0; 0; 0
-      Min Intensity: 0
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10
@@ -365,15 +363,31 @@ Visualization Manager:
       Marker Topic: /rne/rrg_vis
       Name: RRG
       Namespaces:
-        rrg: true
+        rrg_vis: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /rne/rrg_vis_info
-      Name: RRG Subtexts
+      Name: RRG Info
       Namespaces:
-        rrt_tree: true
+        rrg_vis_info: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /rne/globalgraph_vis
+      Name: GlobalGraph
+      Namespaces:
+        globalgraph_vis: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /rne/globalgraph_vis_info
+      Name: GlobalGraph Info
+      Namespaces:
+        globalgraph_vis_info: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -487,9 +501,7 @@ Visualization Manager:
       Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 4096
       Min Color: 0; 0; 0
-      Min Intensity: 0
       Name: RealSense
       Position Transformer: XYZ
       Queue Size: 10
@@ -530,25 +542,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 22.026653289794922
+      Distance: 14.428388595581055
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 3.4926693439483643
-        Y: -2.2250890731811523
-        Z: -0.8626413345336914
+        X: 0
+        Y: 0
+        Z: 0
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9303981065750122
+      Pitch: 0.7853981852531433
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.9403971433639526
+      Yaw: 0.7853981852531433
     Saved: ~
 Window Geometry:
   Displays:
