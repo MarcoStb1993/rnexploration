@@ -145,7 +145,7 @@ private:
 	 */
 	double _local_graph_radius;
 	/**
-	 * @brief Squared radius of the RRG around the robot in m
+	 * @brief Squared radius of the RRG around the robot plus the robot radius in m
 	 */
 	double _local_graph_radius_squared;
 	/**
@@ -518,6 +518,12 @@ private:
 	 * is available, exploration is finished
 	 */
 	void switchFromLocalToGlobalExploration();
+
+	/**
+	 * @brief Deactivate and removed nodes completely engulfed by an inflated node from the RRG
+	 * @param List of node indices to be pruned
+	 */
+	void pruneEngulfedNodes(std::vector<int> engulfed_nodes);
 
 	/**
 	 * Timer callback for setting exploration to finished

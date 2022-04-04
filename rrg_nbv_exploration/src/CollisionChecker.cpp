@@ -306,9 +306,10 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 	return false;
 }
 
-void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
+std::vector<int> CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 		int node, geometry_msgs::Pose robot_pos,
 		std::list<int> &nodes_to_update, bool &added_node_to_update) {
+	std::vector<int> engulfed_nodes;
 	_vis_map.header.stamp = ros::Time::now();
 	_vis_map.info.map_load_time = ros::Time::now();
 	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
@@ -331,13 +332,16 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 				_graph_searcher->searchInRadius(rrg.nodes[node].position,
 						pow(new_radius + rrg.largest_node_radius, 2));
 		for (auto it : nodes) {
+			double distance = sqrt(it.second);
+			if(rrg.nodes.at(it.first).gain == 0 && new_radius > distance + rrg.nodes.at(it.first).radius){ //node is completely engulfed by inflated node's new radius
+				engulfed_nodes.push_back(it.first);
+			}
 			if (it.first == node
 					|| _graph_path_calculator->findExistingEdge(rrg, node,
 							it.first) != -1
 					|| rrg.nodes[it.first].status
 							== rrg_nbv_exploration_msgs::Node::INACTIVE)
 				continue; //skip node itself, existing edge or inactive node
-			double distance = sqrt(it.second);
 			geometry_msgs::Point edge_center;
 			double edge_length;
 			int edge_cost = 0, edge_tiles = 0;
@@ -375,6 +379,7 @@ void CollisionChecker::inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
 		_vis_map.data = tmp_vis_map_data;
 		_visualization_pub.publish(_vis_map);
 	}
+	return engulfed_nodes;
 }
 
 int CollisionChecker::collisionCheckForFailedNode(

@@ -71,8 +71,9 @@ public:
 	 * @param Reference to list of nodes indices which should be updated, newly reachable nodes will be
 	 * added to this list
 	 * @param Reference to if a node was added to the list of nodes to update
+	 * @return A list of indices of nodes which are completely engulfed by the inflated node and can be pruned
 	 */
-	void inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
+	std::vector<int> inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
 			geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
 			bool &added_node_to_update);
 
