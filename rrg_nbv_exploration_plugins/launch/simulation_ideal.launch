@@ -33,16 +33,13 @@
 	<arg name="z" default="0.0" />
 	<arg name="yaw" default="1.5707963" />
 
-	<include file="$(find rrg_nbv_exploration_plugins)/launch/gazebo.launch">
+	<include file="$(find rrg_nbv_exploration_plugins)/launch/gazebo_ideal.launch">
 		<arg name="world_file" value="$(arg world)" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
 		<arg name="z" default="$(arg z)" />
 		<arg name="yaw" default="$(arg yaw)" />
-		<arg name="laser_enabled" value="false" />
-		<arg name="velodyne_enabled" value="true" />
 		<arg name="robot_frame" value="$(arg robot_frame)" />
-		<arg name="use_ekf" value="false" />
 	</include>
 
 	<include file="$(find rsm_core)/launch/rsm.launch">
@@ -156,8 +153,8 @@
 	<include file="$(find rrg_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="1" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
-		<arg name="robot_width" value="0.7" />
-		<arg name="sensor_height" value="0.515" />
+		<arg name="robot_width" value="0.6" />
+		<arg name="sensor_height" value="0.548" />
 		<arg name="sensor_size" value="0.05" />
 		<arg name="sensor_max_range" value="100.0" />
 		<arg name="sensor_min_range" value="0.5" />
