@@ -1251,12 +1251,12 @@ namespace rrg_nbv_exploration
 	{
 		if (!_available_nodes.empty())
 		{
-			ROS_INFO_STREAM("Available node index " << *_available_nodes.begin());
+			// ROS_INFO_STREAM("Available node index " << *_available_nodes.begin());
 			return *_available_nodes.begin();
 		}
 		else
 		{
-			ROS_INFO_STREAM("Node index at end " << rrg.node_counter);
+			// ROS_INFO_STREAM("Node index at end " << rrg.node_counter);
 			return rrg.node_counter;
 		}
 	}
@@ -1266,13 +1266,13 @@ namespace rrg_nbv_exploration
 	{
 		if (!_available_nodes.empty())
 		{
-			ROS_INFO_STREAM("Insert node at " << *_available_nodes.begin());
+			// ROS_INFO_STREAM("Insert node at " << *_available_nodes.begin());
 			rrg.nodes.at(*_available_nodes.begin()) = node;
 			_available_nodes.erase(_available_nodes.begin());
 		}
 		else
 		{
-			ROS_INFO_STREAM("Push node at " << rrg.node_counter);
+			// ROS_INFO_STREAM("Push node at " << rrg.node_counter);
 			rrg.nodes.push_back(node);
 			rrg.node_counter++;
 		}
@@ -1283,7 +1283,7 @@ namespace rrg_nbv_exploration
 	{
 		if (!_available_edges.empty())
 		{
-			ROS_INFO_STREAM("Insert edge at " << *_available_edges.begin());
+			// ROS_INFO_STREAM("Insert edge at " << *_available_edges.begin());
 			edge.index = *_available_edges.begin();
 			edge.inactive = false;
 			rrg.edges.at(*_available_edges.begin()) = edge;
@@ -1291,7 +1291,7 @@ namespace rrg_nbv_exploration
 		}
 		else
 		{
-			ROS_INFO_STREAM("Push edge at " << rrg.edge_counter);
+			// ROS_INFO_STREAM("Push edge at " << rrg.edge_counter);
 			edge.index = rrg.edge_counter++;
 			rrg.edges.push_back(edge);
 		}
@@ -1312,8 +1312,8 @@ namespace rrg_nbv_exploration
 				++it;
 			}
 		}
-		ROS_WARN_STREAM(
-			"Removed " << removals << " available nodes above equal index " << node_counter);
+		// ROS_WARN_STREAM(
+		// 	"Removed " << removals << " available nodes above equal index " << node_counter);
 	}
 
 	void CollisionChecker::removeDeletedAvailableEdges(int edge_counter)
@@ -1331,8 +1331,8 @@ namespace rrg_nbv_exploration
 				++it;
 			}
 		}
-		ROS_WARN_STREAM(
-			"Removed " << removals << " available edges above equal index " << edge_counter);
+		// ROS_WARN_STREAM(
+		// 	"Removed " << removals << " available edges above equal index " << edge_counter);
 	}
 
 	void CollisionChecker::removeRetriableEdgesForNode(int node)

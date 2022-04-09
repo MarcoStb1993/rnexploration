@@ -84,6 +84,18 @@ namespace rrg_nbv_exploration
 
 	void GlobalGraphHandler::publishGlobalGraph()
 	{
+		// TODO: debug path with negative length
+		bool paths_ok = true;
+		for (auto path : _gg.paths)
+		{
+			if (path.length < 0)
+			{
+				paths_ok = false;
+				ROS_ERROR_STREAM("Path " << path.index << " length: " << path.length);
+			}
+		}
+		if (paths_ok)
+			ROS_INFO_STREAM("Paths ok");
 		_global_graph_publisher.publish(_gg);
 	}
 
@@ -399,13 +411,13 @@ namespace rrg_nbv_exploration
 	{
 		if (!_available_frontiers.empty())
 		{
-			ROS_INFO_STREAM(
-				"Available frontier index " << *_available_frontiers.begin());
+			// ROS_INFO_STREAM(
+			// 	"Available frontier index " << *_available_frontiers.begin());
 			return *_available_frontiers.begin();
 		}
 		else
 		{
-			ROS_INFO_STREAM("Frontier index at end " << _gg.frontiers_counter);
+			// ROS_INFO_STREAM("Frontier index at end " << _gg.frontiers_counter);
 			return _gg.frontiers_counter;
 		}
 	}
@@ -414,12 +426,12 @@ namespace rrg_nbv_exploration
 	{
 		if (!_available_paths.empty())
 		{
-			ROS_INFO_STREAM("Available path index " << *_available_paths.begin());
+			// ROS_INFO_STREAM("Available path index " << *_available_paths.begin());
 			return *_available_paths.begin();
 		}
 		else
 		{
-			ROS_INFO_STREAM("Path index at end " << _gg.paths_counter);
+			// ROS_INFO_STREAM("Path index at end " << _gg.paths_counter);
 			return _gg.paths_counter;
 		}
 	}
@@ -433,7 +445,7 @@ namespace rrg_nbv_exploration
 		for (auto path : _gg.frontiers.at(frontier_to_prune).paths)
 		{
 			pruned_paths.insert(path);
-			if (_gg.paths.at(path).connecting_node >= 0) // remove possible connection from node in RRG
+			if (_gg.paths.at(path).connecting_node != -1) // remove possible connection from node in RRG
 				rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.erase(std::remove(rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(), rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(), path), rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end());
 		}
 	}
@@ -470,7 +482,7 @@ namespace rrg_nbv_exploration
 			}
 			else
 			{
-				ROS_INFO_STREAM("Add available frontier " << *pruned_frontier);
+				// ROS_INFO_STREAM("Add available frontier " << *pruned_frontier);
 				_available_frontiers.insert(*pruned_frontier);
 			}
 			pruned_frontier++;
@@ -492,15 +504,15 @@ namespace rrg_nbv_exploration
 					++it;
 				}
 			}
-			ROS_WARN_STREAM(
-				"Removed " << removals << " available frontiers above equal index " << _gg.frontiers_counter);
+			// ROS_WARN_STREAM(
+			// 	"Removed " << removals << " available frontiers above equal index " << _gg.frontiers_counter);
 		}
 	}
 
 	void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths)
 	{
-		ROS_INFO_STREAM(
-			"Handle pruned paths, path counter " << _gg.paths_counter << " ############");
+		// ROS_INFO_STREAM(
+		// 	"Handle pruned paths, path counter " << _gg.paths_counter << " ############");
 		bool removed_paths = false;
 		auto pruned_path = pruned_paths.rbegin();
 		while (pruned_path != pruned_paths.rend())
@@ -514,8 +526,8 @@ namespace rrg_nbv_exploration
 				{
 					if (_gg.paths.at(i).inactive)
 					{
-						ROS_INFO_STREAM(
-							"Remove path " << i << " from back of list");
+						// ROS_INFO_STREAM(
+						// 	"Remove path " << i << " from back of list");
 						_gg.paths.pop_back();
 						_gg.paths_counter--;
 						removed_paths = true;
@@ -528,7 +540,7 @@ namespace rrg_nbv_exploration
 			}
 			else
 			{
-				ROS_INFO_STREAM("Add available path " << *pruned_path);
+				// ROS_INFO_STREAM("Add available path " << *pruned_path);
 				_available_paths.insert(*pruned_path);
 			}
 			pruned_path++;
@@ -548,8 +560,8 @@ namespace rrg_nbv_exploration
 					++it;
 				}
 			}
-			ROS_WARN_STREAM(
-				"Removed " << removals << " available paths above equal index " << _gg.paths_counter);
+			// ROS_WARN_STREAM(
+			// 	"Removed " << removals << " available paths above equal index " << _gg.paths_counter);
 		}
 	}
 
@@ -569,16 +581,16 @@ namespace rrg_nbv_exploration
 		if (_gg.paths.at(pruned_path).frontier < _gg.frontiers_counter && !_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).inactive)
 		{ // remove path from list at frontier
 			_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.erase(std::remove(_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.begin(), _gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.end(), pruned_path), _gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.end());
-			ROS_INFO_STREAM(
-				"Removed path from " << _gg.paths.at(pruned_path).frontier << " path list");
+			// ROS_INFO_STREAM(
+			// 	"Removed path from " << _gg.paths.at(pruned_path).frontier << " path list");
 			_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths_counter--;
 		}
 		if (_gg.paths.at(pruned_path).connection > rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH && _gg.paths.at(pruned_path).connection < _gg.frontiers_counter && !_gg.frontiers.at(_gg.paths.at(pruned_path).connection).inactive)
 		{ // remove path from list at connected frontier
 			_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.erase(std::remove(_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.begin(), _gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.end(), pruned_path), _gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.end());
 			_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths_counter--;
-			ROS_INFO_STREAM(
-				"Removed path from " << _gg.paths.at(pruned_path).connection << " path list");
+			// ROS_INFO_STREAM(
+			// 	"Removed path from " << _gg.paths.at(pruned_path).connection << " path list");
 		}
 		_gg.paths.at(pruned_path).inactive = true;
 		_gg.paths.at(pruned_path).waypoints.clear();
@@ -622,15 +634,15 @@ namespace rrg_nbv_exploration
 		{
 			if (frontier_near_new_node.first != rrg_nbv_exploration_msgs::GlobalPath::ORIGIN)
 			{
-				if (frontier_near_new_node.second <= (_inflation_active ? _robot_radius_squared : _min_edge_distance_squared))
+				if (frontier_near_new_node.second <= (_inflation_active ? _robot_radius_squared : _min_edge_distance_squared)) // new node nearly at frontier position, prune it
 				{
-					// new node nearly at frontier position, prune it
+					ROS_WARN_STREAM("Replace frontier " << frontier_near_new_node.first << " with node " << new_node);
+					tryToRewirePathsToLocalGraphOverPrunedFrontier(frontier_near_new_node.first, new_node, sqrt(frontier_near_new_node.second), rrg);
 					addFrontierToBePruned(frontier_near_new_node.first,
 										  pruned_frontiers, pruned_paths, rrg);
 				}
-				else
+				else // try to place a node at frontier position to prune it
 				{
-					// try to place a node at frontier position to prune it
 					ROS_INFO_STREAM(
 						"Try to place a node at frontier " << frontier_near_new_node.first << "'s viewpoint to prune it");
 					new_node_positions.push_back(
@@ -639,6 +651,57 @@ namespace rrg_nbv_exploration
 			}
 		}
 		return new_node_positions;
+	}
+
+	void GlobalGraphHandler::tryToRewirePathsToLocalGraphOverPrunedFrontier(int pruned_frontier, int new_node, double distance, rrg_nbv_exploration_msgs::Graph &rrg)
+	{
+		for (auto path : _gg.frontiers.at(pruned_frontier).paths)
+		{
+			if (_gg.paths.at(path).connection != rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH)
+			{
+				int other_frontier = pruned_frontier == _gg.paths.at(path).frontier ? _gg.paths.at(path).connection : _gg.paths.at(path).frontier;
+				int other_frontiers_path_to_local_graph = _gg.frontiers.at(other_frontier).paths.front();
+				double new_distance = distance + _gg.paths.at(path).length;
+				ROS_INFO_STREAM("Connection to other frontier " << other_frontier << " with path " << other_frontiers_path_to_local_graph << " length: " << _gg.paths.at(other_frontiers_path_to_local_graph).length << " new distance: " << new_distance);
+				if (new_distance <
+					_gg.paths.at(other_frontiers_path_to_local_graph).length) // new path length through pruned frontier shorter than current
+				{
+					ROS_INFO_STREAM("Replace path to RRG with connecting path and new node");
+					if (pruned_frontier == _gg.paths.at(path).frontier) // reverse waypoints
+					{
+						_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.clear();
+						_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.insert(_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.begin(), _gg.paths.at(path).waypoints.rbegin(), _gg.paths.at(path).waypoints.rend());
+					}
+					else
+					{
+						_gg.paths.at(other_frontiers_path_to_local_graph).waypoints = _gg.paths.at(path).waypoints;
+					}
+					_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.push_back(rrg.nodes.at(new_node).position);
+					_gg.paths.at(other_frontiers_path_to_local_graph).length = new_distance;
+					int connecting_node = _gg.paths.at(other_frontiers_path_to_local_graph).connecting_node;
+					ROS_INFO_STREAM("Set length to " << new_distance << " and replace connecting node " << connecting_node << " with " << new_node);
+					std::string cons = "";
+					for (auto con_path : rrg.nodes.at(connecting_node).connected_to)
+					{
+						cons += std::to_string(con_path) + ",";
+					}
+					ROS_INFO_STREAM("Connected to at node " << connecting_node << " before removal: " << cons << " with size: " << rrg.nodes.at(connecting_node).connected_to.size());
+					// rrg.nodes.at(connecting_node).connected_to.erase(std::remove(rrg.nodes.at(connecting_node).connected_to.begin(), rrg.nodes.at(connecting_node).connected_to.end(), path), rrg.nodes.at(connecting_node).connected_to.end());
+					auto it = std::find(rrg.nodes.at(connecting_node).connected_to.begin(), rrg.nodes.at(connecting_node).connected_to.end(), path);
+					if (it != rrg.nodes.at(connecting_node).connected_to.end())
+					{
+						rrg.nodes.at(connecting_node).connected_to.erase(it);
+					}
+					else
+					{
+						ROS_WARN_STREAM("Path not found at connecting node!");
+					}
+					ROS_INFO_STREAM("Connected to at node " << connecting_node << " after removal: " << rrg.nodes.at(connecting_node).connected_to.size());
+					_gg.paths.at(other_frontiers_path_to_local_graph).connecting_node = new_node;
+					rrg.nodes.at(new_node).connected_to.push_back(other_frontiers_path_to_local_graph);
+				}
+			}
+		}
 	}
 
 	void GlobalGraphHandler::prunePathsAroundNewNode(int new_node,
@@ -663,52 +726,25 @@ namespace rrg_nbv_exploration
 				"For path " << path << " to frontier " << frontier.index << ", " << waypoints_near_new_node.size() << " waypoints are nearby");
 			if (waypoints_near_new_node.size() > 0)
 			{
-				if (frontier.index == rrg_nbv_exploration_msgs::GlobalPath::ORIGIN)
-				{
-					// remove waypoint at frontier from list, must not be pruned for origin
-					if (waypoints_near_new_node.size() == 1)
-					{
-						// only origin as waypoint, skip
-						continue;
-					}
-					else
-					{
-						for (int i = 0; i < waypoints_near_new_node.size(); i++)
-						{
-							if (waypoints_near_new_node.at(i).first == 0)
-							{
-								// waypoint at frontier
-								waypoints_near_new_node.erase(
-									std::next(waypoints_near_new_node.begin(),
-											  i));
-								ROS_INFO_STREAM(
-									"Remove waypoint 0 from path to origin from list of waypoints near new node at pos " << i);
-								break;
-							}
-						}
-					}
-				}
 				int closest_waypoint_to_frontier = getClosestWaypointToFrontier(
 					path, new_node, waypoints_near_new_node, rrg);
-				ROS_INFO_STREAM(
-					"Closest connectable waypoint: " << closest_waypoint_to_frontier);
-				if (closest_waypoint_to_frontier != 0 && closest_waypoint_to_frontier < (_gg.paths.at(path).waypoints.size() - 1))
+				if (closest_waypoint_to_frontier < (_gg.paths.at(path).waypoints.size() - 1))
 				{
 					// if path can be pruned
 					double new_path_length = calculateNewPathLength(path, new_node,
 																	closest_waypoint_to_frontier, rrg);
-					//						ROS_INFO_STREAM(
-					//								"Prev path length: " << _gg.paths.at(path).length << " + " <<rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new "<< new_path_length << " + "<<rrg.nodes.at(new_node).distance_to_robot);
+					ROS_INFO_STREAM(
+						"Prev path length: " << _gg.paths.at(path).length << " + " << rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot << " new " << new_path_length << " + " << rrg.nodes.at(new_node).distance_to_robot);
 					if (new_path_length < _gg.paths.at(path).length)
 					{
 						// only re-route path if length decreases
 						ROS_INFO_STREAM(
-							"Reduced path " << path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " from " << (_gg.paths.at(path).length + rrg.nodes.at(_gg.paths.at(path).connecting_node).distance_to_robot) << " to " << (new_path_length + rrg.nodes.at(new_node).distance_to_robot));
+							"Reduced path " << path << " from frontier " << _gg.paths.at(path).frontier << " to new node " << new_node << " from " << _gg.paths.at(path).length << " to " << new_path_length);
 						rewirePathToNewNode(path, closest_waypoint_to_frontier,
 											new_path_length, new_node, rrg);
 						tryToImproveConnectionsToOtherFrontiers(new_node, path,
 																rrg);
-						rrg.nodes.at(new_node).connected_to.push_back(path);
+						rrg.nodes.at(new_node).connected_to.push_back(path); // add after improving connections to not filter it out during improving
 					}
 				}
 			}
@@ -728,13 +764,7 @@ namespace rrg_nbv_exploration
 			{
 				//							ROS_INFO_STREAM(
 				//									"Waypoint " << waypoint_near_new_node.first << " at distance " << waypoint_near_new_node.second << " (" << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).x << ", " << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).y << ")");
-				if (waypoint_near_new_node.first < closest_waypoint_to_frontier && (waypoint_near_new_node.first != 0 || waypoint_near_new_node.second <= pow(
-																																							  sqrt(
-																																								  rrg.nodes.at(new_node).squared_radius - pow(
-																																																			  _robot_width / 2,
-																																																			  2)) +
-																																								  _half_path_box_distance_thres,
-																																							  2)))
+				if (waypoint_near_new_node.first < closest_waypoint_to_frontier && waypoint_near_new_node.first != 0)
 				{ // new node must overlap with waypoint at frontier for re-wiring
 					closest_waypoint_to_frontier = waypoint_near_new_node.first;
 				}
@@ -753,8 +783,7 @@ namespace rrg_nbv_exploration
 			{
 				//							ROS_INFO_STREAM(
 				//									"Waypoint " << waypoint_near_new_node.first << " at distance " << waypoint_near_new_node.second << " (" << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).x << ", " << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).y << ")");
-				if ((waypoint_near_new_node.first != 0 || waypoint_near_new_node.second <= std::max(_min_edge_distance_squared,
-																									_robot_radius_squared)) // new node must intersect waypoint at frontier for re-wiring or not allow a node to be placed at frontier (min distance)
+				if (waypoint_near_new_node.first != 0 // new node must intersect waypoint at frontier for re-wiring or not allow a node to be placed at frontier (min distance)
 					&& _collision_checker->checkConnectionToFrontier(rrg,
 																	 waypoint_near_new_node.first,
 																	 rrg.nodes.at(new_node).position,
@@ -765,6 +794,7 @@ namespace rrg_nbv_exploration
 				}
 			}
 		}
+		ROS_INFO_STREAM("Closest waypoint to path " << path << " is " << closest_waypoint_to_frontier);
 		return closest_waypoint_to_frontier;
 	}
 
@@ -793,7 +823,8 @@ namespace rrg_nbv_exploration
 																   .y,
 						2));
 		}
-		return _gg.paths.at(path).length - path_reduction + distance_to_new_node;
+		ROS_INFO_STREAM("Path reduction of path " << path << " (" << _gg.paths.at(path).length << ") when connecting to node " << new_node << " from waypoint " << closest_waypoint_to_frontier << ": " << path_reduction << " distance to new node: " << distance_to_new_node);
+		return (_gg.paths.at(path).length - path_reduction + distance_to_new_node);
 	}
 
 	void GlobalGraphHandler::rewirePathToNewNode(int path,
@@ -801,12 +832,19 @@ namespace rrg_nbv_exploration
 												 rrg_nbv_exploration_msgs::Graph &rrg)
 	{
 		ROS_INFO_STREAM("rewirePathToNewNode");
+		std::string cons = "";
+		for (auto con_path : rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to)
+		{
+			cons += std::to_string(con_path) + ",";
+		}
+		ROS_INFO_STREAM("Connected to at node " << _gg.paths.at(path).connecting_node << " before removal: " << cons << " with size: " << rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.size());
+
 		rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.erase(std::remove(rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(), rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(), path),
 																			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end()); // remove path from connecting node in RRG
 		_gg.paths.at(path).waypoints.erase(
 			_gg.paths.at(path).waypoints.begin() + closest_waypoint_to_frontier + 1, _gg.paths.at(path).waypoints.end());
-		_gg.paths.at(path).length = new_path_length;
 		_gg.paths.at(path).waypoints.push_back(rrg.nodes.at(new_node).position);
+		_gg.paths.at(path).length = new_path_length;
 		_gg.paths.at(path).connecting_node = new_node;
 	}
 
@@ -831,7 +869,7 @@ namespace rrg_nbv_exploration
 			if (_gg.paths.at(frontier_path).connection != rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH && new_frontier_connections.erase(other_frontier) > 0)
 			{
 				// remove existing connection from new frontier connections (if present, try to improve path)
-				int other_path = _gg.frontiers.at(other_frontier).paths.at(0);
+				int other_path = _gg.frontiers.at(other_frontier).paths.front();
 				//									ROS_INFO_STREAM(
 				//											"Existing path to " << other_frontier << " with length " << _gg.paths.at(frontier_path).length << " compared to length " << _gg.paths.at(path).length + _gg.paths.at(other_path).length);
 				if ((_gg.paths.at(path).length + _gg.paths.at(other_path).length) < _gg.paths.at(frontier_path).length)
@@ -1360,7 +1398,7 @@ namespace rrg_nbv_exploration
 	{
 		if (checkIfNextFrontierWithPathIsValid())
 		{
-			ROS_INFO_STREAM("Get frontier path");
+			// ROS_INFO_STREAM("Get frontier path");
 			std::vector<geometry_msgs::Point> waypoints;
 			if (_previous_global_goal_failed)
 			{ // go back to former local graph to start navigation to next frontier from there

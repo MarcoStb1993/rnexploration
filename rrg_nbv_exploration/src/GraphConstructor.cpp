@@ -473,7 +473,7 @@ namespace rrg_nbv_exploration
 
 	void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes)
 	{
-		ROS_WARN_STREAM("##### Find connected nodes with gain");
+		ROS_INFO_STREAM("##### Find connected nodes with gain");
 		std::set<int> possible_frontiers;
 		for (auto node : nodes)
 		{
@@ -532,7 +532,7 @@ namespace rrg_nbv_exploration
 
 	void GraphConstructor::deactivateNode(int node)
 	{
-		ROS_INFO_STREAM("deactivateNode " << node);
+		// ROS_INFO_STREAM("deactivateNode " << node);
 		if (node == _current_goal_node)
 		{
 			_local_goal_obsolete = true;
@@ -562,7 +562,7 @@ namespace rrg_nbv_exploration
 
 	void GraphConstructor::removeEdgeFromRemainingNode(int edge, int node)
 	{
-		ROS_INFO_STREAM("removeEdgeFromRemainingNode");
+		// ROS_INFO_STREAM("removeEdgeFromRemainingNode");
 		int remaining_node =
 			_rrg.edges[edge].first_node == _rrg.nodes[node].index ? _rrg.edges[edge].second_node : _rrg.edges[edge].first_node;
 		_rrg.nodes[remaining_node].edges.erase(
@@ -732,7 +732,8 @@ namespace rrg_nbv_exploration
 				if (engulfed_nodes.size() > 0)
 					pruneEngulfedNodes(engulfed_nodes);
 				_graph_searcher->rebuildIndex(_rrg);
-				_global_graph_handler->pruneFrontiersAndPathsAroundNewNode(_rrg, iterator.first);
+				if (!_rrg.nodes.at(iterator.first).retry_inflation) // only prune if inflation is finisehd for this node
+					_global_graph_handler->pruneFrontiersAndPathsAroundNewNode(_rrg, iterator.first);
 			}
 		}
 	}
