@@ -59,6 +59,7 @@ namespace rrg_nbv_exploration
 												 bool reset, std::list<int> &nodes_to_update,
 												 bool &added_node_to_update)
 	{
+		ROS_INFO_STREAM("updatePathsToRobot");
 		int robot_yaw = getRobotYaw(robot_pos); // get current robot orientation (yaw) for heading change calculation
 		_last_robot_yaw = robot_yaw;
 		// run Dijkstra on RRG and assign distance and path to each node
@@ -227,6 +228,7 @@ namespace rrg_nbv_exploration
 		rrg_nbv_exploration_msgs::Graph &rrg, bool reset,
 		std::list<int> &nodes_to_update, bool &added_node_to_update)
 	{
+		ROS_INFO_STREAM("findBestRoutes");
 		while (!node_queue.empty())
 		{
 			int current_node = node_queue.begin()->second;
