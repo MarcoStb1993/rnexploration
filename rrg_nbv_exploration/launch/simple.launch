@@ -18,7 +18,7 @@
 	<arg name="min_view_score" default="0.1" />
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
-	<arg name="local_exploration_finished_timer_duration" default="5.0" />
+	<arg name="local_exploration_finished_timer_duration" default="10.0" />
 	<arg name="check_init_position" default="false" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />

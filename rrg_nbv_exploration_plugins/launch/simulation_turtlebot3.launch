@@ -220,7 +220,7 @@
 		<arg name="sensor_vertical_fov_top" value="71" />
 		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic" value="/move_base/global_costmap/costmap" />
-		<arg name="local_exploration_finished_timer_duration" value="5.0" />
+		<arg name="local_exploration_finished_timer_duration" value="10.0" />
 		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"

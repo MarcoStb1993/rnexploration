@@ -897,8 +897,11 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 		std::pair<int, int> next_frontier_with_path =
 				findBestFrontierWithTspTwoOpt(active_frontiers);
 		if (next_frontier_with_path.first == -1
-				|| next_frontier_with_path.second == -1)
+				|| next_frontier_with_path.second == -1) {
+			ROS_INFO_STREAM(
+					"----- Calculate Next Frontier Goal, no frontier found with 2-Opt");
 			return false;
+		}
 		_next_global_goal = 1;
 		ROS_INFO_STREAM(
 				"Next frontier goal is " << _global_route.at(_next_global_goal).first << " with path " << _global_route.at(_next_global_goal).second);
@@ -911,52 +914,6 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 							- 1); // start at waypoint at nearest node in RRG
 	ROS_INFO_STREAM("----- Calculate Next Frontier Goal");
 	return true;
-}
-
-bool GlobalGraphHandler::iterateOverTwoOptSwaps(
-		std::vector<std::pair<int, int>> &route) {
-	double best_distance = calculateRouteLength(route);
-//	ROS_INFO_STREAM("Start distance: " << best_distance);
-	for (int i = 1; i < route.size() - 1; i++) {
-		// omit first frontier (robot position/local graph)
-		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
-			// omit last frontier (origin) when auto homing
-			std::vector<std::pair<int, int>> new_route;
-			if (twoOptSwap(route, new_route, i, k)) {
-				// if swap resulted in traversable route
-				double new_distance = calculateRouteLength(new_route);
-//				ROS_INFO_STREAM(
-//						"Swapped " << i << " to " << k << " new distance: " << new_distance);
-//				std::string route_info = "Swapped route: ";
-//				for (auto n : new_route) {
-//					route_info += std::to_string(n.first) + " ("
-//							+ std::to_string(n.second) + ")->";
-//				}
-//				ROS_INFO_STREAM(route_info);
-				if (new_distance < best_distance) {
-					route = new_route;
-					best_distance = new_distance;
-//					route_info = "Swap improved route: ";
-//					for (auto n : route) {
-//						route_info += std::to_string(n.first) + " ("
-//								+ std::to_string(n.second) + ")->";
-//					}
-//					route_info += " with distance="
-//							+ std::to_string(best_distance);
-//					ROS_INFO_STREAM(route_info);
-					return true;
-				}
-			}
-		}
-	}
-	std::string route_info = "No improvement found, route: ";
-	for (auto n : route) {
-		route_info += std::to_string(n.first) + " (" + std::to_string(n.second)
-				+ ")->";
-	}
-	route_info += " with distance=" + std::to_string(best_distance);
-	ROS_INFO_STREAM(route_info);
-	return false;
 }
 
 std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
@@ -1001,9 +958,56 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 	while (improved) {
 		improved = iterateOverTwoOptSwaps(route);
 	}
+	route_info = "No improvement found, route: ";
+	for (auto n : route) {
+		route_info += std::to_string(n.first) + " (" + std::to_string(n.second)
+				+ ")->";
+	}
+	route_info += " with distance="
+			+ std::to_string(calculateRouteLength(route));
+	ROS_INFO_STREAM(route_info);
 	ROS_INFO_STREAM("----- End TSP 2-opt");
 	_global_route = route;
 	return std::make_pair(route.at(1).first, route.at(1).second);
+}
+
+bool GlobalGraphHandler::iterateOverTwoOptSwaps(
+		std::vector<std::pair<int, int>> &route) {
+	double best_distance = calculateRouteLength(route);
+//	ROS_INFO_STREAM("Start distance: " << best_distance);
+	for (int i = 1; i < route.size() - 1; i++) {
+		// omit first frontier (robot position/local graph)
+		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
+			// omit last frontier (origin) when auto homing
+			std::vector<std::pair<int, int>> new_route;
+			if (twoOptSwap(route, new_route, i, k)) {
+				// if swap resulted in traversable route
+				double new_distance = calculateRouteLength(new_route);
+//				ROS_INFO_STREAM(
+//						"Swapped " << i << " to " << k << " new distance: " << new_distance);
+//				std::string route_info = "Swapped route: ";
+//				for (auto n : new_route) {
+//					route_info += std::to_string(n.first) + " ("
+//							+ std::to_string(n.second) + ")->";
+//				}
+//				ROS_INFO_STREAM(route_info);
+				if (new_distance < best_distance) {
+					route = new_route;
+					best_distance = new_distance;
+//					route_info = "Swap improved route: ";
+//					for (auto n : route) {
+//						route_info += std::to_string(n.first) + " ("
+//								+ std::to_string(n.second) + ")->";
+//					}
+//					route_info += " with distance="
+//							+ std::to_string(best_distance);
+//					ROS_INFO_STREAM(route_info);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 int GlobalGraphHandler::findPathToNextFrontier(int current_frontier,
@@ -1132,6 +1136,7 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 			}
 		}
 	}
+	ROS_INFO_STREAM("established MissingFrontierToFrontierConnections");
 }
 
 std::set<int> GlobalGraphHandler::getMissingFrontierConnections(
@@ -1280,8 +1285,8 @@ void GlobalGraphHandler::connectPathsToLocalGraphToNearestNode(
 			path.connecting_node = rrg.nearest_node;
 		}
 	}
-//	ROS_INFO_STREAM(
-//			"Connected all frontiers directly to nearest node " << rrg.nearest_node);
+	ROS_INFO_STREAM(
+			"Connected all frontiers directly to nearest node " << rrg.nearest_node);
 }
 
 bool GlobalGraphHandler::checkIfNextFrontierWithPathIsValid() {

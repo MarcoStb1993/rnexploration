@@ -22,7 +22,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("grid_map_resolution", _grid_map_resolution, 0.05);
 	private_nh.param("local_sampling_radius", _local_sampling_radius, 5.0);
 	private_nh.param("local_exploration_finished_timer_duration",
-			_local_exploration_finished_timer_duration, 5.0);
+			_local_exploration_finished_timer_duration, 10.0);
 	private_nh.param("max_consecutive_failed_goals",
 			_max_consecutive_failed_goals, 5);
 	private_nh.param("reupdate_nodes", _reupdate_nodes, true);
@@ -223,7 +223,7 @@ void GraphConstructor::insertNewNode(bool sampling_success,
 			ROS_INFO_STREAM("Do not update unreachable node " << node.index);
 		}
 		_graph_searcher->rebuildIndex(_rrg);
-		_local_exploration_finished_timer.stop();
+//		_local_exploration_finished_timer.stop();
 	}
 }
 
@@ -362,7 +362,6 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 }
 
 void GraphConstructor::removeNodeFromUpdateLists(int node) {
-	_nodes_to_update.remove(node);
 	_nodes_to_reupdate.erase(
 			std::remove(_nodes_to_reupdate.begin(), _nodes_to_reupdate.end(),
 					node), _nodes_to_reupdate.end());
@@ -425,7 +424,8 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 			possible_frontiers.insert(node);
 		}
 	}
-	ROS_INFO_STREAM("Possible frontiers (" << possible_frontiers.size() << ")");
+	ROS_INFO_STREAM(
+			"Possible frontiers size " << possible_frontiers.size() << "");
 	while (!possible_frontiers.empty()) {
 		std::vector<int> frontier;
 		frontier.push_back(*possible_frontiers.begin());
@@ -453,13 +453,11 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 			if (_rrg.nodes.at(frontier.at(i)).distance_to_robot
 					< shortest_distance_to_robot) {
 				_rrg.nodes.at(closest_node_to_robot).gain = 0;
-				removeNodeFromUpdateLists(closest_node_to_robot);
 				closest_node_to_robot = frontier.at(i);
 				shortest_distance_to_robot =
 						_rrg.nodes.at(frontier.at(i)).distance_to_robot;
 			} else {
 				_rrg.nodes.at(frontier.at(i)).gain = 0;
-				removeNodeFromUpdateLists(frontier.at(i));
 			}
 		}
 		ROS_INFO_STREAM(
@@ -472,8 +470,14 @@ void GraphConstructor::deactivateNode(int node) {
 	if (node == _current_goal_node) {
 		_local_goal_obsolete = true;
 	}
+	if (node == _last_updated_node) {
+		_last_updated_node = -1;
+	}
+	if (node == _last_goal_node) {
+		_last_goal_node = -1;
+	}
+	removeNodeFromUpdateLists(node);
 	if (_rrg.nodes[node].gain > 0) {
-		removeNodeFromUpdateLists(node);
 		_global_graph_handler->addFrontier(node, _rrg);
 	}
 	if (!_rrg.nodes[node].connected_to.empty()) {
@@ -817,6 +821,13 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
+	if (updated_node->index >= _rrg.node_counter
+			|| _rrg.nodes.at(updated_node->index).status
+					== rrg_nbv_exploration_msgs::Node::INACTIVE) {
+		ROS_WARN_STREAM(
+				"Node " << updated_node->index << " was updated but already removed from the local graph");
+		return;
+	}
 	if (updated_node->index != _last_updated_node
 			|| _rrg.nodes[_last_updated_node].gain != updated_node->gain
 			|| _rrg.nodes[_last_updated_node].best_yaw != updated_node->best_yaw
@@ -842,6 +853,7 @@ void GraphConstructor::updatedNodeCallback(
 							_rrg.nodes[updated_node->index]);
 			_node_comparator->addNode(updated_node->index);
 			_sort_nodes_to_update = true;
+			_local_exploration_finished_timer.stop();
 		} else {
 			_rrg.nodes[updated_node->index].gain = 0;
 			_rrg.nodes[updated_node->index].heading_change_to_robot_best_view =
