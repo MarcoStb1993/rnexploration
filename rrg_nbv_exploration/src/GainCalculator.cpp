@@ -123,10 +123,14 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 
 	std::map<int, int> gain_per_yaw;
 
+	double min_x, min_y, min_z;
+	_octree->getMetricMin(min_x, min_y, min_z);
+	double max_x, max_y, max_z;
+	_octree->getMetricMax(max_x, max_y, max_z);
+
 	double x = node.position.x;
 	double y = node.position.y;
 	double z = node.position.z;
-
 	for (multi_array_index theta = 0; theta < _gain_poll_points.shape()[0];
 			theta++) {
 		for (multi_array_index phi = 0; phi < _gain_poll_points.shape()[1];
@@ -138,6 +142,22 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 				vis_point.x = point.x + x;
 				vis_point.y = point.y + y;
 				vis_point.z = point.z + z;
+				if (vis_point.z >= max_z || vis_point.z <= min_z
+						|| vis_point.x >= max_x || vis_point.x <= min_x
+						|| vis_point.y >= max_y || vis_point.y <= min_y) { //ray out of OctoMap bounds
+					if (!point.in_range) { //find first point above gain range
+						for (multi_array_index r = radius;
+								r < _gain_poll_points.shape()[2]; r++) {
+							if (_gain_poll_points[theta][phi][r].in_range) {
+								radius = r;
+								break;
+							}
+						}
+					}
+					gain_per_yaw[point.theta] += (_gain_poll_points.shape()[2]
+							- radius); //add all remaining points on ray to gain
+					break;
+				}
 				if (publish_visualization) {
 					octomap::OcTreeNode *ocnode = _octree->search(vis_point.x,
 							vis_point.y, vis_point.z);
