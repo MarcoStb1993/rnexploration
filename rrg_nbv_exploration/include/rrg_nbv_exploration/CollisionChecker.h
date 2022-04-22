@@ -132,15 +132,16 @@ public:
 					rrg_nbv_exploration_msgs::Edge>());
 
 	/**
-	 * @brief Check if a frontier at the given position could be connected to the provided node in the RRG
+	 * @brief Check if a waypoint on the path to a frontier at the given position could be connected to
+	 * the provided node in the RRG
 	 * @param Reference to the RRG
 	 * @param Index of the node to try the connection to
-	 * @param Position of the frontier
+	 * @param Position of the waypoint
 	 * @param Distance between node and frontier in m
-	 * @return If a connection can be made to the frontier
+	 * @return If a connection can be made to the waypoint
 	 */
-	bool checkConnectionToFrontier(rrg_nbv_exploration_msgs::Graph &rrg,
-			int node, geometry_msgs::Point frontier, double distance);
+	bool checkConnectionToFrontierPathWaypoint(rrg_nbv_exploration_msgs::Graph &rrg,
+			int node, geometry_msgs::Point waypoint, double distance);
 
 	/**
 	 * @brief Remove indices from list of available nodes if the node entries were deleted from the

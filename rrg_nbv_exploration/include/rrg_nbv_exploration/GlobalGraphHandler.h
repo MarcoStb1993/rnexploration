@@ -145,6 +145,23 @@ public:
 			uint32_t level);
 
 private:
+
+	/**
+	 * @brief Structure to store information crucial to decide which frontier will be pruned and which
+	 * remains when merging frontiers
+	 */
+	struct MergeableFrontierStruct {
+		int frontier;
+		double path_length_to_local_graph;
+		double distance_between_frontiers;
+
+		MergeableFrontierStruct(int f, double path, double distance) {
+			frontier = f;
+			path_length_to_local_graph = path;
+			distance_between_frontiers = distance;
+		}
+	};
+
 	ros::NodeHandle _nh;
 	ros::Publisher _global_graph_publisher;
 
@@ -326,9 +343,10 @@ private:
 	 * @param Index of the second frontier with a path to a node in the local graph
 	 * @param Index of the path of the first node
 	 * @param Index of the path of the second node
+	 * @param If the connection is made at frontier one's viewpoint
 	 */
 	void connectFrontiers(int frontier_one, int frontier_two, int path_one,
-			int path_two);
+			int path_two, bool connection_at_frontier_one);
 
 	/**
 	 * @brief Check if there are any paths to existing frontiers at the node or connecting node of a
@@ -338,11 +356,11 @@ private:
 	 * @param Reference to the path of the new frontier
 	 * @param Reference to the RRG
 	 * @param Reference to the new frontier
-	 * @return True if the new frontier can be placed in the global graph, false if it was merged into
-	 * an existing frontier
+	 * @return True if the new frontier was merged into an existing frontier, false if it can be
+	 * placed in the global graph
 	 */
-	bool mergeNeighborFrontiers(int node,
-			const rrg_nbv_exploration_msgs::GlobalPath &path,
+	bool tryToMergeAddedFrontiers(int node,
+			rrg_nbv_exploration_msgs::GlobalPath &path,
 			rrg_nbv_exploration_msgs::Graph &rrg,
 			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
 
@@ -558,6 +576,52 @@ private:
 	 */
 	void tryToRewirePathsToLocalGraphOverPrunedFrontier(int pruned_frontier,
 			int new_node, double distance,
+			rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Check if the two frontier's with the given paths leading to them fulfill the criteria
+	 * to potentially merge them with each other also considering if one of them was already merged
+	 * @param Reference to the path leading to the first frontier
+	 * @param Index of the path leading to the second frontier
+	 * @param Reference to the first frontier
+	 * @param Reference to the closest mergeable frontier that was already merged and is  unprunable
+	 * @param Reference to a list of mergeable frontiers
+	 * @param If the path length of the path to the first frontier is added to the complete length
+	 * (optional, defaults to true)
+	 */
+	void checkFrontierMergeability(
+			rrg_nbv_exploration_msgs::GlobalPath &path_one, int path_two,
+			rrg_nbv_exploration_msgs::GlobalFrontier &frontier_one,
+			MergeableFrontierStruct &closest_mergeable_unprunable_frontier,
+			std::vector<MergeableFrontierStruct> &mergeable_frontiers,
+			double add_path_one_length = true);
+
+	/**
+	 * @brief Removes a frontier from map and set of connectable frontiers
+	 * @param Frontier index to remove
+	 * @param Reference to map with frontier and path to local graph indices
+	 * @param Reference to set of frontiers the given frontier could be connected to
+	 */
+	void removeFrontierFromConnectableFrontierList(int frontier,
+			std::map<int, int> &connecting_node_frontiers,
+			std::set<int> &new_frontier_connections);
+
+	/**
+	 * @brief Try to merge the given current frontier and other frontiers that can be connected at a
+	 * newly continued path, removes merged and therefore pruned frontiers from the list of possible
+	 * new frontier connections and returns if the current frontier was merged into another frontier
+	 * @param Index of the current frontier
+	 * @param Index of the current frontier's path to the local graph
+	 * @param Reference to a map of frontier indices (first) with their respective path to the
+	 * local graph indices (second)
+	 * @param Reference to a set of frontiers to which the current frontier has no connection but which
+	 * have a path to the connecting node of this frontier
+	 * @param Reference to the RRG
+	 * @return If the current frontier was merged into another existing frontier
+	 */
+	bool tryToMergeContinuedPaths(int current_frontier, int path,
+			std::map<int, int> &connecting_node_frontiers,
+			std::set<int> &new_frontier_connections,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 };
 

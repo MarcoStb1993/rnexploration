@@ -140,6 +140,7 @@ void GraphConstructor::runExploration() {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
 				&& _map_min_bounding[2]) {
+			ROS_INFO_STREAM("+++++ runExploration");
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
@@ -163,6 +164,7 @@ void GraphConstructor::runExploration() {
 			if (_nodes_to_update.empty() && _current_goal_node == -1) {
 				_local_exploration_finished_timer.start();
 			}
+			ROS_INFO_STREAM("----- runExploration");
 		} else if (!_local_running) {
 			if (!_global_graph_handler->checkIfNextFrontierWithPathIsValid()) {
 				if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) { // exploration finished
@@ -362,6 +364,7 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 }
 
 void GraphConstructor::removeNodeFromUpdateLists(int node) {
+	_nodes_to_update.remove(node);
 	_nodes_to_reupdate.erase(
 			std::remove(_nodes_to_reupdate.begin(), _nodes_to_reupdate.end(),
 					node), _nodes_to_reupdate.end());
@@ -682,7 +685,7 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 			if (engulfed_nodes.size() > 0)
 				pruneEngulfedNodes(engulfed_nodes);
 			_graph_searcher->rebuildIndex(_rrg);
-			if (!_rrg.nodes.at(iterator.first).retry_inflation) // only prune if inflation is finisehd for this node
+			if (!_rrg.nodes.at(iterator.first).retry_inflation) // only prune if inflation is finished for this node
 				_global_graph_handler->pruneFrontiersAndPathsAroundNewNode(_rrg,
 						iterator.first);
 		}
@@ -737,7 +740,7 @@ void GraphConstructor::publishNodeToUpdate() {
 			_nodes_to_reupdate.clear();
 			return;
 		}
-		msg.node = _rrg.nodes[node];
+		msg.node = _rrg.nodes.at(node);
 		msg.force_update = false;
 		_node_to_update_publisher.publish(msg);
 	}
@@ -821,11 +824,14 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
+	ROS_INFO_STREAM("+++++ updatedNodeCallback " << updated_node->index);
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
 					== rrg_nbv_exploration_msgs::Node::INACTIVE) {
 		ROS_WARN_STREAM(
 				"Node " << updated_node->index << " was updated but already removed from the local graph");
+		_nodes_to_update.remove(updated_node->index);
+		_last_updated_node = -1;
 		return;
 	}
 	if (updated_node->index != _last_updated_node
@@ -874,6 +880,7 @@ void GraphConstructor::updatedNodeCallback(
 		}
 		publishNodeToUpdate(); // if gain calculation is faster than update frequency, this needs to be called
 	}
+	ROS_INFO_STREAM("----- updatedNodeCallback " << updated_node->index);
 }
 
 void GraphConstructor::tryFailedNodesRecovery() {
@@ -964,12 +971,12 @@ void GraphConstructor::localExplorationFinishedTimerCallback(
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
-	//	ROS_INFO_STREAM(
-	//			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
+//	ROS_INFO_STREAM(
+//			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
 	res.exploration_finished = !_running;
 	if (_local_running) { // local goal
 		res.goal_available = _local_goal_updated && _current_goal_node != -1;
-		if (res.goal_available) {
+		if (_current_goal_node != -1) {
 			if (_rrg.nodes[_current_goal_node].status
 					== rrg_nbv_exploration_msgs::Node::VISITED) {
 				_rrg.nodes[_current_goal_node].status =
@@ -979,7 +986,7 @@ bool GraphConstructor::requestGoal(
 				_rrg.nodes[_current_goal_node].status =
 						rrg_nbv_exploration_msgs::Node::ACTIVE;
 			}
-			res.goal = _rrg.nodes[_current_goal_node].position;
+			res.goal = _rrg.nodes.at(_current_goal_node).position;
 			res.best_yaw = _graph_path_calculator->determineGoalYaw(
 					_current_goal_node, _rrg, _last_robot_pos, !_running);
 			_local_goal_updated = false;
@@ -1118,7 +1125,7 @@ bool GraphConstructor::resetRrgState(std_srvs::Trigger::Request &req,
 void GraphConstructor::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_local_graph_radius = std::max(config.local_graph_radius,
-			2 * _robot_radius);			// cannot fall below the robot diameter
+			2 * _robot_radius); // cannot fall below the robot diameter
 	_local_graph_radius_squared = pow(_local_graph_radius + _robot_radius, 2); // add buffer to pruning
 	_local_sampling_radius = std::min(_local_graph_radius,
 			config.local_sampling_radius); // cannot exceed local graph radius

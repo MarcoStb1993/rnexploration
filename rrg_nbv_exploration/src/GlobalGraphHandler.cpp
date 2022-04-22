@@ -86,6 +86,12 @@ void GlobalGraphHandler::publishGlobalGraph() {
 					"Path " << path.index << " length: " << path.length);
 		}
 	}
+	for (auto frontier : _gg.frontiers) {
+		if (frontier.merged_distance > _local_graph_radius) {
+			ROS_ERROR_STREAM(
+					"Frontier " << frontier.index << " merged distance: " << frontier.merged_distance);
+		}
+	}
 	_global_graph_publisher.publish(_gg);
 }
 
@@ -151,6 +157,7 @@ void GlobalGraphHandler::addFrontier(int node,
 	rrg_nbv_exploration_msgs::GlobalPath path;
 	frontier.index = availableFrontierIndex();
 	frontier.viewpoint = rrg.nodes.at(node).position;
+	frontier.merged_distance = 0.0;
 	path.connection = rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH;
 	path.waypoints.push_back(rrg.nodes.at(node).position);
 	ROS_INFO_STREAM(
@@ -161,7 +168,10 @@ void GlobalGraphHandler::addFrontier(int node,
 				"Unable to add frontier for node " << node << ", found no connection to the RRG");
 		return;
 	}
-	if (!mergeNeighborFrontiers(node, path, rrg, frontier)) { // if new frontier is merged into existing
+	//TODO: remove, only for debugging
+	path.index = availablePathIndex();
+	//end remove
+	if (tryToMergeAddedFrontiers(node, path, rrg, frontier)) { // if new frontier is merged into existing
 		return;
 	}
 	path.index = availablePathIndex();
@@ -172,19 +182,13 @@ void GlobalGraphHandler::addFrontier(int node,
 	insertPathInGg(path);
 	ROS_INFO_STREAM(
 			"Add path " << path.index << " to frontier " << frontier.index << " with length " << path.length << " and connecting node " << path.connecting_node);
-	if (!rrg.nodes.at(node).connected_to.empty()) { // new frontier is in path of existing frontiers
-		for (auto connected_path : rrg.nodes.at(node).connected_to) {
-			connectFrontiers(frontier.index,
-					_gg.paths.at(connected_path).frontier, path.index,
-					connected_path);
-		}
+	for (auto connected_path : rrg.nodes.at(node).connected_to) { // new frontier is in path of existing frontiers
+		connectFrontiers(frontier.index, _gg.paths.at(connected_path).frontier,
+				path.index, connected_path, true);
 	}
-	if (!rrg.nodes.at(path.connecting_node).connected_to.empty()) { // connecting node is in path of existing frontiers, connect frontiers
-		for (auto connected_path : rrg.nodes.at(path.connecting_node).connected_to) {
-			connectFrontiers(frontier.index,
-					_gg.paths.at(connected_path).frontier, path.index,
-					connected_path);
-		}
+	for (auto connected_path : rrg.nodes.at(path.connecting_node).connected_to) { // connecting node is in path of existing frontiers, connect frontiers
+		connectFrontiers(frontier.index, _gg.paths.at(connected_path).frontier,
+				path.index, connected_path, false);
 	}
 	rrg.nodes.at(path.connecting_node).connected_to.push_back(path.index);
 	_global_graph_searcher->rebuildIndex(_gg);
@@ -209,148 +213,402 @@ void GlobalGraphHandler::continuePath(int node,
 		connecting_node_frontiers.insert(
 				{ _gg.paths.at(connected_path).frontier, connected_path });
 	}
-	for (int path : rrg.nodes.at(node).connected_to) {
-		_gg.paths.at(path).waypoints.insert(_gg.paths.at(path).waypoints.end(),
-				additional_waypoints.begin(), additional_waypoints.end()); // add additional waypoints to path
-		_gg.paths.at(path).connecting_node = connecting_node;
-		_gg.paths.at(path).length += length;
-		ROS_INFO_STREAM(
-				"Path " << path << " to frontier " << _gg.paths.at(path).frontier <<" that is connected to " << node << " was reconnected to node " << connecting_node << " and has new length " << _gg.paths.at(path).length << " (+ " <<length << ")");
-		if (std::find(
-				rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(),
-				rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(),
-				path) // add connected path to node if not already present
-				== rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end()) {
+	std::vector<int> connected_paths = rrg.nodes.at(node).connected_to; //create copy because connected paths can be pruned in the for loop
+	for (int path : connected_paths) {
+		if (path < _gg.paths_counter && !_gg.paths.at(path).inactive
+				&& _gg.paths.at(path).connecting_node == node) { //check if the path was not pruned (and replaced)
+			_gg.paths.at(path).waypoints.insert(
+					_gg.paths.at(path).waypoints.end(),
+					additional_waypoints.begin(), additional_waypoints.end()); // add additional waypoints to path
+			_gg.paths.at(path).connecting_node = connecting_node;
+			_gg.paths.at(path).length += length;
+			ROS_INFO_STREAM(
+					"Path " << path << " to frontier " << _gg.paths.at(path).frontier <<" that is connected to " << node << " was reconnected to node " << connecting_node << " and has new length " << _gg.paths.at(path).length << " (+ " <<length << ")");
 			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.push_back(
 					path);
-		}
-		if (connecting_node_frontiers.size() > 0) {
-			int current_frontier = _gg.paths.at(path).frontier; // look for new connections with this frontier
-			std::set<int> new_frontier_connections;	// set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
-			for (auto elem : connecting_node_frontiers) {
-				new_frontier_connections.insert(elem.first);
-			}
-			for (auto frontier_path : _gg.frontiers.at(current_frontier).paths) {
+			if (connecting_node_frontiers.size() > 0) {
+				int current_frontier = _gg.paths.at(path).frontier; // look for new connections with this frontier
+				std::set<int> new_frontier_connections;	// set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
+				for (auto elem : connecting_node_frontiers) {
+					new_frontier_connections.insert(elem.first);
+				}
+				for (auto frontier_path : _gg.frontiers.at(current_frontier).paths) {
 //				ROS_INFO_STREAM(
 //						"Look at path " << frontier_path << " at current frontier " << current_frontier);
-				if (_gg.paths.at(frontier_path).connection
-						!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { // connected to another frontier
-					new_frontier_connections.erase(
-							current_frontier // current frontier can be frontier or connection at connecting path
-							== _gg.paths.at(frontier_path).frontier ?
-									_gg.paths.at(frontier_path).connection :
-									_gg.paths.at(frontier_path).frontier); // remove from new frontiers (if present)
+					if (_gg.paths.at(frontier_path).connection
+							!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { // connected to another frontier
+						new_frontier_connections.erase(
+								current_frontier // current frontier can be frontier or connection at connecting path
+								== _gg.paths.at(frontier_path).frontier ?
+										_gg.paths.at(frontier_path).connection :
+										_gg.paths.at(frontier_path).frontier); // remove from new frontiers (if present)
+					}
 				}
-			}
-			for (auto new_frontier_connection : new_frontier_connections) {
-				connectFrontiers(current_frontier, new_frontier_connection,
-						path,
-						connecting_node_frontiers.at(new_frontier_connection));
+				if (current_frontier
+						!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
+						&& tryToMergeContinuedPaths(current_frontier, path,
+								connecting_node_frontiers,
+								new_frontier_connections, rrg)) //if current frontier was pruned
+					continue;
+				for (auto new_frontier_connection : new_frontier_connections) { //remaining missing frontier connections
+					connectFrontiers(current_frontier, new_frontier_connection,
+							path,
+							connecting_node_frontiers.at(
+									new_frontier_connection), false);
+				}
 			}
 		}
 	}
 	ROS_INFO_STREAM("----- Continued path at node " << node);
 }
 
-bool GlobalGraphHandler::mergeNeighborFrontiers(int node,
-		const rrg_nbv_exploration_msgs::GlobalPath &path,
+bool GlobalGraphHandler::tryToMergeContinuedPaths(int current_frontier,
+		int path, std::map<int, int> &connecting_node_frontiers,
+		std::set<int> &new_frontier_connections,
+		rrg_nbv_exploration_msgs::Graph &rrg) {
+	ROS_INFO_STREAM(
+			"+++++ tryToMergeContinuedPaths for current frontier " << current_frontier);
+	bool pruned_current_frontier = false;
+	std::vector<MergeableFrontierStruct> mergeable_frontiers;
+	MergeableFrontierStruct closest_mergeable_unprunable_frontier(-1,
+			std::numeric_limits<double>::infinity(), 0);
+	for (auto new_frontier_connection : new_frontier_connections) { //check if can be merged
+		checkFrontierMergeability(_gg.paths.at(path),
+				connecting_node_frontiers.at(new_frontier_connection),
+				_gg.frontiers.at(current_frontier),
+				closest_mergeable_unprunable_frontier, mergeable_frontiers);
+	}
+	std::set<int> pruned_frontiers;
+	std::set<int> pruned_paths;
+	if (closest_mergeable_unprunable_frontier.frontier != -1) { //merge this frontier into closest mergeable unprunable frontier
+		_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance =
+				std::max(
+						_gg.frontiers.at(current_frontier).merged_distance
+								+ closest_mergeable_unprunable_frontier.distance_between_frontiers,
+						_gg.frontiers.at(
+								closest_mergeable_unprunable_frontier.frontier).merged_distance);
+		ROS_INFO_STREAM(
+				"Frontier " << current_frontier << " was merged into existing frontier " << closest_mergeable_unprunable_frontier.frontier << " with merged distance " << (_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance));
+		addFrontierToBePruned(current_frontier, pruned_frontiers, pruned_paths,
+				rrg);
+		pruned_current_frontier = true;
+	} else if (mergeable_frontiers.size()) {
+		int remaining_frontier = current_frontier;
+		double shortest_path_length = _gg.paths.at(path).length;
+		std::set<std::pair<double, int>> merged_distances_to_frontiers; //merged distance to frontier (first) and frontier index (second) ordered by merged distance
+		merged_distances_to_frontiers.insert(
+				std::make_pair(
+						_gg.frontiers.at(current_frontier).merged_distance,
+						current_frontier));
+		double distance_current_frontier_to_remaining_frontier = 0;
+		ROS_INFO_STREAM(
+				"Remaining frontier " << remaining_frontier << " with length " << shortest_path_length);
+		for (auto mergeable_frontier : mergeable_frontiers) { // find remaining frontier
+			merged_distances_to_frontiers.insert(
+					std::make_pair(
+							_gg.frontiers.at(mergeable_frontier.frontier).merged_distance
+									+ mergeable_frontier.distance_between_frontiers,
+							mergeable_frontier.frontier));
+			if (mergeable_frontier.path_length_to_local_graph
+					<= shortest_path_length) {
+				if (remaining_frontier != current_frontier) { // not in graph, cannot be pruned
+					ROS_INFO_STREAM(
+							"Remaining frontier " << remaining_frontier << " with length " << shortest_path_length << " pruned");
+					addFrontierToBePruned(remaining_frontier, pruned_frontiers,
+							pruned_paths, rrg);
+					removeFrontierFromConnectableFrontierList(
+							remaining_frontier, connecting_node_frontiers,
+							new_frontier_connections);
+				}
+				ROS_INFO_STREAM(
+						"Remaining frontier " << remaining_frontier << " replaced with frontier " << mergeable_frontier.frontier << " with length " << mergeable_frontier.path_length_to_local_graph << " with merged distance: " << (_gg.frontiers.at(mergeable_frontier.frontier).merged_distance + mergeable_frontier.distance_between_frontiers));
+				remaining_frontier = mergeable_frontier.frontier;
+				shortest_path_length =
+						mergeable_frontier.path_length_to_local_graph;
+				distance_current_frontier_to_remaining_frontier =
+						mergeable_frontier.distance_between_frontiers;
+			} else {
+				ROS_INFO_STREAM(
+						"Mergeable frontier " << mergeable_frontier.frontier << " with length " << mergeable_frontier.path_length_to_local_graph << " pruned, with merged distance: " << (_gg.frontiers.at(mergeable_frontier.frontier).merged_distance + mergeable_frontier.distance_between_frontiers));
+				addFrontierToBePruned(mergeable_frontier.frontier,
+						pruned_frontiers, pruned_paths, rrg);
+				removeFrontierFromConnectableFrontierList(
+						mergeable_frontier.frontier, connecting_node_frontiers,
+						new_frontier_connections);
+			}
+		}
+		if (remaining_frontier != current_frontier) { // don't add frontier, it was merged into existing
+			double max_relevant_merged_distance = 0;
+			if (merged_distances_to_frontiers.rbegin()->second
+					!= remaining_frontier) { //check if max merged distance is not merged distance to remaining frontier, because this would add distance_current_frontier_to_remaining_frontier twice
+				max_relevant_merged_distance =
+						merged_distances_to_frontiers.rbegin()->first
+								+ distance_current_frontier_to_remaining_frontier;
+			} else { //otherwise take second merged distance which is to another frontier
+				max_relevant_merged_distance = std::next(
+						merged_distances_to_frontiers.rbegin())->first
+						+ distance_current_frontier_to_remaining_frontier;
+			}
+			if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining frontier and keep the current frontier
+				ROS_INFO_STREAM(
+						"Remaining frontier " << remaining_frontier << " pruned because of max merged distance violation, its merged distance is " << max_relevant_merged_distance);
+				addFrontierToBePruned(remaining_frontier, pruned_frontiers,
+						pruned_paths, rrg);
+				removeFrontierFromConnectableFrontierList(remaining_frontier,
+						connecting_node_frontiers, new_frontier_connections);
+				_gg.frontiers.at(current_frontier).merged_distance =
+						merged_distances_to_frontiers.rbegin()->first;
+				ROS_INFO_STREAM(
+						"Therefore current frontier " << current_frontier << " remains after merge with merged distance " << merged_distances_to_frontiers.rbegin()->first;);
+			} else { //merge like all other frontiers were merged into current frontier and then into remaining frontier
+				addFrontierToBePruned(current_frontier, pruned_frontiers,
+						pruned_paths, rrg);
+				_gg.frontiers.at(remaining_frontier).merged_distance = std::max(
+						max_relevant_merged_distance,
+						_gg.frontiers.at(remaining_frontier).merged_distance);
+				ROS_INFO_STREAM(
+						"Frontier " << current_frontier << " was merged into existing frontier " << remaining_frontier << " with merged distance " << _gg.frontiers.at(remaining_frontier).merged_distance);
+				pruned_current_frontier = true;
+			}
+		} else {
+			_gg.frontiers.at(current_frontier).merged_distance =
+					merged_distances_to_frontiers.rbegin()->first;
+			ROS_INFO_STREAM(
+					"Current frontier " << current_frontier << " remains after merge with merged distance " << merged_distances_to_frontiers.rbegin()->first;);
+		}
+	}
+	if (pruned_frontiers.size() > 0) {
+		handlePrunedFrontiers(pruned_frontiers);
+		handlePrunedPaths(pruned_paths);
+	}
+	ROS_INFO_STREAM("----- tryToMergeContinuedPaths");
+	return pruned_current_frontier;
+}
+
+void GlobalGraphHandler::removeFrontierFromConnectableFrontierList(int frontier,
+		std::map<int, int> &connecting_node_frontiers,
+		std::set<int> &new_frontier_connections) {
+	ROS_INFO_STREAM(
+			"removeFrontierFromConnectableFrontierList frontier " << frontier);
+	auto it = connecting_node_frontiers.find(frontier);
+	if (it != connecting_node_frontiers.end()) {
+		connecting_node_frontiers.erase(it);
+	}
+	new_frontier_connections.erase(frontier);
+}
+
+bool GlobalGraphHandler::tryToMergeAddedFrontiers(int node,
+		rrg_nbv_exploration_msgs::GlobalPath &path,
 		rrg_nbv_exploration_msgs::Graph &rrg,
 		rrg_nbv_exploration_msgs::GlobalFrontier &frontier) {
+	bool pruned_added_frontier = false;
 	if (!rrg.nodes.at(node).connected_to.empty()
 			|| !rrg.nodes.at(path.connecting_node).connected_to.empty()) {
 		ROS_INFO_STREAM(
-				"mergeNeighborFrontiers for frontier " << frontier.index);
-		std::vector<std::pair<int, double>> mergeable_frontiers; // frontier index first and distance to local graph second
+				"tryToMergeAddedFrontiers for frontier " << frontier.index);
+		std::vector<MergeableFrontierStruct> mergeable_frontiers;
+		MergeableFrontierStruct closest_mergeable_unprunable_frontier(-1,
+				std::numeric_limits<double>::infinity(), 0);
 		for (auto connected_path : rrg.nodes.at(node).connected_to) {
-			if (_gg.paths.at(connected_path).frontier
-					!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
-					&& _gg.paths.at(connected_path).waypoints.size() <= 2) { // frontier directly next to node
-				mergeable_frontiers.push_back(
-						std::make_pair(_gg.paths.at(connected_path).frontier,
-								_gg.paths.at(connected_path).length
-										+ path.length)); // add this path's length to the connecting node because it is missing for the existing frontier
-			}
+			checkFrontierMergeability(path, connected_path, frontier,
+					closest_mergeable_unprunable_frontier, mergeable_frontiers,
+					false);
 		}
 		for (auto connected_path : rrg.nodes.at(path.connecting_node).connected_to) {
-			if (_gg.paths.at(connected_path).frontier
-					!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
-					&& _gg.paths.at(connected_path).waypoints.size() <= 2) { // frontier next to connected node
-				mergeable_frontiers.push_back(
-						std::make_pair(_gg.paths.at(connected_path).frontier,
-								_gg.paths.at(connected_path).length));
-			}
+			checkFrontierMergeability(path, connected_path, frontier,
+					closest_mergeable_unprunable_frontier, mergeable_frontiers);
 		}
-		if (mergeable_frontiers.size()) {
+		if (closest_mergeable_unprunable_frontier.frontier != -1) { //merge this frontier into closest mergeable unprunable frontier
+			_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance =
+					std::max(
+							frontier.merged_distance
+									+ closest_mergeable_unprunable_frontier.distance_between_frontiers,
+							_gg.frontiers.at(
+									closest_mergeable_unprunable_frontier.frontier).merged_distance);
+			ROS_INFO_STREAM(
+					"New frontier " << frontier.index << " was merged into existing frontier " << closest_mergeable_unprunable_frontier.frontier<< " with merged distance " << (_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance));
+			pruned_added_frontier = true;
+		} else if (mergeable_frontiers.size()) {
 			std::set<int> pruned_frontiers;
 			std::set<int> pruned_paths;
 			int remaining_frontier = frontier.index;
 			double shortest_path_length = path.length;
+			std::set<std::pair<double, int>> merged_distances_to_frontiers; //merged distance to frontier (first) and frontier index (second) ordered by merged distance
+			merged_distances_to_frontiers.insert(
+					std::make_pair(frontier.merged_distance, frontier.index));
+			double distance_current_frontier_to_remaining_frontier = 0;
 			for (auto mergeable_frontier : mergeable_frontiers) { // find remaining frontier
-				if (mergeable_frontier.second <= shortest_path_length) {
+				merged_distances_to_frontiers.insert(
+						std::make_pair(
+								_gg.frontiers.at(mergeable_frontier.frontier).merged_distance
+										+ mergeable_frontier.distance_between_frontiers,
+								mergeable_frontier.frontier));
+				if (mergeable_frontier.path_length_to_local_graph
+						<= shortest_path_length) {
 					if (remaining_frontier != frontier.index) { // not in graph, cannot be pruned
+						ROS_INFO_STREAM(
+								"Remaining frontier " << remaining_frontier << " with length " << shortest_path_length << " pruned, with merged distance: " << (_gg.frontiers.at(mergeable_frontier.frontier).merged_distance + mergeable_frontier.distance_between_frontiers));
 						addFrontierToBePruned(remaining_frontier,
 								pruned_frontiers, pruned_paths, rrg);
 					}
-					remaining_frontier = mergeable_frontier.first;
-					shortest_path_length = mergeable_frontier.second;
+					ROS_INFO_STREAM(
+							"Remaining frontier " << remaining_frontier << " replaced with frontier " << mergeable_frontier.frontier << " with length " << mergeable_frontier.path_length_to_local_graph << " with merged distance: " << (_gg.frontiers.at(mergeable_frontier.frontier).merged_distance + mergeable_frontier.distance_between_frontiers));
+					remaining_frontier = mergeable_frontier.frontier;
+					shortest_path_length =
+							mergeable_frontier.path_length_to_local_graph;
+					distance_current_frontier_to_remaining_frontier =
+							mergeable_frontier.distance_between_frontiers;
 				} else {
-					addFrontierToBePruned(mergeable_frontier.first,
+					ROS_INFO_STREAM(
+							"Mergeable frontier " << mergeable_frontier.frontier << " with length " << mergeable_frontier.path_length_to_local_graph << " pruned, with merged distance: " << (_gg.frontiers.at(mergeable_frontier.frontier).merged_distance + mergeable_frontier.distance_between_frontiers));
+					addFrontierToBePruned(mergeable_frontier.frontier,
 							pruned_frontiers, pruned_paths, rrg);
 				}
+			}
+			if (remaining_frontier != frontier.index) { // don't add frontier, it was merged into existing
+				double max_relevant_merged_distance = 0;
+				if (merged_distances_to_frontiers.rbegin()->second
+						== remaining_frontier) { //check if max merged distance is not merged distance to remaining frontier, because this would add distance_current_frontier_to_remaining_frontier twice
+					max_relevant_merged_distance =
+							merged_distances_to_frontiers.rbegin()->first
+									+ distance_current_frontier_to_remaining_frontier;
+				} else { //otherwise take second merged distance which is to another frontier
+					max_relevant_merged_distance = std::next(
+							merged_distances_to_frontiers.rbegin())->first
+							+ distance_current_frontier_to_remaining_frontier;
+				}
+				if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining frontier and keep the added frontier
+					ROS_INFO_STREAM(
+							"Remaining frontier " << remaining_frontier << " pruned because of max merged distance violation, its merged distance is " << max_relevant_merged_distance);
+					addFrontierToBePruned(remaining_frontier, pruned_frontiers,
+							pruned_paths, rrg);
+					frontier.merged_distance =
+							merged_distances_to_frontiers.rbegin()->first;
+					ROS_INFO_STREAM(
+							"Therefore new frontier " << frontier.index << " remains after merge with merged distance " << merged_distances_to_frontiers.rbegin()->first);
+				} else { //merge like all other frontiers were merged into current frontier and then into remaining frontier
+					_gg.frontiers.at(remaining_frontier).merged_distance =
+							std::max(max_relevant_merged_distance,
+									_gg.frontiers.at(remaining_frontier).merged_distance);
+					ROS_INFO_STREAM(
+							"New frontier " << frontier.index << " was merged into existing frontier " << remaining_frontier << " with merged distance " << _gg.frontiers.at(remaining_frontier).merged_distance);
+					pruned_added_frontier = true;
+				}
+			} else {
+				frontier.merged_distance =
+						merged_distances_to_frontiers.rbegin()->first;
 			}
 			if (pruned_frontiers.size() > 0) {
 				handlePrunedFrontiers(pruned_frontiers);
 				handlePrunedPaths(pruned_paths);
 			}
-			if (remaining_frontier != frontier.index) { // don't add frontier, it was merged into existing
-				ROS_INFO_STREAM(
-						"New frontier " << frontier.index << " was merged into existing frontier " << remaining_frontier);
-				return false;
-			} else { // check if new index became available
+			if (!pruned_added_frontier) {
 				frontier.index = availableFrontierIndex();
 				ROS_INFO_STREAM(
-						"Retrieved new frontier index " << frontier.index);
+						"Retrieved new index for frontier " << frontier.index << " with merged distance " << frontier.merged_distance);
 			}
 		}
 	}
-	return true;
+	return pruned_added_frontier;
+}
+
+void GlobalGraphHandler::checkFrontierMergeability(
+		rrg_nbv_exploration_msgs::GlobalPath &path_one, int path_two,
+		rrg_nbv_exploration_msgs::GlobalFrontier &frontier_one,
+		MergeableFrontierStruct &closest_mergeable_unprunable_frontier,
+		std::vector<MergeableFrontierStruct> &mergeable_frontiers,
+		double add_path_one_length) {
+	double combined_length = _gg.paths.at(path_two).length
+			+ (add_path_one_length ? path_one.length : 0);
+	double distance = _graph_path_calculator->distance2d(frontier_one.viewpoint,
+			_gg.frontiers.at(_gg.paths.at(path_two).frontier).viewpoint);
+	ROS_INFO_STREAM(
+			"Check frontier mergeability for frontier " << frontier_one.index << " ("<<frontier_one.merged_distance <<") with path " << path_one.index << " and frontier "<< _gg.paths.at(path_two).frontier << " (" << _gg.frontiers.at(_gg.paths.at(path_two).frontier).merged_distance<<") with path " << path_two << " with combined length " << combined_length << " and distance: " << distance);
+	if (_gg.paths.at(path_two).frontier
+			!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
+			&& combined_length <= 2 * _local_graph_radius
+			&& distance <= _local_graph_radius) {
+		//to merge frontier 2 into frontier 1: distance + frontier2 merged_distance <= local_graph_radius
+		//to merge frontier 1 into frontier 2: distance + frontier1 merged_distance <= local_graph_radius
+		//new merged distance is max of
+
+		double frontier_one_new_merged_distance = frontier_one.merged_distance
+				+ distance;
+		double frontier_two_new_merged_distance = _gg.frontiers.at(
+				_gg.paths.at(path_two).frontier).merged_distance + distance;
+		if (frontier_one_new_merged_distance <= _local_graph_radius
+				|| frontier_two_new_merged_distance <= _local_graph_radius) {
+			if (frontier_two_new_merged_distance > _local_graph_radius) { //frontier one won't have the frontiers merged into frontier two in its local graph radius, therefore frontier two is unpruneable
+				if (combined_length
+						< closest_mergeable_unprunable_frontier.path_length_to_local_graph) {
+					ROS_INFO_STREAM(
+							"New closest mergeable unprunable frontier " << _gg.paths.at(path_two).frontier << " with length " << _gg.paths.at(path_two).length);
+					closest_mergeable_unprunable_frontier =
+							MergeableFrontierStruct(
+									_gg.paths.at(path_two).frontier,
+									_gg.paths.at(path_two).length, distance);
+				} else {
+					ROS_INFO_STREAM(
+							"Frontier " << closest_mergeable_unprunable_frontier.frontier << " is closer, merge not possible");
+				}
+			} else {
+				ROS_INFO_STREAM(
+						"Add frontier " << _gg.paths.at(path_two).frontier << " to mergeable frontiers with length " << _gg.paths.at(path_two).length);
+				mergeable_frontiers.emplace_back(
+						_gg.paths.at(path_two).frontier,
+						_gg.paths.at(path_two).length, distance);
+			}
+		} else {
+			ROS_INFO_STREAM(
+					"Frontiers cannot be merged due to too large merge distances");
+		}
+	}
 }
 
 void GlobalGraphHandler::connectFrontiers(int frontier_one, int frontier_two,
-		int path_one, int path_two) {
+		int path_one, int path_two, bool connection_at_frontier) {
 	ROS_INFO_STREAM(
 			"Connect frontiers " << frontier_one << " (" << path_one << ") and " << frontier_two << " (" << path_two << ")");
 	int frontier;
 	int connection;
 	int frontier_path;
 	int connection_path;
+	bool skip_frontier_path = false;
+	bool skip_connection_path = false;
 	if (frontier_one > frontier_two) { // higher index frontier is always frontier, the other one connection, path always starts at frontier
 		frontier = frontier_one;
 		connection = frontier_two;
 		frontier_path = path_one;
 		connection_path = path_two;
+		if (connection_at_frontier)
+			skip_frontier_path = true;
 	} else {
 		frontier = frontier_two;
 		connection = frontier_one;
 		frontier_path = path_two;
 		connection_path = path_one;
+		if (connection_at_frontier)
+			skip_connection_path = true;
 	}
 	rrg_nbv_exploration_msgs::GlobalPath path_between_frontiers;
 	path_between_frontiers.index = availablePathIndex();
 	path_between_frontiers.frontier = frontier;
 	path_between_frontiers.connection = connection;
-//	if (connecting_node)
-	path_between_frontiers.waypoints.insert(
-			path_between_frontiers.waypoints.begin(),
-			_gg.paths.at(frontier_path).waypoints.begin(),
-			_gg.paths.at(frontier_path).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
-	path_between_frontiers.waypoints.insert(
-			path_between_frontiers.waypoints.end(),
-			_gg.paths.at(connection_path).waypoints.rbegin(),
-			_gg.paths.at(connection_path).waypoints.rend());
-	path_between_frontiers.length = _gg.paths.at(frontier_path).length
-			+ _gg.paths.at(connection_path).length;
-//			+ (connecting_node ? _gg.paths.at(connection_path).length : 0);
+	path_between_frontiers.length = 0;
+	if (!skip_frontier_path) {
+		path_between_frontiers.waypoints.insert(
+				path_between_frontiers.waypoints.begin(),
+				_gg.paths.at(frontier_path).waypoints.begin(),
+				_gg.paths.at(frontier_path).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
+		path_between_frontiers.length += _gg.paths.at(frontier_path).length;
+	}
+	if (!skip_connection_path) {
+		path_between_frontiers.waypoints.insert(
+				path_between_frontiers.waypoints.end(),
+				_gg.paths.at(connection_path).waypoints.rbegin(),
+				_gg.paths.at(connection_path).waypoints.rend());
+		path_between_frontiers.length += _gg.paths.at(connection_path).length;
+	}
 	path_between_frontiers.connecting_node = -1;
 	_gg.frontiers.at(frontier).paths.push_back(path_between_frontiers.index);
 	_gg.frontiers.at(frontier).paths_counter++;
@@ -385,7 +643,7 @@ int GlobalGraphHandler::availablePathIndex() {
 void GlobalGraphHandler::addFrontierToBePruned(int frontier_to_prune,
 		std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-//	ROS_INFO_STREAM("Add frontier to be pruned " << frontier_to_prune);
+	ROS_INFO_STREAM("Add frontier to be pruned " << frontier_to_prune);
 	pruned_frontiers.insert(frontier_to_prune);
 	for (auto path : _gg.frontiers.at(frontier_to_prune).paths) {
 		pruned_paths.insert(path);
@@ -401,8 +659,8 @@ void GlobalGraphHandler::addFrontierToBePruned(int frontier_to_prune,
 
 void GlobalGraphHandler::handlePrunedFrontiers(
 		const std::set<int> &pruned_frontiers) {
-//	ROS_INFO_STREAM(
-//			"Handle pruned frontiers, frontier counter " << _gg.frontiers_counter);
+	ROS_INFO_STREAM(
+			"Handle pruned frontiers, frontier counter " << _gg.frontiers_counter);
 	bool removed_frontiers = false;
 	auto pruned_frontier = pruned_frontiers.rbegin();
 	while (pruned_frontier != pruned_frontiers.rend()) { // remove or add inactive frontiers
@@ -492,6 +750,7 @@ void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
 void GlobalGraphHandler::deactivateFrontier(int pruned_frontier) {
 	ROS_INFO_STREAM("Deactivate frontier " << pruned_frontier);
 	_gg.frontiers.at(pruned_frontier).inactive = true;
+	_gg.frontiers.at(pruned_frontier).merged_distance = 0.0;
 	_gg.frontiers.at(pruned_frontier).paths.clear();
 	_gg.frontiers.at(pruned_frontier).paths_counter = 0;
 	_gg.frontiers.at(pruned_frontier).viewpoint.x = 0;
@@ -722,7 +981,7 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("getClosestWaypointToFrontier");
 	int closest_waypoint_to_frontier = _gg.paths.at(path).waypoints.size() - 1; // index of last waypoint in list
-	// find connectable waypoint closest to the frontier (most path reduction)
+// find connectable waypoint closest to the frontier (most path reduction)
 	if (_inflation_active) {
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
 			//							ROS_INFO_STREAM(
@@ -743,9 +1002,10 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 			//							ROS_INFO_STREAM(
 			//									"Waypoint " << waypoint_near_new_node.first << " at distance " << waypoint_near_new_node.second << " (" << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).x << ", " << _gg.paths.at(path).waypoints.at(waypoint_near_new_node.first).y << ")");
 			if (//waypoint_near_new_node.first != 0 && // new node must intersect waypoint at frontier for re-wiring or not allow a node to be placed at frontier (min distance)
-			_collision_checker->checkConnectionToFrontier(rrg,
-					waypoint_near_new_node.first,
-					rrg.nodes.at(new_node).position,
+			_collision_checker->checkConnectionToFrontierPathWaypoint(rrg,
+					new_node,
+					_gg.paths.at(path).waypoints.at(
+							waypoint_near_new_node.first),
 					sqrt(waypoint_near_new_node.second))) { // check if a connection can be made
 				closest_waypoint_to_frontier = waypoint_near_new_node.first;
 				break;
@@ -762,7 +1022,7 @@ double GlobalGraphHandler::calculateNewPathLength(int path, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM(
 			"calculateNewPathLength of path " << path << " to node " << new_node);
-	double path_reduction = 0;
+	double new_length = 0;
 	double distance_to_new_node = sqrt(
 			pow(
 					_gg.paths.at(path).waypoints.at(
@@ -772,22 +1032,37 @@ double GlobalGraphHandler::calculateNewPathLength(int path, int new_node,
 							_gg.paths.at(path).waypoints.at(
 									closest_waypoint_to_frontier).y
 									- rrg.nodes.at(new_node).position.y, 2)); // distance between closest waypoint and new connecting node
-	for (int i = _gg.paths.at(path).waypoints.size() - 1;
-			i > closest_waypoint_to_frontier; i--) { // calculate distances between waypoints to be pruned from path
-		path_reduction +=
-				sqrt(
-						pow(
-								_gg.paths.at(path).waypoints.at(i).x
-										- _gg.paths.at(path).waypoints.at(i - 1).x,
-								2)
-								+ pow(
-										_gg.paths.at(path).waypoints.at(i).y
-												- _gg.paths.at(path).waypoints.at(
-														i - 1).y, 2));
+	if ((_gg.paths.at(path).waypoints.size() - 1 - closest_waypoint_to_frontier)
+			> closest_waypoint_to_frontier) { //less waypoints remaining than pruned
+		for (int i = 1; i <= closest_waypoint_to_frontier; i++) { // calculate distances between waypoints to remain in path
+			new_length += sqrt(
+					pow(
+							_gg.paths.at(path).waypoints.at(i).x
+									- _gg.paths.at(path).waypoints.at(i - 1).x,
+							2)
+							+ pow(
+									_gg.paths.at(path).waypoints.at(i).y
+											- _gg.paths.at(path).waypoints.at(
+													i - 1).y, 2));
+		}
+	} else { //less waypoints pruned than remaining
+		new_length = _gg.paths.at(path).length;
+		for (int i = _gg.paths.at(path).waypoints.size() - 1;
+				i > closest_waypoint_to_frontier; i--) { // calculate distances between waypoints to be pruned from path
+			new_length -= sqrt(
+					pow(
+							_gg.paths.at(path).waypoints.at(i).x
+									- _gg.paths.at(path).waypoints.at(i - 1).x,
+							2)
+							+ pow(
+									_gg.paths.at(path).waypoints.at(i).y
+											- _gg.paths.at(path).waypoints.at(
+													i - 1).y, 2));
+		}
 	}
 	ROS_INFO_STREAM(
-			"Path " << path << " (" << _gg.paths.at(path).length << ") when connecting to node " << new_node << " from waypoint " << closest_waypoint_to_frontier << " is reduced by " << path_reduction << ", distance to new node: " << distance_to_new_node);
-	return (_gg.paths.at(path).length - path_reduction + distance_to_new_node);
+			"Path " << path << " (" << _gg.paths.at(path).length << ") when connecting to node " << new_node << " from waypoint " << closest_waypoint_to_frontier << " has new length " << new_length << ", distance to new node: " << distance_to_new_node);
+	return (new_length + distance_to_new_node);
 }
 
 void GlobalGraphHandler::rewirePathToNewNode(int path,
@@ -822,7 +1097,9 @@ void GlobalGraphHandler::tryToImproveConnectionsToOtherFrontiers(int new_node,
 	ROS_INFO_STREAM(
 			"Try to improve connections from current frontier " << current_frontier << " with path " << path);
 	std::set<int> new_frontier_connections; // set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
-
+	std::vector<std::pair<int, double>> mergeable_frontiers; // frontier index first and distance to local graph second
+	std::pair<int, double> closest_mergeable_unprunable_frontier( { -1,
+			std::numeric_limits<double>::infinity() }); // frontier index first and distance to local graph second
 	for (auto connected_path : rrg.nodes.at(new_node).connected_to) {
 		new_frontier_connections.insert(_gg.paths.at(connected_path).frontier);
 	}
@@ -843,20 +1120,20 @@ void GlobalGraphHandler::tryToImproveConnectionsToOtherFrontiers(int new_node,
 					"Existing path "<<frontier_path<< " to " << other_frontier << " with length " << _gg.paths.at(frontier_path).length << " compared to length " << _gg.paths.at(path).length + _gg.paths.at(other_frontier_path_to_local_graph).length);
 			if ((_gg.paths.at(path).length
 					+ _gg.paths.at(other_frontier_path_to_local_graph).length)
-					< _gg.paths.at(frontier_path).length) {
-				// path through new node would be shorter
+					< _gg.paths.at(frontier_path).length) { // path through new node would be shorter
 				ROS_INFO_STREAM(
 						"Improve path " << other_frontier_path_to_local_graph << " to existing frontier " << other_frontier << " with length " << _gg.paths.at(frontier_path).length << " compared to new length " << _gg.paths.at(path).length + _gg.paths.at(other_frontier_path_to_local_graph).length);
 				improvePathToConnectedFrontier(frontier_path, path,
 						other_frontier, other_frontier_path_to_local_graph);
+
 			}
 		}
 	}
-	//							ROS_INFO_STREAM(
-	//									"Add new " << new_frontier_connections.size()<<" connections");
+//							ROS_INFO_STREAM(
+//									"Add new " << new_frontier_connections.size()<<" connections");
 	for (auto new_frontier_connection : new_frontier_connections) {
 		connectFrontiers(current_frontier, new_frontier_connection, path,
-				_gg.frontiers.at(new_frontier_connection).paths.at(0)); // first path of frontier is always path to local graph
+				_gg.frontiers.at(new_frontier_connection).paths.front(), false); // first path of frontier is always path to local graph
 	}
 }
 
@@ -976,7 +1253,7 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 	double best_distance = calculateRouteLength(route);
 //	ROS_INFO_STREAM("Start distance: " << best_distance);
 	for (int i = 1; i < route.size() - 1; i++) {
-		// omit first frontier (robot position/local graph)
+// omit first frontier (robot position/local graph)
 		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) {
 			// omit last frontier (origin) when auto homing
 			std::vector<std::pair<int, int>> new_route;
@@ -1266,7 +1543,7 @@ void GlobalGraphHandler::connectPathsToLocalGraphToNearestNode(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	ROS_INFO_STREAM("connectPathsToLocalGraphToNearestNode");
 	for (auto &path : _gg.paths) {
-		// connect all frontiers directly to the nearest node to the robot
+// connect all frontiers directly to the nearest node to the robot
 		if (!path.inactive
 				&& path.connection
 						== rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) {
@@ -1338,7 +1615,7 @@ bool GlobalGraphHandler::getFrontierPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
-		// ROS_INFO_STREAM("Get frontier path");
+// ROS_INFO_STREAM("Get frontier path");
 		std::vector<geometry_msgs::Point> waypoints;
 		if (_previous_global_goal_failed) { // go back to former local graph to start navigation to next frontier from there
 			waypoints.insert(waypoints.end(),
@@ -1416,7 +1693,7 @@ void GlobalGraphHandler::overwritePathToLocalGraph(int path, int frontier,
 				other_frontier).paths.front();
 		ROS_INFO_STREAM(
 				"Overwrite path to local graph " << other_frontiers_path_to_local_graph << "of frontier " << other_frontier << " with path " << path << " and length " << _gg.paths.at( path).length);
-		// overwrite path between other frontier and local graph with details from the path between those two
+// overwrite path between other frontier and local graph with details from the path between those two
 		_gg.paths.at(other_frontiers_path_to_local_graph).connecting_node = 0; // root at new RRG
 		_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.clear();
 		if (other_frontier > frontier) {

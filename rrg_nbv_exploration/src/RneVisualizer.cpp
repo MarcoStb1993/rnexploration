@@ -308,7 +308,10 @@ void RneVisualizer::addGgInfoTextVisualization(
 	frontier_info_text.pose.position.z = gg->frontiers[frontier].viewpoint.z
 			+ 0.5;
 	std::ostringstream oss;
-	oss << "[" << frontier << "]";
+	if (gg->frontiers[frontier].merged_distance > 0)
+		oss << "{" << frontier << "}";
+	else
+		oss << "[" << frontier << "]";
 	frontier_info_text.text = oss.str();
 	frontier_info_texts.markers.push_back(frontier_info_text);
 }

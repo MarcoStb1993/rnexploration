@@ -181,6 +181,24 @@ public:
 			std::vector<ShortestFrontierConnectionStruct> &local_paths,
 			double max_distance_threshold);
 
+	/**
+	 * @brief Calculate the 2D-Euclidean distance between two points
+	 * @param Reference to the first point
+	 * @param Reference to the second point
+	 * @return Distance between the two points in m
+	 */
+	double distance2d(geometry_msgs::Point &point_one,
+			geometry_msgs::Point &point_two);
+
+	/**
+	 * @brief Calculate the 2D-Euclidean squared distance between two points
+	 * @param Reference to the first point
+	 * @param Reference to the second point
+	 * @return Squared distance between the two points in m
+	 */
+	double distance2dSquared(geometry_msgs::Point &point_one,
+			geometry_msgs::Point &point_two);
+
 	void dynamicReconfigureCallback(
 			rrg_nbv_exploration::GraphConstructorConfig &config,
 			uint32_t level);

@@ -82,20 +82,21 @@ void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	if (_gain_factor > 0)
 		for (auto &node : _nodes_ordered_by_reward) {
-			if (rrg.nodes[node.node].path_to_robot.size()
+			if (rrg.nodes.at(node.node).path_to_robot.size()
 					&& (node.reward_function == 0 || _robot_moved)) {
-				node.reward_function = _gain_factor * rrg.nodes[node.node].gain
-						* exp(-1 * rrg.nodes[node.node].cost_function);
-				rrg.nodes[node.node].reward_function = node.reward_function;
+				node.reward_function = _gain_factor
+						* rrg.nodes.at(node.node).gain
+						* exp(-1 * rrg.nodes.at(node.node).cost_function);
+				rrg.nodes.at(node.node).reward_function = node.reward_function;
 			}
 		}
 	else
 		for (auto &node : _nodes_ordered_by_reward) {
-			if (rrg.nodes[node.node].path_to_robot.size()
+			if (rrg.nodes.at(node.node).path_to_robot.size()
 					&& (node.reward_function == 0 || _robot_moved)) {
 				node.reward_function = exp(
-						-1 * rrg.nodes[node.node].cost_function);
-				rrg.nodes[node.node].reward_function = node.reward_function;
+						-1 * rrg.nodes.at(node.node).cost_function);
+				rrg.nodes.at(node.node).reward_function = node.reward_function;
 			}
 		}
 }
