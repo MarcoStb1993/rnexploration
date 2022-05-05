@@ -21,6 +21,7 @@ void RnExplorationState::onSetup() {
 
 	//initialize variables
 	_name = "E: RN Exploration";
+	_failed_request_goal_calls = 0;
 }
 
 void RnExplorationState::onEntry() {
@@ -46,7 +47,9 @@ void RnExplorationState::onActive() {
 		}
 	} else {
 		ROS_ERROR("Failed to call Request Goal service");
-		abortRnExplorationGoal();
+		if (++_failed_request_goal_calls >= MAXIMUM_FAILED_REQUEST_GOAL_CALLS) {
+			abortRnExplorationGoal();
+		}
 	}
 }
 

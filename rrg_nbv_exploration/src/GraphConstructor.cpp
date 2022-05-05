@@ -85,7 +85,7 @@ void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
 	_updating_global_goal = false;
 	initLocalGraph(seed);
 	resetHelperClasses();
-	_global_graph_handler->initialize(_rrg.nodes[0], _graph_path_calculator,
+	_global_graph_handler->initialize(_rrg.nodes.at(0), _graph_path_calculator,
 			_graph_searcher, _collision_checker);
 	_generator.seed(time(NULL));
 }
@@ -269,6 +269,18 @@ void GraphConstructor::pruneLocalGraph() {
 		if (std::isinf(_rrg.nodes[node].cost_function)) { // check if disconnected nodes are still disconnected and deactivate them
 														  //				ROS_INFO_STREAM(
 														  //						"Node " << node << " terminally disconnected, to be pruned");
+			if (_rrg.nodes.at(node).status
+					== rrg_nbv_exploration_msgs::Node::FAILED
+					&& !_rrg.nodes.at(node).connected_to.empty()
+					&& _collision_checker->collisionCheckForFailedNode(_rrg,
+							node, false)
+							== CollisionChecker::Collisions::empty) { //try to recover node with connected paths before pruning
+				ROS_INFO_STREAM("Recovered node " << node << " before pruning");
+				_rrg.nodes[node].status =
+						rrg_nbv_exploration_msgs::Node::INITIAL;
+				_collision_checker->findBestConnectionForNode(_rrg,
+						_rrg.nodes[node], _robot_pose, false);
+			}
 			pruned_nodes.insert(node);
 			_rrg.nodes[node].status = rrg_nbv_exploration_msgs::Node::INACTIVE;
 			for (int edge : _rrg.nodes[node].edges) {
@@ -377,7 +389,6 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 	std::sort(nodes.begin(), nodes.end(), [this](int node_one, int node_two) {
 		return sortByPathLength(node_one, node_two);
 	}); // sort ascending by path to robot length
-
 	findConnectedNodesWithGain(nodes);
 	for (int i = nodes.size() - 1; i >= 0; i--) { // deactivate nodes by path length to merge and continue paths correctly
 		deactivateNode(nodes.at(i));
@@ -697,14 +708,29 @@ void GraphConstructor::pruneEngulfedNodes(std::vector<int> engulfed_nodes) {
 	std::set<int> pruned_nodes;
 	std::set<int> pruned_edges;
 	for (auto engulfed_node : engulfed_nodes) {
-		pruned_nodes.insert(engulfed_node);
-		_rrg.nodes.at(engulfed_node).status =
-				rrg_nbv_exploration_msgs::Node::INACTIVE;
-		ROS_INFO_STREAM("Node to be pruned: " << engulfed_node);
-		for (int edge : _rrg.nodes.at(engulfed_node).edges) {
-			ROS_INFO_STREAM("Edge " << edge << " to be pruned");
-			_rrg.edges[edge].inactive = true;
-			pruned_edges.insert(edge);
+		if (_rrg.nodes.at(engulfed_node).connected_to.empty()
+				|| _rrg.nearest_node != engulfed_node) { //don't prune the currently nearest node with connected paths, cannot be rerouted
+			ROS_INFO_STREAM(
+					"Try to recover node " << engulfed_node << " with status " << (int)_rrg.nodes.at(engulfed_node).status << " and connected paths " << _rrg.nodes.at(engulfed_node).connected_to.size());
+			if (_rrg.nodes.at(engulfed_node).status
+					== rrg_nbv_exploration_msgs::Node::FAILED
+					&& !_rrg.nodes.at(engulfed_node).connected_to.empty()) { //node must be collision free to be engulfed, recover it
+				ROS_INFO_STREAM(
+						"Recovered node " << engulfed_node << " before pruning");
+				_rrg.nodes[engulfed_node].status =
+						rrg_nbv_exploration_msgs::Node::INITIAL;
+				_collision_checker->findBestConnectionForNode(_rrg,
+						_rrg.nodes[engulfed_node], _robot_pose, false);
+			}
+			pruned_nodes.insert(engulfed_node);
+			_rrg.nodes.at(engulfed_node).status =
+					rrg_nbv_exploration_msgs::Node::INACTIVE;
+			ROS_INFO_STREAM("Node to be pruned: " << engulfed_node);
+			for (int edge : _rrg.nodes.at(engulfed_node).edges) {
+				ROS_INFO_STREAM("Edge " << edge << " to be pruned");
+				_rrg.edges[edge].inactive = true;
+				pruned_edges.insert(edge);
+			}
 		}
 	}
 	handlePrunedNodes(pruned_nodes);
@@ -890,7 +916,7 @@ void GraphConstructor::tryFailedNodesRecovery() {
 					[this](int node) {
 						int collision =
 								_collision_checker->collisionCheckForFailedNode(
-										_rrg, node);
+										_rrg, node, true);
 						if (collision
 								== CollisionChecker::Collisions::unknown) {
 							return false; // keep node and try to recover again

@@ -385,18 +385,19 @@ std::vector<int> CollisionChecker::inflateExistingNode(
 }
 
 int CollisionChecker::collisionCheckForFailedNode(
-		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
+		rrg_nbv_exploration_msgs::Graph &rrg, int node, bool inflate) {
 	nav_msgs::OccupancyGrid map = *_occupancy_grid;
 	std::vector<int8_t> tmp_vis_map_data = _vis_map.data;
 	int node_cost = 0, node_tiles = 0, node_collision = Collisions::empty;
 	if (!isCircleInCollision(rrg.nodes[node].position.x,
 			rrg.nodes[node].position.y, map, tmp_vis_map_data, node_cost,
 			node_tiles, node_collision))
-		if (_inflation_active && rrg.nodes[node].radius > _robot_radius)
+		if (inflate && _inflation_active) {
 			inflateCircle(rrg.nodes[node].position.x,
 					rrg.nodes[node].position.y, false, rrg.nodes[node], map,
 					tmp_vis_map_data, node_cost, node_tiles, node_collision,
 					_robot_radius, rrg.nodes[node].radius);
+		}
 	return node_collision;
 }
 
@@ -810,7 +811,7 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 				+ height_sin }; // top corner
 		map_corners[3] = { x - height_cos + width_sin, y - width_cos
 				- height_sin }; // right corner
-	} else {// yaw >  -PI_HALF && yaw < 0 (height from bottom left to top right)
+	} else { // yaw >  -PI_HALF && yaw < 0 (height from bottom left to top right)
 		map_corners[0] = { x - height_cos - width_sin, y + width_cos
 				- height_sin }; // left corner
 		map_corners[1] = { x - height_cos + width_sin, y - width_cos

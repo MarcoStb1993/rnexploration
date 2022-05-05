@@ -13,6 +13,8 @@
 
 namespace rsm {
 
+#define MAXIMUM_FAILED_REQUEST_GOAL_CALLS 5
+
 /**
  * @class   RnExplorationState
  * @brief   State for choosing a goal from all nodes in the RRT. The goals are ranked by gain from ray-casting
@@ -88,6 +90,10 @@ private:
 	 * Chosen goal to be forwarded to navigation
 	 */
 	geometry_msgs::Pose _goal;
+	/**
+	 * Number of times the RequestGoal service failed
+	 */
+	int _failed_request_goal_calls;
 
 	/**
 	 * Initiate transition to idle state

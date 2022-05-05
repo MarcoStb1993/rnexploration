@@ -73,18 +73,19 @@ public:
 	 * @param Reference to if a node was added to the list of nodes to update
 	 * @return A list of indices of nodes which are completely engulfed by the inflated node and can be pruned
 	 */
-	std::vector<int> inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg, int node,
-			geometry_msgs::Pose robot_pos, std::list<int> &nodes_to_update,
-			bool &added_node_to_update);
+	std::vector<int> inflateExistingNode(rrg_nbv_exploration_msgs::Graph &rrg,
+			int node, geometry_msgs::Pose robot_pos,
+			std::list<int> &nodes_to_update, bool &added_node_to_update);
 
 	/**
 	 * @brief Check if a previously failed node is in collision
 	 * @param Reference to the RRG
 	 * @param Index of the node to be checked
+	 * @param If the node should be inflated if inflation is activated and in case of no initial collision
 	 * @return Type of detected collision (empty, unknown or occupied)
 	 */
 	int collisionCheckForFailedNode(rrg_nbv_exploration_msgs::Graph &rrg,
-			int node);
+			int node, bool inflate);
 
 	/**
 	 * @brief Retry edges that previously failed the collision check due to unknown tiles
@@ -140,8 +141,9 @@ public:
 	 * @param Distance between node and frontier in m
 	 * @return If a connection can be made to the waypoint
 	 */
-	bool checkConnectionToFrontierPathWaypoint(rrg_nbv_exploration_msgs::Graph &rrg,
-			int node, geometry_msgs::Point waypoint, double distance);
+	bool checkConnectionToFrontierPathWaypoint(
+			rrg_nbv_exploration_msgs::Graph &rrg, int node,
+			geometry_msgs::Point waypoint, double distance);
 
 	/**
 	 * @brief Remove indices from list of available nodes if the node entries were deleted from the

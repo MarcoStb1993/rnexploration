@@ -53,7 +53,6 @@ void GlobalGraphHandler::initialize(rrg_nbv_exploration_msgs::Node &root,
 	_gg.ns = "globalgraph";
 	_gg.frontiers_counter = 0;
 	_gg.paths_counter = 0;
-	rrg_nbv_exploration_msgs::GlobalGraph test = _gg;
 	rrg_nbv_exploration_msgs::GlobalFrontier frontier;
 	frontier.index = _gg.frontiers_counter++;
 	frontier.viewpoint = root.position;
