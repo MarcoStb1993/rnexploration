@@ -232,10 +232,6 @@ private:
 	 */
 	double _local_graph_radius;
 	/**
-	 * @brief Squared radius of the RRG around the robot in m
-	 */
-	double _local_graph_radius_squared;
-	/**
 	 * @brief Indices of frontiers (first) in the order of global exploration and the indices of paths
 	 * leading to them from the previous frontier (second)
 	 */

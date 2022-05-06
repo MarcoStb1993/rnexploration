@@ -145,9 +145,10 @@ private:
 	 */
 	double _local_graph_radius;
 	/**
-	 * @brief Squared radius of the RRG around the robot plus the robot radius in m
+	 * @brief Squared radius around the robot plus the robot radius in m above which nodes
+	 * are pruned from the RRG
 	 */
-	double _local_graph_radius_squared;
+	double _local_graph_pruning_radius_squared;
 	/**
 	 * @brief Distance on z-axis between base footprint and sensor frame
 	 */
@@ -290,6 +291,10 @@ private:
 	 * @brief List of positions at which new nodes will be placed when the RRG is expanded
 	 */
 	std::vector<geometry_msgs::Point> _new_node_positions;
+	/**
+	 * @brief If global and RRG exploration are active or only RRG exploration
+	 */
+	bool _global_exploration_active;
 
 	/**
 	 * @brief Initialize the exploration with a root node at seed, initialize helper classes and nodes
@@ -437,14 +442,14 @@ private:
 	void resetNextNodeInPath();
 
 	/**
-	 * @brief Iterates over all nodes and sets them to inactive if they are outside the robot's sensor
-	 * range, also returns a set of all disconnected nodes that had a deactivated node in their path to
+	 * @brief Iterates over all nodes and sets them to inactive if they are outside the local graph
+	 * radius, also returns a set of all disconnected nodes that had a deactivated node in their path to
 	 * the robot
 	 * @param Reference to the set of deactivated nodes
 	 * @param Reference to the set of deactivated edges
 	 * @return List of nodes that had one of the deactivated nodes in their path to the robot
 	 */
-	std::vector<int> findOutOfSensorRadiusNodes(std::set<int> &pruned_nodes,
+	std::vector<int> findOutOfLocalGraphRadiusNodes(std::set<int> &pruned_nodes,
 			std::set<int> &pruned_edges);
 
 	/**

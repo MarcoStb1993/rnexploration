@@ -22,11 +22,12 @@
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="navigation_global_planner" default="rrg_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.5" />
-	<arg name="min_view_score" default="0.03" />
+	<arg name="min_view_score" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
+	<arg name="global_exploration_active" default="true" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -173,7 +174,7 @@
 		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution" default="$(arg grid_map_resolution)" />
-		<arg name="grid_map_occupied" default="75" />
+		<arg name="grid_map_occupied" default="100" />
 		<arg name="grid_map_unknown" default="-1" />
 		<arg name="local_sampling_radius" value="$(arg local_sampling_radius)" />
 		<arg name="local_graph_radius" value="$(arg local_graph_radius)" />
@@ -190,6 +191,7 @@
 		<arg name="auto_homing" default="false" />
 		<arg name="reupdate_nodes" default="true" />
 		<arg name="samples_per_loop" default="10" />
+		<arg name="global_exploration_active" default="$(arg global_exploration_active)" />	
 	</include>
 
 	<!-- RViz für Exploration -->

@@ -31,7 +31,6 @@ GlobalGraphHandler::GlobalGraphHandler() {
 					1);
 
 	_local_graph_radius = std::max(_local_graph_radius, 2 * _robot_radius); // cannot fall below the robot diameter
-	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 
 	_global_graph_searcher.reset(new GlobalGraphSearcher());
 	_global_path_waypoint_searcher.reset(new GlobalPathWaypointSearcher());
@@ -1749,7 +1748,6 @@ void GlobalGraphHandler::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_local_graph_radius = std::max(config.local_graph_radius,
 			2 * _robot_radius);
-	_local_graph_radius_squared = pow(_local_graph_radius, 2);
 }
 
 } /* namespace rrg_nbv_exploration */

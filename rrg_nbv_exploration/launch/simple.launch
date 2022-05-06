@@ -40,7 +40,8 @@
 	<arg name="move_nodes" default="true" />		
 	<arg name="auto_homing" default="false" />	
 	<arg name="reupdate_nodes" default="true" />	
-	<arg name="samples_per_loop" default="10" />	
+	<arg name="samples_per_loop" default="10" />
+	<arg name="global_exploration_active" default="true" />		
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" launch-prefix="gdb -ex run --args"
 		output="screen" >
@@ -72,7 +73,8 @@
 		<param name="move_nodes" type="bool" value="$(arg move_nodes)" />		
 		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />	
 		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />	
-		<param name="samples_per_loop" type="int" value="$(arg samples_per_loop)" />							
+		<param name="samples_per_loop" type="int" value="$(arg samples_per_loop)" />	
+		<param name="global_exploration_active" type="bool" value="$(arg global_exploration_active)" />							
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
