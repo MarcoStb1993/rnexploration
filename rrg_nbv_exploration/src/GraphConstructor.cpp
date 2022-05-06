@@ -29,6 +29,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("samples_per_loop", _samples_per_loop, 10);
 	private_nh.param("global_exploration_active", _global_exploration_active,
 			true);
+	private_nh.param("measure_algorithm_runtime", _measure_algorithm_runtime,
+			false);
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
@@ -45,6 +47,10 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 			&GraphConstructor::requestPath, this);
 	_update_current_goal_service = nh.advertiseService("updateCurrentGoal",
 			&GraphConstructor::updateCurrentGoal, this);
+	if (_measure_algorithm_runtime) {
+		_rne_runtime_publisher = nh.advertise<std_msgs::Duration>("rne_runtime",
+				1);
+	}
 
 	_local_exploration_finished_timer = _nh.createTimer(
 			ros::Duration(_local_exploration_finished_timer_duration),
@@ -95,6 +101,9 @@ void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
 				_graph_path_calculator, _graph_searcher, _collision_checker);
 	}
 	_generator.seed(time(NULL));
+	if (_measure_algorithm_runtime) {
+		_algorithm_runtime = ros::Duration(0, 0);
+	}
 }
 
 void GraphConstructor::initLocalGraph(
@@ -147,7 +156,6 @@ void GraphConstructor::runExploration() {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
 				&& _map_min_bounding[2]) {
-			ROS_INFO_STREAM("+++++ runExploration");
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
@@ -159,7 +167,6 @@ void GraphConstructor::runExploration() {
 						_rrg, _robot_pose, true, _nodes_to_update,
 						_sort_nodes_to_update);
 				determineNextNodeInPath();
-				ROS_INFO_STREAM("determinedNextNodeInPath");
 			} else { // check if robot heading changed and update heading
 				if (_graph_path_calculator->updateHeadingToRobot(
 						_rrg.nearest_node, _rrg, _robot_pose, _next_node,
@@ -173,7 +180,6 @@ void GraphConstructor::runExploration() {
 			if (_nodes_to_update.empty() && _current_goal_node == -1) {
 				_local_exploration_finished_timer.start();
 			}
-			ROS_INFO_STREAM("----- runExploration");
 		} else if (_global_exploration_active && !_local_running) {
 			if (!_global_graph_handler->checkIfNextFrontierWithPathIsValid()) {
 				if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) { // exploration finished
@@ -200,6 +206,16 @@ void GraphConstructor::runExploration() {
 	if (_global_exploration_active) {
 		_global_graph_handler->publishGlobalGraph();
 	}
+	if (_measure_algorithm_runtime) {
+		if (_running) {
+			_algorithm_runtime += ros::Time::now() - _rrg.header.stamp;
+		} else {
+			_algorithm_runtime = ros::Duration(0, 0);
+		}
+		std_msgs::Duration runtime;
+		runtime.data = _algorithm_runtime;
+		_rne_runtime_publisher.publish(runtime);
+	}
 }
 
 void GraphConstructor::expandGraph(bool update_paths) {
@@ -212,7 +228,6 @@ void GraphConstructor::expandGraph(bool update_paths) {
 					update_paths, false);
 	}
 	for (auto new_node_position : _new_node_positions) { // add stored positions
-		ROS_INFO_STREAM("***** Try to add new node at a frontier position");
 		insertNewNode(true, new_node_position, update_paths, true);
 	}
 	_new_node_positions.clear();
@@ -232,8 +247,6 @@ void GraphConstructor::insertNewNode(bool sampling_success,
 						_sort_nodes_to_update); // check if new connection could improve other distances
 			_nodes_to_update.push_back(node.index);
 			_sort_nodes_to_update = true;
-		} else {
-			ROS_INFO_STREAM("Do not update unreachable node " << node.index);
 		}
 		_graph_searcher->rebuildIndex(_rrg);
 //		_local_exploration_finished_timer.stop();
@@ -275,7 +288,6 @@ bool GraphConstructor::samplePointInRadius(geometry_msgs::Point &rand_sample,
 }
 
 void GraphConstructor::pruneLocalGraph() {
-	ROS_INFO_STREAM("+++++ Prune local graph");
 	std::set<int> pruned_nodes;
 	std::set<int> pruned_edges;
 	std::vector<int> disconnected_nodes = findOutOfLocalGraphRadiusNodes(
@@ -288,15 +300,12 @@ void GraphConstructor::pruneLocalGraph() {
 	}
 	for (auto node : disconnected_nodes) {
 		if (std::isinf(_rrg.nodes[node].cost_function)) { // check if disconnected nodes are still disconnected and deactivate them
-														  //				ROS_INFO_STREAM(
-														  //						"Node " << node << " terminally disconnected, to be pruned");
 			if (_rrg.nodes.at(node).status
 					== rrg_nbv_exploration_msgs::Node::FAILED
 					&& !_rrg.nodes.at(node).connected_to.empty()
 					&& _collision_checker->collisionCheckForFailedNode(_rrg,
 							node, false)
 							== CollisionChecker::Collisions::empty) { //try to recover node with connected paths before pruning
-				ROS_INFO_STREAM("Recovered node " << node << " before pruning");
 				_rrg.nodes[node].status =
 						rrg_nbv_exploration_msgs::Node::INITIAL;
 				_collision_checker->findBestConnectionForNode(_rrg,
@@ -305,7 +314,6 @@ void GraphConstructor::pruneLocalGraph() {
 			pruned_nodes.insert(node);
 			_rrg.nodes[node].status = rrg_nbv_exploration_msgs::Node::INACTIVE;
 			for (int edge : _rrg.nodes[node].edges) {
-				//					ROS_INFO_STREAM("Edge " << edge << " to be pruned");
 				_rrg.edges[edge].inactive = true;
 				pruned_edges.insert(edge);
 			}
@@ -316,12 +324,10 @@ void GraphConstructor::pruneLocalGraph() {
 		handlePrunedEdges(pruned_edges);
 		_graph_searcher->rebuildIndex(_rrg);
 	}
-	ROS_INFO_STREAM("----- Pruned local graph");
 }
 
 std::vector<int> GraphConstructor::findOutOfLocalGraphRadiusNodes(
 		std::set<int> &pruned_nodes, std::set<int> &pruned_edges) {
-	ROS_INFO_STREAM("findOutOfLocalGraphRadiusNodes");
 	std::set<int> disconnected_nodes_set;
 	for (auto &node : _rrg.nodes) {
 		if (node.status != rrg_nbv_exploration_msgs::Node::INACTIVE) {
@@ -333,7 +339,6 @@ std::vector<int> GraphConstructor::findOutOfLocalGraphRadiusNodes(
 				_rrg.nodes[node.index].status =
 						rrg_nbv_exploration_msgs::Node::INACTIVE;
 				disconnected_nodes_set.erase(node.index); // remove in case it was already added
-				//				ROS_INFO_STREAM("Node " << node.index << " out of range");
 				for (int edge : node.edges) {
 					_rrg.edges[edge].inactive = true;
 					pruned_edges.insert(edge);
@@ -341,13 +346,9 @@ std::vector<int> GraphConstructor::findOutOfLocalGraphRadiusNodes(
 							_rrg.edges[edge].first_node == node.index ?
 									_rrg.edges[edge].second_node :
 									_rrg.edges[edge].first_node;
-					//					ROS_INFO_STREAM(
-					//							"Edge " << edge << " to node " << remaining_node << " to be pruned");
 					if (isNextInPathToRobot(remaining_node, node.index)) {
 						_rrg.nodes[remaining_node].cost_function =
 								std::numeric_limits<double>::infinity();
-						//						ROS_INFO_STREAM(
-						//								"Node "<< remaining_node << " disconnected");
 						disconnected_nodes_set.insert(remaining_node);
 					}
 				}
@@ -366,7 +367,6 @@ bool GraphConstructor::isNextInPathToRobot(int neighbor_node, int node) {
 }
 
 void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
-//	ROS_INFO_STREAM("handlePrunedEdges, edge counter " << _rrg.edge_counter);
 	bool removed_edges = false;
 	auto pruned_edge = pruned_edges.rbegin();
 	while (pruned_edge != pruned_edges.rend()) { // remove or add inactive edges
@@ -376,8 +376,6 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 							-1 : *std::next(pruned_edge); // if last pruned edge, try to remove inactive edges up to index 0
 			for (int i = *pruned_edge; i > next_pruned_edge; i--) {
 				if (_rrg.edges.at(i).inactive) {
-					ROS_INFO_STREAM(
-							"Remove edge " << i << " from back of list");
 					_rrg.edges.pop_back();
 					_rrg.edge_counter--;
 					removed_edges = true;
@@ -386,7 +384,6 @@ void GraphConstructor::handlePrunedEdges(const std::set<int> &pruned_edges) {
 				}
 			}
 		} else {
-			ROS_INFO_STREAM("Add available edge " << *pruned_edge);
 			_collision_checker->addAvailableEdge(*pruned_edge);
 		}
 		pruned_edge++;
@@ -405,7 +402,6 @@ void GraphConstructor::removeNodeFromUpdateLists(int node) {
 }
 
 void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
-	ROS_INFO_STREAM("handlePrunedNodes, node counter " << _rrg.node_counter);
 	std::vector<int> nodes(pruned_nodes.begin(), pruned_nodes.end());
 	std::sort(nodes.begin(), nodes.end(), [this](int node_one, int node_two) {
 		return sortByPathLength(node_one, node_two);
@@ -424,8 +420,6 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 			for (int i = *pruned_node; i > next_pruned_node; i--) {
 				if (_rrg.nodes.at(i).status
 						== rrg_nbv_exploration_msgs::Node::INACTIVE) {
-					ROS_INFO_STREAM(
-							"Remove node " << i << " from back of list");
 					_rrg.nodes.pop_back();
 					_rrg.node_counter--;
 					removed_nodes = true;
@@ -434,7 +428,6 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 				}
 			}
 		} else {
-			ROS_INFO_STREAM("Add available node " << *pruned_node);
 			_collision_checker->addAvailableNode(*pruned_node);
 		}
 		pruned_node++;
@@ -450,24 +443,17 @@ bool GraphConstructor::sortByPathLength(int node_one, int node_two) {
 }
 
 void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
-	ROS_INFO_STREAM("##### Find connected nodes with gain");
 	std::set<int> possible_frontiers;
 	for (auto node : nodes) {
-		ROS_INFO_STREAM(
-				"Pruned node " << node << " with gain " << _rrg.nodes.at(node).gain << " and status " << (int)_rrg.nodes.at(node).status);
 		if (_rrg.nodes.at(node).gain > 0.0) {
 			possible_frontiers.insert(node);
 		}
 	}
-	ROS_INFO_STREAM(
-			"Possible frontiers size " << possible_frontiers.size() << "");
 	while (!possible_frontiers.empty()) {
 		std::vector<int> frontier;
 		frontier.push_back(*possible_frontiers.begin());
 		possible_frontiers.erase(possible_frontiers.begin());
 		for (int i = 0; i < frontier.size(); i++) { // build frontier from possible frontier nodes
-			ROS_INFO_STREAM(
-					"Look at node " << frontier.at(i) << " in frontier with size " << frontier.size());
 			for (auto edge : _rrg.nodes.at(frontier.at(i)).edges) {
 				int neighbor_node =
 						frontier.at(i) == _rrg.edges.at(edge).first_node ?
@@ -475,8 +461,6 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 								_rrg.edges.at(edge).first_node;
 				if (_rrg.nodes.at(neighbor_node).gain > 0
 						&& possible_frontiers.erase(neighbor_node) > 0) { // neighbor will also become a frontier
-					ROS_INFO_STREAM(
-							"Add node " << neighbor_node << " to frontier");
 					frontier.push_back(neighbor_node);
 				}
 			}
@@ -495,13 +479,10 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 				_rrg.nodes.at(frontier.at(i)).gain = 0;
 			}
 		}
-		ROS_INFO_STREAM(
-				"Remaining node from frontier is " << closest_node_to_robot << " with distance " << shortest_distance_to_robot);
 	}
 }
 
 void GraphConstructor::deactivateNode(int node) {
-	// ROS_INFO_STREAM("deactivateNode " << node);
 	if (node == _current_goal_node) {
 		_local_goal_obsolete = true;
 	}
@@ -534,7 +515,6 @@ void GraphConstructor::deactivateNode(int node) {
 }
 
 void GraphConstructor::removeEdgeFromRemainingNode(int edge, int node) {
-	// ROS_INFO_STREAM("removeEdgeFromRemainingNode");
 	int remaining_node =
 			_rrg.edges[edge].first_node == _rrg.nodes[node].index ?
 					_rrg.edges[edge].second_node : _rrg.edges[edge].first_node;
@@ -547,21 +527,16 @@ void GraphConstructor::removeEdgeFromRemainingNode(int edge, int node) {
 void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 		std::vector<int> &disconnected_nodes, std::set<int> &connected_nodes) {
 	for (int i = 0; i < disconnected_nodes.size(); i++) {
-		ROS_INFO_STREAM("findAllConnectedAndDisconnectedNodes");
 		// find disconnected nodes recursively
 		int node = disconnected_nodes.at(i);
-		//		ROS_INFO_STREAM("Disconnected Node " << node);
 		for (int edge : _rrg.nodes[node].edges) {
 			int neighbor_node =
 					_rrg.edges[edge].first_node == node ?
 							_rrg.edges[edge].second_node :
 							_rrg.edges[edge].first_node;
-			//			ROS_INFO_STREAM(
-			//					"Has edge " << edge << " to node " << neighbor_node);
 			if (isNextInPathToRobot(neighbor_node, node)) {
 				_rrg.nodes[neighbor_node].cost_function = std::numeric_limits<
 						double>::infinity();
-				//				ROS_INFO_STREAM("Has also disconnected Node " << neighbor_node);
 				if (std::find(disconnected_nodes.begin(),
 						disconnected_nodes.end(), neighbor_node)
 						== disconnected_nodes.end()) { // only add neighbor if not already present
@@ -570,8 +545,6 @@ void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 				connected_nodes.erase(neighbor_node);
 			} else if (!_rrg.edges[edge].inactive
 					&& !std::isinf(_rrg.nodes[neighbor_node].cost_function)) {
-				//				ROS_INFO_STREAM(
-				//						"Has still connected neighbor " << neighbor_node);
 				connected_nodes.insert(neighbor_node);
 			}
 		}
@@ -593,7 +566,6 @@ void GraphConstructor::checkCurrentGoal() {
 }
 
 void GraphConstructor::determineNextNodeInPath() {
-	ROS_INFO_STREAM("determineNextNodeInPath");
 	if (_current_goal_node >= 0
 			&& _rrg.nodes[_current_goal_node].path_to_robot.size() > 1) {
 		_next_node = _rrg.nodes[_current_goal_node].path_to_robot.at(1); // next goal on the path to the robot
@@ -680,11 +652,6 @@ void GraphConstructor::publishExplorationGoalObsolete() {
 					&& (_global_frontier_obsolete
 							|| (!_reached_frontier_goal
 									&& _current_goal_node != -1)))) {
-		//		if (!_goal_obsolete) {
-		//			_goal_obsolete = true;
-		//		ROS_WARN_STREAM(
-		//				(!_pursuing_global_goal ? "Local " : "Global ")<< "goal obsolete" ", best goal: " << (_node_comparator->isEmpty() ? -1 : _node_comparator->getBestNode()) << " current goal: " << _current_goal_node << " explored current goal node by update: " << _local_goal_obsolete << " reached frontier goal: " << _reached_frontier_goal << " global frontier obsolete: " << _global_frontier_obsolete);
-		//		}
 		msg.goal_obsolete = true;
 	} else {
 		msg.goal_obsolete = false;
@@ -728,19 +695,14 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 }
 
 void GraphConstructor::pruneEngulfedNodes(std::vector<int> engulfed_nodes) {
-	ROS_INFO_STREAM("Prune " << engulfed_nodes.size() << " engulfed nodes");
 	std::set<int> pruned_nodes;
 	std::set<int> pruned_edges;
 	for (auto engulfed_node : engulfed_nodes) {
 		if (_rrg.nodes.at(engulfed_node).connected_to.empty()
 				|| _rrg.nearest_node != engulfed_node) { //don't prune the currently nearest node with connected paths, cannot be rerouted
-			ROS_INFO_STREAM(
-					"Try to recover node " << engulfed_node << " with status " << (int)_rrg.nodes.at(engulfed_node).status << " and connected paths " << _rrg.nodes.at(engulfed_node).connected_to.size());
 			if (_rrg.nodes.at(engulfed_node).status
 					== rrg_nbv_exploration_msgs::Node::FAILED
 					&& !_rrg.nodes.at(engulfed_node).connected_to.empty()) { //node must be collision free to be engulfed, recover it
-				ROS_INFO_STREAM(
-						"Recovered node " << engulfed_node << " before pruning");
 				_rrg.nodes[engulfed_node].status =
 						rrg_nbv_exploration_msgs::Node::INITIAL;
 				_collision_checker->findBestConnectionForNode(_rrg,
@@ -749,9 +711,7 @@ void GraphConstructor::pruneEngulfedNodes(std::vector<int> engulfed_nodes) {
 			pruned_nodes.insert(engulfed_node);
 			_rrg.nodes.at(engulfed_node).status =
 					rrg_nbv_exploration_msgs::Node::INACTIVE;
-			ROS_INFO_STREAM("Node to be pruned: " << engulfed_node);
 			for (int edge : _rrg.nodes.at(engulfed_node).edges) {
-				ROS_INFO_STREAM("Edge " << edge << " to be pruned");
 				_rrg.edges[edge].inactive = true;
 				pruned_edges.insert(edge);
 			}
@@ -874,12 +834,9 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
-	ROS_INFO_STREAM("+++++ updatedNodeCallback " << updated_node->index);
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
 					== rrg_nbv_exploration_msgs::Node::INACTIVE) {
-		ROS_WARN_STREAM(
-				"Node " << updated_node->index << " was updated but already removed from the local graph");
 		_nodes_to_update.remove(updated_node->index);
 		_last_updated_node = -1;
 		return;
@@ -930,7 +887,6 @@ void GraphConstructor::updatedNodeCallback(
 		}
 		publishNodeToUpdate(); // if gain calculation is faster than update frequency, this needs to be called
 	}
-	ROS_INFO_STREAM("----- updatedNodeCallback " << updated_node->index);
 }
 
 void GraphConstructor::tryFailedNodesRecovery() {
@@ -1026,8 +982,6 @@ void GraphConstructor::localExplorationFinishedTimerCallback(
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
-//	ROS_INFO_STREAM(
-//			"Request "<< (_local_running ? "local " : "global ")<<"goal, updated: " << _local_goal_updated);
 	res.exploration_finished = !_running;
 	if (_local_running) { // local goal
 		res.goal_available = _local_goal_updated && _current_goal_node != -1;

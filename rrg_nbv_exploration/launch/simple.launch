@@ -41,7 +41,8 @@
 	<arg name="auto_homing" default="false" />	
 	<arg name="reupdate_nodes" default="true" />	
 	<arg name="samples_per_loop" default="10" />
-	<arg name="global_exploration_active" default="true" />		
+	<arg name="global_exploration_active" default="true" />
+	<arg name="measure_algorithm_runtime" default="false" />
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" launch-prefix="gdb -ex run --args"
 		output="screen" >
@@ -74,7 +75,8 @@
 		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />	
 		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />	
 		<param name="samples_per_loop" type="int" value="$(arg samples_per_loop)" />	
-		<param name="global_exploration_active" type="bool" value="$(arg global_exploration_active)" />							
+		<param name="global_exploration_active" type="bool" value="$(arg global_exploration_active)" />
+		<param name="measure_algorithm_runtime" type="bool" value="$(arg measure_algorithm_runtime)" />							
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
@@ -93,6 +95,7 @@
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
 		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
+		<param name="measure_algorithm_runtime" type="bool" value="$(arg measure_algorithm_runtime)" />
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="rneVisualizationNode"

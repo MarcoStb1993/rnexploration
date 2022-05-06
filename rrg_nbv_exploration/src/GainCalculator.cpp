@@ -20,6 +20,8 @@ GainCalculator::GainCalculator() :
 	private_nh.param("oc_resolution", _octomap_resolution, 0.1);
 	private_nh.param("max_node_height_difference", _max_node_height_difference,
 			1.0);
+	private_nh.param("measure_algorithm_runtime", _measure_algorithm_runtime,
+			false);
 	std::string octomap_topic;
 	private_nh.param<std::string>("octomap_topic", octomap_topic,
 			"octomap_binary");
@@ -33,9 +35,17 @@ GainCalculator::GainCalculator() :
 	_octomap_sub = _nh.subscribe(octomap_topic, 1,
 			&GainCalculator::convertOctomapMsgToOctree, this);
 
+	if (_measure_algorithm_runtime) {
+		_gaincalc_runtime_publisher = nh.advertise<std_msgs::Duration>(
+				"gaincalc_runtime", 1);
+		_rne_runtime_subscriber = nh.subscribe("rne_runtime", 1,
+				&GainCalculator::rneRuntimeCallback, this);
+		_algorithm_runtime = ros::Duration(0, 0);
+	}
+
 	if (_sensor_vertical_fov_top > _sensor_vertical_fov_bottom) {
 		ROS_ERROR_STREAM(
-				"Sensor vertical FoV top must be smaller than bottom! Straight up is 0 degrees and down is 180 degrees.");
+				"Sensor vertical FoV top must be smaller than bottom! Straight up is 0 degrees and down is 180 degrees. They will be reversed now");
 		double tmp = _sensor_vertical_fov_bottom;
 		_sensor_vertical_fov_bottom = _sensor_vertical_fov_top;
 		_sensor_vertical_fov_top = tmp;
@@ -92,7 +102,7 @@ void GainCalculator::precalculateGainPollPoints() {
 }
 
 void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
-
+	ros::Time start_time = ros::Time::now();
 	if (!measureNodeHeight(node) && node.distance_to_robot != 0
 			&& node.edges.size() < 2) {
 		//node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
@@ -100,6 +110,9 @@ void GainCalculator::calculateGain(rrg_nbv_exploration_msgs::Node &node) {
 		return;
 	}
 	calculatePointGain(node);
+	if (_measure_algorithm_runtime) {
+		_algorithm_runtime += ros::Time::now() - start_time;
+	}
 }
 
 void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
@@ -223,10 +236,6 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 	}
 
 	double view_score = (double) best_yaw_score / (double) _best_gain_per_view;
-
-//	ROS_INFO_STREAM(
-//			"Node "<< node.index<< "Best yaw score: " << best_yaw_score << " view score: " << view_score << " best yaw: " << best_yaw);
-
 	if (view_score < _min_view_score
 			|| (node.status == rrg_nbv_exploration_msgs::Node::VISITED
 					&& node.best_yaw <= best_yaw + 5
@@ -349,6 +358,16 @@ void GainCalculator::nodeToUpdateCallback(
 	} else {
 		_updated_node_publisher.publish(_last_updated_node);
 	}
+}
+
+void GainCalculator::rneRuntimeCallback(
+		const std_msgs::Duration::ConstPtr &runtime_msg) {
+	if (runtime_msg->data.sec == 0 && runtime_msg->data.nsec == 0) { //algorithm not running
+		_algorithm_runtime = ros::Duration(0, 0);
+	}
+	std_msgs::Duration runtime;
+	runtime.data = _algorithm_runtime;
+	_gaincalc_runtime_publisher.publish(runtime);
 }
 
 void GainCalculator::dynamicReconfigureCallback(

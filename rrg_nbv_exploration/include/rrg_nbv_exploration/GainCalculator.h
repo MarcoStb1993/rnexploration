@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "rrg_nbv_exploration_msgs/Node.h"
 #include <rrg_nbv_exploration_msgs/NodeToUpdate.h>
+#include <std_msgs/Duration.h>
 #include "octomap_msgs/Octomap.h"
 #include "octomap_msgs/conversions.h"
 #include "octomap_ros/conversions.h"
@@ -65,6 +66,8 @@ private:
 	ros::NodeHandle _nh;
 	ros::Publisher raysample_visualization;
 	ros::Publisher _updated_node_publisher;
+	ros::Publisher _gaincalc_runtime_publisher;
+	ros::Subscriber _rne_runtime_subscriber;
 	ros::Subscriber _node_to_update_subscriber;
 	ros::Subscriber _octomap_sub;
 
@@ -139,6 +142,14 @@ private:
 	 * @brief Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
 	 */
 	double _max_node_height_difference;
+	/**
+	 * @brief Measure the total time the algorithm is running since the current exploration started
+	 */
+	bool _measure_algorithm_runtime;
+	/**
+	 * @brief Total time the algorithm is running since the current exploration started
+	 */
+	ros::Duration _algorithm_runtime;
 
 	/**
 	 * Pre-calculates lists of all gain poll points in cartesian coordinates based on theta and phi steps as well as radial steps
@@ -178,5 +189,12 @@ private:
 	 * @return If height could be measured
 	 */
 	bool measureNodeHeight(rrg_nbv_exploration_msgs::Node &node);
+
+	/**
+	 * @brief Callback for subscriber to "rne_runtime" topic which checks if the exploration was restarted
+	 * and resets the algorithm runtime if it did, also publishes the gainCalc runtime to approximately
+	 * synchronize them
+	 */
+	void rneRuntimeCallback(const std_msgs::Duration::ConstPtr &runtime_msg);
 };
 }

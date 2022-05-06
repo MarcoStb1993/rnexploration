@@ -52,7 +52,6 @@ void GraphPathCalculator::updatePathsToRobot(int start_node,
 		rrg_nbv_exploration_msgs::Graph &rrg, geometry_msgs::Pose robot_pos,
 		bool reset, std::list<int> &nodes_to_update,
 		bool &added_node_to_update) {
-	ROS_INFO_STREAM("updatePathsToRobot");
 	int robot_yaw = getRobotYaw(robot_pos); // get current robot orientation (yaw) for heading change calculation
 	_last_robot_yaw = robot_yaw;
 	// run Dijkstra on RRG and assign distance and path to each node
@@ -218,7 +217,6 @@ void GraphPathCalculator::findBestRoutes(
 		std::set<std::pair<double, int>> &node_queue,
 		rrg_nbv_exploration_msgs::Graph &rrg, bool reset,
 		std::list<int> &nodes_to_update, bool &added_node_to_update) {
-	ROS_INFO_STREAM("+++++ findBestRoutes");
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
 		node_queue.erase(node_queue.begin());
@@ -270,7 +268,6 @@ void GraphPathCalculator::findBestRoutes(
 			}
 		}
 	}
-	ROS_INFO_STREAM("----- findBestRoutes");
 }
 
 bool GraphPathCalculator::isNodeInPath(int neighbor_node_index,
@@ -497,8 +494,6 @@ void GraphPathCalculator::getNavigationPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		std::vector<geometry_msgs::Point> &waypoints,
 		geometry_msgs::Point &robot_pos, int closest_waypoint) {
-	// ROS_INFO_STREAM(
-	// 		"Get global Navigation path from closest waypoint " << closest_waypoint);
 	ros::Time timestamp = ros::Time::now();
 	if (closest_waypoint >= 1) { // compare robot distance to second waypoint on path with distance between first and second waypoint to decide if first is discarded
 		double distance_first_second_squared = pow(
@@ -511,18 +506,14 @@ void GraphPathCalculator::getNavigationPath(
 				robot_pos.x - waypoints.at(closest_waypoint - 1).x, 2)
 				+ pow(robot_pos.y - waypoints.at(closest_waypoint - 1).y, 2);
 		if (distance_first_second_squared > distance_second_squared) {
-			// ROS_INFO_STREAM("Remove first waypoint");
 			closest_waypoint -= 1; // remove first node from path since it leads backwards on the path
 		}
 	}
 	if (closest_waypoint == 0) { // only path from robot to last waypoint
-								 // ROS_INFO_STREAM("Only path from robot to frontier");
 		getPathFromRobotToPosition(robot_pos, waypoints.back(), -1, path);
 		return;
 	}
 	// add poses between robot and waypoint
-	//  ROS_INFO_STREAM(
-	//  		"Add poses between robot and first waypoint " << waypoints.size() - 1);
 	geometry_msgs::PoseStamped path_pose;
 	path_pose.header.frame_id = "map";
 	path_pose.header.stamp = timestamp;
@@ -538,7 +529,6 @@ void GraphPathCalculator::getNavigationPath(
 	addInterNodes(path, robot_pos, waypoints.at(waypoints.size() - 1),
 			tf2::toMsg(quaternion), yaw, distance);
 	for (int i = closest_waypoint; i >= 0; i--) { // waypoints start at frontier (index 0) and end at closest waypoint to robot
-												  // ROS_INFO_STREAM("Add waypoint " << i);
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
 		path_pose.header.stamp = timestamp;
@@ -651,8 +641,6 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 	local_nodes.at(frontier_connecting_node).path_to_frontier.push_back(
 			frontier_connecting_node);
 	node_queue.insert(std::make_pair(0, frontier_connecting_node));
-	ROS_INFO_STREAM(
-			"Find shortest route with thres:" << max_distance_threshold << " between " << frontier_connecting_node << " and " << mfwcn);
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
 		node_queue.erase(node_queue.begin());
@@ -687,15 +675,12 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 		int frontier_connecting_node, std::vector<LocalNode> &local_nodes,
 		std::vector<ShortestFrontierConnectionStruct> &local_paths,
 		std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node) {
-	ROS_INFO_STREAM("Extract local paths");
 	std::map<int, int> node_local_path_map;	// node index (key) mapped to local path index (value)
 	std::map<int, int> missing_frontier_local_path_map; // missing frontier index (key) mapped to local path index (value)
-	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) {
-		// link node copies with connected missing frontiers
+	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { // link node copies with connected missing frontiers
 		auto it = node_local_path_map.find(
 				missing_frontier_with_connecting_node.second);
-		if (it == node_local_path_map.end()) {
-			// no local path for node index
+		if (it == node_local_path_map.end()) { // no local path for node index
 			local_paths.emplace_back(frontier_connecting_node,
 					missing_frontier_with_connecting_node.second,
 					local_nodes.at(missing_frontier_with_connecting_node.second).path_to_frontier,
@@ -711,15 +696,10 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 			for (auto p : local_nodes.at(local_path_index).path_to_frontier) {
 				best += std::to_string(p) + ",";
 			}
-			ROS_INFO_STREAM(
-					"Best local path (" << local_path_index << ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first << " : " << best << " with distance " << local_nodes.at(local_path_index).path_length);
-		} else {
-			// local path is value in node_local_path_map (second)
+		} else { // local path is value in node_local_path_map (second)
 			missing_frontier_local_path_map.insert(
 					std::make_pair(missing_frontier_with_connecting_node.first,
 							it->second));
-			ROS_INFO_STREAM(
-					"Best local path (" << it->second << ") for node " << missing_frontier_with_connecting_node.second << " with connected frontier " << missing_frontier_with_connecting_node.first);
 		}
 	}
 	return missing_frontier_local_path_map;

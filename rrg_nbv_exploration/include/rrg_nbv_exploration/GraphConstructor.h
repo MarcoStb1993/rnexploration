@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "std_msgs/Duration.h"
 #include "std_srvs/SetBool.h"
 #include "std_srvs/Trigger.h"
 #include "geometry_msgs/Point.h"
@@ -66,6 +67,7 @@ private:
 	ros::Publisher _rrg_publisher;
 	ros::Publisher _exploration_goal_obsolete_publisher;
 	ros::Publisher _node_to_update_publisher;
+	ros::Publisher _rne_runtime_publisher;
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
@@ -295,6 +297,14 @@ private:
 	 * @brief If global and RRG exploration are active or only RRG exploration
 	 */
 	bool _global_exploration_active;
+	/**
+	 * @brief Measure the total time the algorithm is running since the current exploration started
+	 */
+	bool _measure_algorithm_runtime;
+	/**
+	 * @brief Total time the algorithm is running since the current exploration started
+	 */
+	ros::Duration _algorithm_runtime;
 
 	/**
 	 * @brief Initialize the exploration with a root node at seed, initialize helper classes and nodes

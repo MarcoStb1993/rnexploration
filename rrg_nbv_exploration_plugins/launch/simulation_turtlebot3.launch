@@ -244,6 +244,7 @@
 		<arg name="reupdate_nodes" default="true" />
 		<arg name="samples_per_loop" default="10" />
 		<arg name="global_exploration_active" default="$(arg global_exploration_active)" />
+		<arg name="measure_algorithm_runtime" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->
