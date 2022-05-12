@@ -7,14 +7,14 @@
 	<arg name="velodyne_enabled" default="false" />
 	<arg name="use_ekf" default="false" />
 	<arg name="robot_frame" default="base_footprint" />
+	<arg name="gui" default="true" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
 		<arg name="world_name" value="$(arg world_file)" />
 		<arg name="paused" value="false" />
 		<arg name="use_sim_time" value="true" />
-		<arg name="gui" value="true" />
-		<arg name="headless" value="false" />
+		<arg name="gui" value="$(arg gui)" />
 		<arg name="debug" value="false" />
 	</include>
 
@@ -26,18 +26,12 @@
 	<arg name="z" default="0.0" />
 	<arg name="yaw" default="1.5707963" />
 
-	<arg name="urdf_extras" default="$(optenv HUSKY_URDF_EXTRAS)" /> <!-- set to path with additions to Husky URDF -->
-
-	<arg name="config_extras" default="$(eval optenv('HUSKY_CONFIG_EXTRAS', find('husky_control') + '/config/empty.yaml'))" />
-
-
 	<group ns="$(arg robot_namespace)">
 
 		<!-- Load robot description -->
 		<param name="robot_description" command="$(find xacro)/xacro '$(find rrg_nbv_exploration_plugins)/urdf/ideal_robot.urdf.xacro'" />
 
 		<!-- Load controller configuration -->
-		<rosparam command="load" file="$(find husky_control)/config/control.yaml" />
 		<group if="$(arg realsense_enabled)">
 			<!-- Load realsense controller config -->
 			<rosparam command="load" file="$(find rrg_nbv_exploration_plugins)/config/realsense_config.yaml" />
@@ -47,7 +41,7 @@
 		<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
 		<!-- Spawn robot in gazebo -->
-		<node name="spawn_husky_model" pkg="gazebo_ros" type="spawn_model" args="-x $(arg x)
+		<node name="spawn_robot_model" pkg="gazebo_ros" type="spawn_model" args="-x $(arg x)
 		      -y $(arg y)
 		      -z $(arg z)
 		      -Y $(arg yaw)

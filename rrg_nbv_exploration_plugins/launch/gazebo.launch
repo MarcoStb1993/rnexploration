@@ -7,14 +7,14 @@
 	<arg name="velodyne_enabled" default="false" />
 	<arg name="use_ekf" default="false" />
 	<arg name="robot_frame" default="base_footprint" />
+	<arg name="gui" default="true" />
 
 	<!-- World launch -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
 		<arg name="world_name" value="$(arg world_file)" />
 		<arg name="paused" value="false" />
 		<arg name="use_sim_time" value="true" />
-		<arg name="gui" value="true" />
-		<arg name="headless" value="false" />
+		<arg name="gui" value="$(arg gui)" />
 		<arg name="debug" value="false" />
 	</include>
 
