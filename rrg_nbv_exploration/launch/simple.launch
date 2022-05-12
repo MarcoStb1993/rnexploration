@@ -44,8 +44,7 @@
 	<arg name="global_exploration_active" default="true" />
 	<arg name="measure_algorithm_runtime" default="false" />
 
-	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" launch-prefix="gdb -ex run --args"
-		output="screen" >
+	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" output="screen" >
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />

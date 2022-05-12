@@ -53,14 +53,14 @@ Furthermore, you need [OctoMap](http://wiki.ros.org/octomap) for gain evaluation
 If you did not already have the below installed, do so now:
 
 ```
-sudo apt install ros-melodic-husky-simulator
-sudo apt install ros-melodic-velodyne_simulator
+# Husky simulation with Velodyne
+sudo apt-get install ros-melodic-husky-simulator ros-melodic-velodyne-simulator ros-melodic-velodyne
 
-sudo apt install ros-melodic-turtlebot3
-sudo apt install ros-melodic-turtlebot3-simulations
+#Turtlebot3 simulation
+sudo apt-get install ros-melodic-turtlebot3 ros-melodic-turtlebot3-simulations
 
-sudo apt install ros-melodic-slam-gmapping
-sudo apt install ros-melodic-octomap ros-melodic-octomap-mapping ros-melodic-octomap-rviz-plugins
+#GMapping for SLAM, Navigation, OctoMap and Hector Trajectory Server for visualization in RViz
+sudo apt-get install ros-melodic-slam-gmapping ros-melodic-navigation ros-melodic-octomap ros-melodic-octomap-mapping ros-melodic-octomap-rviz-plugins ros-melodic-hector-trajectory-server
 
 cd /path/to/your/catkin_ws/src
 clone https://github.com/MarcoStb1993/robot_statemachine.git --branch melodic-devel
