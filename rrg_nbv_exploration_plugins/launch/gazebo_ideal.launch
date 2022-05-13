@@ -16,6 +16,7 @@
 		<arg name="use_sim_time" value="true" />
 		<arg name="gui" value="$(arg gui)" />
 		<arg name="debug" value="false" />
+		<arg name="extra_gazebo_args" value="--verbose"/>
 	</include>
 
 	<arg name="robot_namespace" default="/" />
