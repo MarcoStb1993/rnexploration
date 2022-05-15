@@ -31,6 +31,13 @@
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
 	<arg name="global_exploration_active" default="true" />
+	<arg name="gain_factor" default="1.0" />
+	<arg name="distance_factor" default="1.0" />
+	<arg name="heading_factor" default="1.0" />
+	<arg name="traversability_factor" default="1.0" />
+	<arg name="radius_factor" default="1.0" />
+	<arg name="auto_homing" default="false" />	
+	<arg name="reupdate_nodes" default="true" />
 	<!-- Robot starting position in world -->
 	<arg name="x" default="0.0" />
 	<arg name="y" default="0.0" />
@@ -232,15 +239,15 @@
 		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
 		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />	
 		<arg name="max_node_height_difference" default="0.3" />	
-		<arg name="gain_factor" default="1.0" />
-		<arg name="distance_factor" default="1.0" />
-		<arg name="heading_factor" default="1.0" />
-		<arg name="traversability_factor" default="1.0" />
-		<arg name="radius_factor" default="1.0" />
+		<arg name="gain_factor" default="$(arg gain_factor)" />
+		<arg name="distance_factor" default="$(arg distance_factor)" />
+		<arg name="heading_factor" default="$(arg heading_factor)" />
+		<arg name="traversability_factor" default="$(arg traversability_factor)" />
+		<arg name="radius_factor" default="$(arg radius_factor)" />
 		<arg name="inflation_active" default="$(arg inflation_active)" />
 		<arg name="move_nodes" default="$(arg move_nodes)" />
-		<arg name="auto_homing" default="false" />	
-		<arg name="reupdate_nodes" default="true" />
+		<arg name="auto_homing" default="$(arg auto_homing)" />	
+		<arg name="reupdate_nodes" default="$(arg reupdate_nodes)" />
 		<arg name="samples_per_loop" default="10" />
 		<arg name="global_exploration_active" default="$(arg global_exploration_active)" />
 		<arg name="measure_algorithm_runtime" default="true" />
