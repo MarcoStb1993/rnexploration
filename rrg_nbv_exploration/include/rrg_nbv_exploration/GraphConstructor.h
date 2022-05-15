@@ -52,8 +52,8 @@ public:
 	 */
 	void stopExploration();
 	/**
-	 * @brief GraphConstructor main function, publishes it in topic rrg
-	 * @param kd-tree for faster nearest neighbour queries
+	 * @brief GraphConstructor's main function which periodically expands the local graph and the nearest
+	 * node to the robot as well as maintaining the global graph and selects new goals
 	 */
 	void runExploration();
 

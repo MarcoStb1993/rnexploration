@@ -15,14 +15,14 @@
 	<arg name="waypoint_routines" default="['Reversing']" />
 	<arg name="gui" default="true" />
 	<arg name="min_edge_distance" default="1.0" />
-	<arg name="max_edge_distance" default="3.0" />
+	<arg name="max_edge_distance" default="2.0" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="navigation_global_planner" default="rrg_nbv_exploration::RneGlobalPlanner" /> <!-- global_planner/GlobalPlanner -->
 	<arg name="robot_radius" default="0.5" />
-	<arg name="min_view_score" default="0.03" />
+	<arg name="min_view_score" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
@@ -34,13 +34,16 @@
 	<arg name="z" default="0.0" />
 	<arg name="yaw" default="1.5707963" />
 
-	<include file="$(find rrg_nbv_exploration_plugins)/launch/gazebo_ideal.launch">
+	<include file="$(find rrg_nbv_exploration_plugins)/launch/gazebo_husky.launch">
 		<arg name="world_file" value="$(arg world)" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
 		<arg name="z" default="$(arg z)" />
 		<arg name="yaw" default="$(arg yaw)" />
+		<arg name="laser_enabled" value="false" />
+		<arg name="velodyne_enabled" value="true" />
 		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="use_ekf" value="false" />
 		<arg name="gui" default="$(arg gui)" />
 	</include>
 
@@ -155,8 +158,8 @@
 	<include file="$(find rrg_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="1" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
-		<arg name="robot_width" value="0.6" />
-		<arg name="sensor_height" value="0.548" />
+		<arg name="robot_width" value="0.7" />
+		<arg name="sensor_height" value="0.515" />
 		<arg name="sensor_size" value="0.05" />
 		<arg name="sensor_max_range" value="100.0" />
 		<arg name="sensor_min_range" value="0.5" />
@@ -169,7 +172,6 @@
 		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic" value="/move_base/global_costmap/costmap" />
 		<arg name="local_exploration_finished_timer_duration" value="10.0" />
-		<arg name="check_init_position" default="false" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution" default="$(arg grid_map_resolution)" />
 		<arg name="grid_map_occupied" default="100" />

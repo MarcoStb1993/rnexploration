@@ -154,8 +154,7 @@ void GraphConstructor::runExploration() {
 	_rrg.header.stamp = ros::Time::now();
 	if (_running) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
-		if (_local_running && _map_min_bounding[0] && _map_min_bounding[1]
-				&& _map_min_bounding[2]) {
+		if (_local_running) {
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);

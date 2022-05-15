@@ -19,7 +19,6 @@
 	<arg name="octomap_topic" default="octomap_binary" />
 	<arg name="occupancy_grid_topic" default="map" />	
 	<arg name="local_exploration_finished_timer_duration" default="10.0" />
-	<arg name="check_init_position" default="false" />
 	<arg name="oc_resolution" default="0.1" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="grid_map_occupied" default="100" />
@@ -55,7 +54,6 @@
 		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
 		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
 		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
-		<param name="check_init_position" type="bool" value="$(arg check_init_position)" />
 		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
 		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
 		<param name="grid_map_unknown" type="int" value="$(arg grid_map_unknown)" />
