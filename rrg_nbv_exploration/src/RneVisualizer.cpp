@@ -137,29 +137,25 @@ void RneVisualizer::addInfoTextVisualization(
 				<< std::fixed << std::setprecision(6)
 				<< rrg->nodes[node].reward_function << std::fixed
 				<< std::setprecision(3);
-		if (_show_cost_info)
-			oss << std::fixed << std::setprecision(3) << "\nc: "
-					<< rrg->nodes[node].cost_function;
 		if (_show_gain_info)
 			oss << std::fixed << std::setprecision(3) << "\ng: "
 					<< rrg->nodes[node].gain;
-		if (_show_distance_info)
-			oss << "\nd: " << rrg->nodes[node].distance_to_robot;
-		if (_show_traversability_info)
-			oss << "\nt: "
-					<< (double) rrg->nodes[node].traversability_cost_to_robot
-							/ (double) _grid_map_occupied
-							/ (double) rrg->nodes[node].traversability_weight_to_robot;
-		if (_show_heading_info)
-			oss << "\nh: "
-					<< rrg->nodes[node].heading_change_to_robot_best_view;
-		if (_show_radius_info)
-			oss << "\nr: "
-					<< (rrg->nodes[node].radii_to_robot
-							/ rrg->nodes[node].path_to_robot.size()
-							/ _robot_radius);
-	} else
+	} else {
 		oss << "(" << node << ")";
+	}
+	if (_show_cost_info)
+		oss << std::fixed << std::setprecision(3) << "\nc: "
+				<< rrg->nodes[node].cost_function;
+	if (_show_distance_info)
+		oss << "\nd: " << rrg->nodes[node].distance_to_robot;
+	if (_show_traversability_info)
+		oss << "\nt: " << rrg->nodes[node].traversability_cost_to_robot;
+	if (_show_heading_info)
+		oss << "\nh: " << rrg->nodes[node].heading_change_to_robot_best_view;
+	if (_show_radius_info)
+		oss << "\nr: "
+				<< (rrg->nodes[node].radii_to_robot
+						/ rrg->nodes[node].path_to_robot.size() / _robot_radius);
 	node_info_text.text = oss.str();
 	node_info_texts.markers.push_back(node_info_text);
 }

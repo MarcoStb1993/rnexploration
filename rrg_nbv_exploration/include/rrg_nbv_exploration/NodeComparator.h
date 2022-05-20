@@ -11,7 +11,6 @@
 #include "ros/ros.h"
 #include <rrg_nbv_exploration_msgs/Graph.h>
 #include <rrg_nbv_exploration_msgs/Node.h>
-#include <rrg_nbv_exploration/GraphConstructorConfig.h>
 
 namespace rrg_nbv_exploration {
 
@@ -110,10 +109,6 @@ public:
 	 */
 	std::vector<int> getListOfNodes();
 
-	void dynamicReconfigureCallback(
-			rrg_nbv_exploration::GraphConstructorConfig &config,
-			uint32_t level);
-
 private:
 	/**
 	 * @brief All nodes (their position in the rrg node list) and their respective reward function ordered ascending
@@ -127,10 +122,6 @@ private:
 	 * @brief Did the robot move or not? Implies that all reward functions must be recalculated
 	 */
 	bool _robot_moved;
-	/**
-	 * @brief Weighting factor for the information gain of a node
-	 */
-	double _gain_factor;
 
 	/**
 	 * @brief Sorts list of nodes with a reward function, the node with the highest reward function comes first

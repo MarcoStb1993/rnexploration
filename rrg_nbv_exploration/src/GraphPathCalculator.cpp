@@ -61,7 +61,6 @@ void GraphPathCalculator::updatePathsToRobot(int start_node,
 			node.distance_to_robot = std::numeric_limits<double>::infinity();
 			node.path_to_robot.clear();
 			node.traversability_cost_to_robot = 0.0;
-			node.traversability_weight_to_robot = 1.0;
 			node.heading_change_to_robot = 0;
 			node.heading_change_to_robot_best_view =
 					std::numeric_limits<int>::max();
@@ -103,7 +102,6 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 		node.distance_to_robot = std::numeric_limits<double>::infinity();
 		node.path_to_robot.clear();
 		node.traversability_cost_to_robot = 0.0;
-		node.traversability_weight_to_robot = 1.0;
 		node.heading_in = 0;
 		node.heading_change_to_robot = 0;
 		node.heading_change_to_robot_best_view =
@@ -150,10 +148,6 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 						rrg.nodes[start_node].traversability_cost_to_robot
 								+ rrg.nodes[direct_neighbor_node].traversability_cost
 								+ rrg.edges[edge].traversability_cost;
-				rrg.nodes[direct_neighbor_node].traversability_weight_to_robot =
-						rrg.nodes[start_node].traversability_weight_to_robot
-								+ rrg.nodes[direct_neighbor_node].traversability_weight
-								+ rrg.edges[edge].traversability_weight;
 				rrg.nodes[direct_neighbor_node].radii_to_robot =
 						rrg.nodes[start_node].radii_to_robot
 								+ rrg.nodes[direct_neighbor_node].radius;
@@ -177,8 +171,6 @@ bool GraphPathCalculator::updateHeadingToRobot(int start_node,
 					rrg.edges[edge_to_next_node].length;
 			rrg.nodes[next_node].traversability_cost_to_robot +=
 					rrg.edges[edge_to_next_node].traversability_cost;
-			rrg.nodes[next_node].traversability_weight_to_robot +=
-					rrg.edges[edge_to_next_node].traversability_weight;
 			node_queue.insert(
 					std::make_pair(rrg.nodes.at(next_node).cost_function,
 							next_node));
@@ -207,8 +199,6 @@ void GraphPathCalculator::initializeStartingNode(int node,
 	rrg.nodes[node].path_to_robot.push_back(node);
 	rrg.nodes[node].traversability_cost_to_robot =
 			rrg.nodes[node].traversability_cost;
-	rrg.nodes[node].traversability_weight_to_robot =
-			rrg.nodes[node].traversability_weight;
 	rrg.nodes[node].radii_to_robot = rrg.nodes[node].radius;
 	rrg.nodes[node].cost_function = calculateCostFunction(rrg.nodes[node]);
 }
@@ -256,8 +246,6 @@ void GraphPathCalculator::findBestRoutes(
 							node_with_new_connection.heading_change_to_robot_best_view;
 					rrg.nodes[neighbor_node_index].traversability_cost_to_robot =
 							node_with_new_connection.traversability_cost_to_robot;
-					rrg.nodes[neighbor_node_index].traversability_weight_to_robot =
-							node_with_new_connection.traversability_weight_to_robot;
 					rrg.nodes[neighbor_node_index].cost_function =
 							node_with_new_connection.cost_function;
 					node_queue.insert(
@@ -281,11 +269,9 @@ bool GraphPathCalculator::isNodeInPath(int neighbor_node_index,
 
 double GraphPathCalculator::calculateCostFunction(
 		rrg_nbv_exploration_msgs::Node &node) {
-	double traversability = ((double) node.traversability_cost_to_robot
-			/ (double) _grid_map_occupied)
-			/ (double) node.traversability_weight_to_robot;
-	double distance = node.distance_to_robot;
-	double heading = (double) node.heading_change_to_robot_best_view / 180.0; // every half-turn costs as much as 1m of distance
+	double traversability = node.traversability_cost_to_robot; // traversability cost derived from average cost per tile with cost, max cost of all tiles and percentage of tile with cost
+	double distance = node.distance_to_robot; //distance in m
+	double heading = (double) node.heading_change_to_robot_best_view / 90.0; // every quarter-turn costs as much as 1m of distance
 	double cost_function = _distance_factor * distance
 			+ _traversability_factor * traversability
 			+ _heading_factor * heading;
@@ -328,10 +314,6 @@ rrg_nbv_exploration_msgs::Node GraphPathCalculator::calculateCostFunctionForConn
 			rrg.nodes[neighbor_node].traversability_cost_to_robot
 					+ rrg.nodes[node].traversability_cost
 					+ rrg.edges[edge].traversability_cost;
-	updated_node.traversability_weight_to_robot =
-			rrg.nodes[neighbor_node].traversability_weight_to_robot
-					+ rrg.nodes[node].traversability_weight
-					+ rrg.edges[edge].traversability_weight;
 	updated_node.cost_function = calculateCostFunction(updated_node);
 	return updated_node;
 }

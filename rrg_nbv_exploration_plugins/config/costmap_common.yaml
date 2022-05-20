@@ -1,5 +1,5 @@
-footprint: [[-0.5, -0.33], [-0.5, 0.33], [0.5, 0.33], [0.5, -0.33]]
-footprint_padding: 0.01
+footprint: [[-0.4, -0.3], [-0.4, 0.3], [0.4, 0.3], [0.4, -0.3]]
+footprint_padding: 0.05
 
 update_frequency: 4.0
 publish_frequency: 3.0

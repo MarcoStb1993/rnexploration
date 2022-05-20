@@ -1138,7 +1138,6 @@ void GraphConstructor::dynamicReconfigureCallback(
 			_local_graph_radius + _robot_radius, 2); // add buffer to pruning
 	_local_sampling_radius = std::min(_local_graph_radius,
 			config.local_sampling_radius); // cannot exceed local graph radius
-	_node_comparator->dynamicReconfigureCallback(config, level);
 	_graph_path_calculator->dynamicReconfigureCallback(config, level);
 	if (_global_exploration_active) {
 		_global_graph_handler->dynamicReconfigureCallback(config, level);

@@ -27,10 +27,8 @@ float64 distance_to_robot				# Distance along the graph's edges from this node t
 int32 heading_in						# Yaw angle in degrees from which the robot will go into this node from the shortest path
 int32 heading_change_to_robot			# Accumulated change in heading along the graph's edges from this node to the node nearest to the robot in degrees(excluding change to best yaw)
 int32 heading_change_to_robot_best_view # Accumulated change in heading along the graph's edges from this node to the node nearest to the robot in degrees
-int32 traversability_cost				# Traversability cost for traversing this node
-int32 traversability_weight				# Weight of traversing this node equal to the number of tiles in its radius
-int32 traversability_cost_to_robot		# Accumulated traversability cost of nodes and edges from this node to the node nearest to the robot
-int32 traversability_weight_to_robot	# Accumulated weight of traversing nodes and edges from this node to the node nearest to the robot equal to the number of tiles in its radius
+float64 traversability_cost				# Traversability cost for traversing this node
+float64 traversability_cost_to_robot	# Accumulated traversability cost of nodes and edges from this node to the node nearest to the robot
 float64 radii_to_robot					# Accumulated node radii from this node to the node nearest to the robot
 float64 cost_function					# Cost function that combines distance, heading change, traversability and node radii to robot
 int32[] connected_to					# Indices of frontiers which have a path connected to this node

@@ -18,7 +18,6 @@ NodeComparator::~NodeComparator() {
 
 void NodeComparator::initialization() {
 	ros::NodeHandle private_nh("~");
-	private_nh.param("gain_factor", _gain_factor, 1.0);
 
 	_sort_list = false;
 	_robot_moved = false;
@@ -80,25 +79,14 @@ void NodeComparator::sortByReward() {
 
 void NodeComparator::calculateRewardFunctions(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	if (_gain_factor > 0)
-		for (auto &node : _nodes_ordered_by_reward) {
-			if (rrg.nodes.at(node.node).path_to_robot.size()
-					&& (node.reward_function == 0 || _robot_moved)) {
-				node.reward_function = _gain_factor
-						* rrg.nodes.at(node.node).gain
-						* exp(-1 * rrg.nodes.at(node.node).cost_function);
-				rrg.nodes.at(node.node).reward_function = node.reward_function;
-			}
+	for (auto &node : _nodes_ordered_by_reward) {
+		if (rrg.nodes.at(node.node).path_to_robot.size()
+				&& (node.reward_function == 0 || _robot_moved)) {
+			node.reward_function = rrg.nodes.at(node.node).gain
+					* exp(-1 * rrg.nodes.at(node.node).cost_function);
+			rrg.nodes.at(node.node).reward_function = node.reward_function;
 		}
-	else
-		for (auto &node : _nodes_ordered_by_reward) {
-			if (rrg.nodes.at(node.node).path_to_robot.size()
-					&& (node.reward_function == 0 || _robot_moved)) {
-				node.reward_function = exp(
-						-1 * rrg.nodes.at(node.node).cost_function);
-				rrg.nodes.at(node.node).reward_function = node.reward_function;
-			}
-		}
+	}
 }
 
 double NodeComparator::getNodeRewardFunction(int node) {
@@ -123,11 +111,6 @@ std::vector<int> NodeComparator::getListOfNodes() {
 		nodes.push_back(it.node);
 	}
 	return nodes;
-}
-
-void NodeComparator::dynamicReconfigureCallback(
-		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
-	_gain_factor = config.gain_factor;
 }
 
 } /* namespace rrg_nbv_exploration */

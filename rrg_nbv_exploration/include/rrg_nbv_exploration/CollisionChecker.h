@@ -165,7 +165,7 @@ private:
 	 * @brief Directions for evasive inflation
 	 */
 	enum Directions {
-		none = -1,
+		none = -1, //a collision was detected
 		center = 1000,
 		north = 0,
 		south = 180,
@@ -380,8 +380,10 @@ private:
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Set of offsets to check
-	 * @param Reference to the traversability cost of this line
-	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the traversability cost of this set
+	 * @param Reference to the number of tiles in this set	 *
+	 * @param Reference to the number of tiles with cost > 0 in this set
+	 * @param Reference to the maximum cost of all tiles in this set
 	 * @param If this is true, recheck and calculate traversability and tiles for whole inflated circle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return Return the direction if a collision was detected, 0 otherwise
@@ -389,7 +391,8 @@ private:
 	int isSetInCollision(double center_x, double center_y,
 			bool &fixed_direction, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map, std::vector<CircleLine> offsets,
-			int &cost, int &tiles, int &collision, bool recalculate = false);
+			int &cost, int &tiles, int &cost_tiles, int &max_cost,
+			int &collision, bool recalculate = false);
 
 	/**
 	 * @brief Check if a circular area with the given center is in collision
@@ -397,14 +400,17 @@ private:
 	 * @param Y-coordinate of the circle's center
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
-	 * @param Reference to the traversability cost of this line
-	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the traversability cost of this circle
+	 * @param Reference to the number of tiles in this circle
+	 * @param Reference to the number of tiles with cost > 0 in this circle
+	 * @param Reference to the maximum cost of all tiles in this circle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isCircleInCollision(double center_x, double center_y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles, int &collision);
+			int &cost, int &tiles, int &cost_tiles, int &max_cost,
+			int &collision);
 
 	/**
 	 * @brief Check if a rotated rectangular area with the given center and yaw rotation is in collision
@@ -415,15 +421,17 @@ private:
 	 * @param Width of the rectangle divided by 2
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
-	 * @param Reference to the traversability cost of this line
-	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the traversability cost of this rectangle
+	 * @param Reference to the number of tiles in this rectangle
+	 * @param Reference to the number of tiles with cost > 0 in this rectangle
+	 * @param Reference to the maximum cost of all tiles in this rectangle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map, int &cost, int &tiles,
-			int &collision);
+			int &cost_tiles, int &max_cost, int &collision);
 
 	/**
 	 * @brief Check if an aligned rectangular area with the given center and yaw rotation is in collision
@@ -434,15 +442,17 @@ private:
 	 * @param Width of the rectangle divided by 2
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
-	 * @param Reference to the traversability cost of this line
-	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the traversability cost of this aligned rectangle
+	 * @param Reference to the number of tiles in this aligned rectangle
+	 * @param Reference to the number of tiles with cost > 0 in this aligned rectangle
+	 * @param Reference to the maximum cost of all tiles in this aligned rectangle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if a collision was registered, false otherwise
 	 */
 	bool isAlignedRectangleInCollision(double x, double y, double yaw,
 			double half_height, double half_width, nav_msgs::OccupancyGrid &map,
 			std::vector<int8_t> &vis_map, int &cost, int &tiles,
-			int &collision);
+			int &cost_tiles, int &max_cost, int &collision);
 
 	/**
 	 * @brief Check how far a circle with the given center can be inflated until a collision is detected
@@ -452,18 +462,22 @@ private:
 	 * @param Reference nearest node to the new node
 	 * @param Reference to the map for checking collision
 	 * @param Reference to the visualization map to display checked areas
-	 * @param Reference to the traversability cost of this line
-	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the traversability cost of this inflated circle
+	 * @param Reference to the number of tiles in this inflated circle
+	 * @param Reference to the number of tiles with cost > 0 in this inflated circle
+	 * @param Reference to the maximum cost of all tiles in this inflated circle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @param Radius at which to start the inflation
 	 * @param Max radius at which inflation must stop
+	 * @param If this is true, recheck and calculate traversability and tiles for whole inflated circle
 	 * @return Maximum radius of the inflated circle
 	 */
 	double inflateCircle(double &x, double &y, bool move_node,
 			rrg_nbv_exploration_msgs::Node &nearest_node,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles, int &collision, double current_radius,
-			double max_radius);
+			int &cost, int &tiles, int &cost_tiles, int &max_cost,
+			int &collision, double current_radius, double max_radius,
+			bool recalculate=false);
 
 	/**
 	 * @brief Compares the current direction with the new direction from a collision and
@@ -529,13 +543,16 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the number of tiles with cost > 0 in this moved circle
+	 * @param Reference to the maximum cost of all tiles in this moved circle
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return True if moving circle was successful, false otherwise
 	 */
 	bool moveCircle(double &x, double &y, int direction, int ring,
 			std::vector<std::pair<double, double>> &previous_positions,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles, int &collision);
+			int &cost, int &tiles, int &cost_tiles, int &max_cost,
+			int &collision);
 
 	/**
 	 * @brief Validate that movement in the given direction has the new node remain in nearest node's
@@ -560,12 +577,15 @@ private:
 	 * @param Reference to the visualization map to display checked areas
 	 * @param Reference to the traversability cost of this line
 	 * @param Reference to the number of tiles in this line
+	 * @param Reference to the number of tiles with cost > 0 in this line
+	 * @param Reference to the maximum cost of all tiles in this line
 	 * @param Reference to the detected collision (0=free, 1=unknown, 2=occupied)
 	 * @return If a collision was detected
 	 */
 	bool isLineInCollision(int x_start, int x_end, int y,
 			nav_msgs::OccupancyGrid &map, std::vector<int8_t> &vis_map,
-			int &cost, int &tiles, int &collision);
+			int &cost, int &tiles, int &cost_tiles, int &max_cost,
+			int &collision);
 	/**
 	 * @brief Initialize collision visualization map
 	 * @param Occupancy grid map that is checked during steering
@@ -612,6 +632,8 @@ private:
 	 * @param Length of edge's path box
 	 * @param Traversability cost of the edge's path box
 	 * @param Number of tiles inside the edge's path box
+	 * @param Number of tiles with cost > 0 inside the edge's path box
+	 * @param Maximum cost of all tiles inside the edge's path box
 	 * @param Index of the new node of the edge
 	 * @param Index of the neighbor node of the edge
 	 * @param Distance between the two nodes
@@ -620,7 +642,8 @@ private:
 	 */
 	rrg_nbv_exploration_msgs::Edge constructEdge(double edge_yaw,
 			double edge_length, int edge_cost, int edge_tiles,
-			int neighbor_node, int new_node, double distance,
+			int edge_cost_tiles, int edge_max_cost, int neighbor_node,
+			int new_node, double distance,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
@@ -661,5 +684,17 @@ private:
 	 * @return Node index for new node
 	 */
 	int getAvailableNodeIndex(rrg_nbv_exploration_msgs::Graph &rrg);
+
+	/**
+	 * @brief Calculate the traversability cost for a node or edge
+	 * @param Accumulated cost of all tiles
+	 * @param Number of tiles that are not free
+	 * @param Maximum cost of all regarded tiles
+	 * @param Number of regarded tiles
+	 * @param Radius of an inflated node to reduce the traversability cost, defaults to 0 if not provided
+	 * @return Traversability cost
+	 */
+	double calculateTraversabilityCost(int cost, int cost_tiles, int max_cost,
+			int tiles, double radius = 0.0);
 };
 }
