@@ -89,8 +89,6 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 					node_collision)) {
 		rrg.nodes[0].traversability_cost = calculateTraversabilityCost(
 				node_cost, node_cost_tiles, node_max_cost, node_tiles);
-		ROS_INFO_STREAM(
-				"Init root node with t=" << rrg.nodes[0].traversability_cost << " from tt=" << node_cost << ", tc=" << node_cost_tiles << ", tmax=" << node_max_cost << ", tn=" << node_tiles);
 		node_cost = 0, node_tiles = 0, node_cost_tiles = 0, node_max_cost = 0;
 		rrg.nodes[0].radius = inflateCircle(rrg.nodes[0].position.x,
 				rrg.nodes[0].position.y, false, rrg.nodes[0], map,
@@ -100,8 +98,6 @@ void CollisionChecker::initRootNodeAndGraph(nav_msgs::OccupancyGrid &map,
 		rrg.nodes[0].traversability_cost += calculateTraversabilityCost(
 				node_cost, node_cost_tiles, node_max_cost, node_tiles,
 				rrg.nodes[0].radius);
-		ROS_INFO_STREAM(
-				"Added inflation to root node with t=" << rrg.nodes[0].traversability_cost << " from tt=" << node_cost << ", tc=" << node_cost_tiles << ", tmax=" << node_max_cost << ", tn=" << node_tiles);
 		rrg.nodes[0].traversability_cost_to_robot =
 				rrg.nodes[0].traversability_cost;
 		rrg.largest_node_radius = std::max(rrg.nodes[0].radius,
@@ -294,15 +290,11 @@ bool CollisionChecker::steer(rrg_nbv_exploration_msgs::Graph &rrg,
 		if (connected) {
 			new_node.traversability_cost = calculateTraversabilityCost(
 					node_cost, node_cost_tiles, node_max_cost, node_tiles);
-			ROS_INFO_STREAM(
-					"New Node "<<new_node.index<< " with t=" << new_node.traversability_cost << " from tt=" << node_cost << ", tc=" << node_cost_tiles << ", tmax=" << node_max_cost << ", tn=" << node_tiles);
 			if (_inflation_active) {
 				new_node.traversability_cost += calculateTraversabilityCost(
 						inflated_node_cost, inflated_node_cost_tiles,
 						inflated_node_max_cost, inflated_node_tiles,
 						new_node.radius);
-				ROS_INFO_STREAM(
-						"Added inflation to New Node "<<new_node.index<< " with t=" << new_node.traversability_cost << " from tt=" << node_cost << ", tc=" << node_cost_tiles << ", tmax=" << node_max_cost << ", tn=" << node_tiles);
 			}
 			new_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 			new_node.gain = -1;
@@ -356,8 +348,6 @@ std::vector<int> CollisionChecker::inflateExistingNode(
 		rrg.nodes[node].traversability_cost += calculateTraversabilityCost(
 				node_cost, node_cost_tiles, node_max_cost, node_tiles,
 				new_radius);
-		ROS_INFO_STREAM(
-				"Inflate existing node " <<node <<" with t=" << rrg.nodes[node].traversability_cost << " from tt=" << node_cost << ", tc=" << node_cost_tiles << ", tmax=" << node_max_cost << ", tn=" << node_tiles);
 		rrg.nodes[node].cost_function =
 				_graph_path_calculator->calculateCostFunction(rrg.nodes[node]);
 		std::vector<std::pair<int, double>> nodes =
@@ -1026,8 +1016,6 @@ rrg_nbv_exploration_msgs::Edge CollisionChecker::constructEdge(double edge_yaw,
 		new_edge.yaw += new_edge.yaw > 180 ? (-180) : 180;
 	new_edge.traversability_cost = calculateTraversabilityCost(edge_cost,
 			edge_cost_tiles, edge_max_cost, edge_tiles);
-	ROS_INFO_STREAM(
-			"New edge " <<new_edge.index <<" with t=" << new_edge.traversability_cost << " from tt=" << edge_cost << ", tc=" << edge_cost_tiles << ", tmax=" << edge_max_cost << ", tn=" << edge_tiles);
 	new_edge.first_node = std::min(new_node, neighbor_node);
 	new_edge.second_node = std::max(new_node, neighbor_node);
 	new_edge.length = distance;
