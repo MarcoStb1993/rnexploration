@@ -247,7 +247,7 @@
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
-		<arg name="grid_map_occupied" default="100" />
+		<arg name="grid_map_occupied" default="99" />
 		<arg name="grid_map_unknown" default="-1" />
 		<arg name="local_sampling_radius"
 			value="$(arg local_sampling_radius)" />
