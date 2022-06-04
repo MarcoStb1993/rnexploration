@@ -901,10 +901,8 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 		if (isLineInCollision(x_start, x_end, grid_y, map, vis_map, cost, tiles,
 				cost_tiles, max_cost, collision))
 			return true;
-		if (iterator_y < map_corners[0].y) {
-			offset_x_top += gradient_top;
-			offset_x_bot += gradient_bot;
-		}
+		offset_x_top += gradient_top;
+		offset_x_bot += gradient_bot;
 		grid_y += 1;
 		iterator_y += _grid_map_resolution;
 	}

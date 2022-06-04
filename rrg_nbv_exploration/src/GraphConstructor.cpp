@@ -112,7 +112,7 @@ void GraphConstructor::initLocalGraph(
 	_nodes_to_reupdate.clear();
 	_last_three_nodes_path.clear();
 	_new_node_positions.clear();
-	_rrg.header.frame_id = "/map";
+	_rrg.header.frame_id = "map";
 	_rrg.ns = "rrg";
 	_rrg.nodes.clear();
 	_rrg.edges.clear();

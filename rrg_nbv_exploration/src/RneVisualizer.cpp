@@ -37,7 +37,7 @@ RneVisualizer::~RneVisualizer() {
 void RneVisualizer::initializeRrgVisualization(
 		visualization_msgs::Marker &_node_points,
 		visualization_msgs::Marker &_edge_line_list) {
-	_node_points.header.frame_id = "/map";
+	_node_points.header.frame_id = "map";
 	_node_points.ns = "rrg_vis";
 	_node_points.id = 0;
 	_node_points.action = visualization_msgs::Marker::ADD;
@@ -48,7 +48,7 @@ void RneVisualizer::initializeRrgVisualization(
 	_node_points.scale.z = _robot_radius * 0.2f;
 	_node_points.color.g = 1.0f;
 	_node_points.color.a = 1.0f;
-	_edge_line_list.header.frame_id = "/map";
+	_edge_line_list.header.frame_id = "map";
 	_edge_line_list.header.stamp = ros::Time::now();
 	_edge_line_list.ns = "rrg_vis";
 	_edge_line_list.id = 1;
@@ -117,7 +117,7 @@ void RneVisualizer::addInfoTextVisualization(
 		visualization_msgs::MarkerArray &node_info_texts, int node,
 		const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	visualization_msgs::Marker node_info_text;
-	node_info_text.header.frame_id = "/map";
+	node_info_text.header.frame_id = "map";
 	node_info_text.ns = "rrg_vis_info";
 	node_info_text.id = node;
 	node_info_text.action = visualization_msgs::Marker::ADD;
@@ -162,7 +162,7 @@ void RneVisualizer::addInfoTextVisualization(
 
 void RneVisualizer::clearInfoText() {
 	visualization_msgs::Marker node_info_text;
-	node_info_text.header.frame_id = "/map";
+	node_info_text.header.frame_id = "map";
 	node_info_text.ns = "rrg_vis_info";
 	node_info_text.id = 0;
 	node_info_text.action = visualization_msgs::Marker::DELETEALL;
@@ -210,7 +210,7 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 void RneVisualizer::initializeGgVisualization(
 		visualization_msgs::Marker &frontier_points,
 		visualization_msgs::Marker &path_lines) {
-	frontier_points.header.frame_id = "/map";
+	frontier_points.header.frame_id = "map";
 	frontier_points.ns = "globalgraph_vis";
 	frontier_points.id = 0;
 	frontier_points.action = visualization_msgs::Marker::ADD;
@@ -221,7 +221,7 @@ void RneVisualizer::initializeGgVisualization(
 	frontier_points.scale.z = _robot_radius * 0.2f;
 	frontier_points.color.g = 1.0f;
 	frontier_points.color.a = 1.0f;
-	path_lines.header.frame_id = "/map";
+	path_lines.header.frame_id = "map";
 	path_lines.ns = "globalgraph_vis";
 	path_lines.id = 1;
 	path_lines.action = visualization_msgs::Marker::ADD;
@@ -288,7 +288,7 @@ void RneVisualizer::addGgInfoTextVisualization(
 		visualization_msgs::MarkerArray &frontier_info_texts, int frontier,
 		const rrg_nbv_exploration_msgs::GlobalGraph::ConstPtr &gg) {
 	visualization_msgs::Marker frontier_info_text;
-	frontier_info_text.header.frame_id = "/map";
+	frontier_info_text.header.frame_id = "map";
 	frontier_info_text.ns = "globalgraph_vis_info";
 	frontier_info_text.id = frontier;
 	frontier_info_text.action = visualization_msgs::Marker::ADD;
@@ -314,7 +314,7 @@ void RneVisualizer::addGgInfoTextVisualization(
 
 void RneVisualizer::clearGgInfoText() {
 	visualization_msgs::Marker frontier_info_text;
-	frontier_info_text.header.frame_id = "/map";
+	frontier_info_text.header.frame_id = "map";
 	frontier_info_text.ns = "globalgraph_vis_info";
 	frontier_info_text.id = 0;
 	frontier_info_text.action = visualization_msgs::Marker::DELETEALL;
@@ -325,7 +325,7 @@ void RneVisualizer::clearGgInfoText() {
 
 void RneVisualizer::clearGlobalPaths() {
 	visualization_msgs::Marker path_lines;
-	path_lines.header.frame_id = "/map";
+	path_lines.header.frame_id = "map";
 	path_lines.ns = "globalgraph_vis";
 	path_lines.id = 1;
 	path_lines.action = visualization_msgs::Marker::DELETEALL;

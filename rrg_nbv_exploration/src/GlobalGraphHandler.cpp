@@ -48,7 +48,7 @@ void GlobalGraphHandler::initialize(rrg_nbv_exploration_msgs::Node &root,
 	_graph_path_calculator = std::move(graph_path_calculator);
 	_graph_searcher = std::move(graph_searcher);
 	_collision_checker = std::move(collision_checker);
-	_gg.header.frame_id = "/map";
+	_gg.header.frame_id = "map";
 	_gg.ns = "globalgraph";
 	_gg.frontiers_counter = 0;
 	_gg.paths_counter = 0;

@@ -120,7 +120,7 @@ void GainCalculator::calculatePointGain(rrg_nbv_exploration_msgs::Node &node) {
 			> 0;
 	visualization_msgs::Marker _node_points;
 	if (publish_visualization) {
-		_node_points.header.frame_id = "/map";
+		_node_points.header.frame_id = "map";
 		_node_points.ns = "raysample_visualization";
 		_node_points.id = 0;
 		_node_points.action = visualization_msgs::Marker::ADD;
