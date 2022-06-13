@@ -656,10 +656,9 @@ bool CollisionChecker::checkMovementWithNearestNode(double &x, double &y,
 		int &direction, rrg_nbv_exploration_msgs::Node &nearest_node,
 		bool &fixed_direction) {
 	geometry_msgs::Point new_point = movePoint(direction, x, y);
-	double distance_squared = sqrt(
+	double distance = sqrt(
 			pow(new_point.x - nearest_node.position.x, 2)
 					+ pow(new_point.y - nearest_node.position.y, 2));
-	double distance = sqrt(distance_squared);
 	double distance_to_radius = distance - nearest_node.radius;
 	bool move_towards_node = false;
 	bool move_from_node = false;
@@ -686,9 +685,8 @@ bool CollisionChecker::checkMovementWithNearestNode(double &x, double &y,
 		if (direction_from_nearest_node == 360)
 			direction_from_nearest_node = 0;
 		if (move_towards_node) { // opposite direction
-			direction_from_nearest_node =
-					direction_from_nearest_node + direction_from_nearest_node
-							> 180 ? (-180) : 180;
+			direction_from_nearest_node = direction_from_nearest_node
+					+ (direction_from_nearest_node > 180 ? (-180) : 180);
 		}
 		if (!checkDirection(direction, fixed_direction,
 				direction_from_nearest_node)) { // merge directions, if it fails, abort inflation
@@ -881,7 +879,7 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			iterator_x_top = map_corners[2].x
 					+ gradient_top
 							* (iterator_y - map_corners[2].y
-									- _grid_map_resolution);
+									- _grid_map_resolution); //-_grid_map_resolution will be subtracted with the gradient at the end of the loop
 			offset_x_top = (iterator_x_top - iterator_x) / _grid_map_resolution;
 			top_corner_reached = true;
 			x_end = grid_corners[2].x;
@@ -892,7 +890,7 @@ bool CollisionChecker::isRectangleInCollision(double x, double y, double yaw,
 			iterator_x_bot = map_corners[1].x
 					+ gradient_bot
 							* (iterator_y - map_corners[1].y
-									- _grid_map_resolution);
+									- _grid_map_resolution); //-_grid_map_resolution will be subtracted with the gradient at the end of the loop
 			offset_x_bot = (iterator_x_bot - iterator_x) / _grid_map_resolution;
 			bot_corner_reached = true;
 			x_start = grid_corners[1].x;
