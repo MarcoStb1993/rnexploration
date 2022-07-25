@@ -611,13 +611,6 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 		local_nodes.emplace_back(node.index,
 				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
 	}
-	std::string mfwcn = "";
-	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { // link node copies with connected missing frontiers
-		mfwcn += std::to_string(missing_frontier_with_connecting_node.second)
-				+ " ("
-				+ std::to_string(missing_frontier_with_connecting_node.first)
-				+ "),";
-	}
 	std::set<std::pair<double, int>> node_queue; // node's distance to frontier connected node (first) and index (second)
 	local_nodes.at(frontier_connecting_node).path_length = 0;
 	local_nodes.at(frontier_connecting_node).path_to_frontier.push_back(
@@ -674,10 +667,6 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 			missing_frontier_local_path_map.insert(
 					std::make_pair(missing_frontier_with_connecting_node.first,
 							local_path_index));
-			std::string best = "";
-			for (auto p : local_nodes.at(local_path_index).path_to_frontier) {
-				best += std::to_string(p) + ",";
-			}
 		} else { // local path is value in node_local_path_map (second)
 			missing_frontier_local_path_map.insert(
 					std::make_pair(missing_frontier_with_connecting_node.first,

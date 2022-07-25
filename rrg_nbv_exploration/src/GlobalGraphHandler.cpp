@@ -1104,7 +1104,7 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 							_gg.paths.at(
 									_gg.frontiers.at(missing_frontier).paths.front()).connecting_node;
 					bool found_existing_connection = false;
-					for (auto frontier_connection : frontier_connections) {
+					for (auto frontier_connection : frontier_connections) { //check if a connection between the connecting nodes of both frontiers was already found and reuse it
 						if (frontier_connection.connecting_node_one
 								== std::max(frontier_connecting_node,
 										missing_frontier_connecting_node)

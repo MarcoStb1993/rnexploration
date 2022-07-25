@@ -568,7 +568,7 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 			if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
 					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles,
 					new_cost_tiles, new_max_cost, collision)) // northwest quadrant
-				if (!checkDirection(direction, fixed_direction,
+				if (!mergeDirection(direction, fixed_direction,
 						it.x_offset == max_x_offset ? Directions::south :
 						it.y_offset == max_y_offset ?
 								Directions::east : Directions::southeast))
@@ -576,7 +576,7 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 			if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
 					map_y + it.y_offset, map, tmp_vis_map, new_cost, new_tiles,
 					new_cost_tiles, new_max_cost, collision)) // southwest quadrant
-				if (!checkDirection(direction, fixed_direction,
+				if (!mergeDirection(direction, fixed_direction,
 						it.x_offset == max_x_offset ? Directions::north :
 						it.y_offset == max_y_offset ?
 								Directions::east : Directions::northeast))
@@ -585,7 +585,7 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 				if (isLineInCollision(map_x + it.x_start, map_x + it.x_offset,
 						map_y - it.y_offset, map, tmp_vis_map, new_cost,
 						new_tiles, new_cost_tiles, new_max_cost, collision)) // northeast quadrant
-					if (!checkDirection(direction, fixed_direction,
+					if (!mergeDirection(direction, fixed_direction,
 							it.x_offset == max_x_offset ? Directions::south :
 							it.y_offset == max_y_offset ?
 									Directions::west : Directions::southwest))
@@ -593,7 +593,7 @@ int CollisionChecker::isSetInCollision(double center_x, double center_y,
 				if (isLineInCollision(map_x - it.x_offset, map_x - it.x_start,
 						map_y - it.y_offset, map, tmp_vis_map, new_cost,
 						new_tiles, new_cost_tiles, new_max_cost, collision)) // southeast quadrant
-					if (!checkDirection(direction, fixed_direction,
+					if (!mergeDirection(direction, fixed_direction,
 							it.x_offset == max_x_offset ? Directions::north :
 							it.y_offset == max_y_offset ?
 									Directions::west : Directions::northwest))
@@ -620,7 +620,7 @@ bool CollisionChecker::isCircleInCollision(double center_x, double center_y,
 			!= Directions::center;
 }
 
-bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
+bool CollisionChecker::mergeDirection(int &current_direction, bool &fixed,
 		int new_direction) {
 	if (current_direction == Directions::center) { // first direction (initialization)
 		current_direction = new_direction;
@@ -633,7 +633,6 @@ bool CollisionChecker::checkDirection(int &current_direction, bool &fixed,
 	} else if ((fixed && difference >= 90) || difference >= 135) {
 		return false;
 	} else if (difference <= 90) { // merge directions
-		int keep_direction = current_direction;
 		if (fixed || difference == 45) { // keep diagonal direction
 			current_direction =
 					(current_direction == 0 || (current_direction % 90) == 0) ?
@@ -688,7 +687,7 @@ bool CollisionChecker::checkMovementWithNearestNode(double &x, double &y,
 			direction_from_nearest_node = direction_from_nearest_node
 					+ (direction_from_nearest_node > 180 ? (-180) : 180);
 		}
-		if (!checkDirection(direction, fixed_direction,
+		if (!mergeDirection(direction, fixed_direction,
 				direction_from_nearest_node)) { // merge directions, if it fails, abort inflation
 			return false;
 		} else { // check if merged direction is acceptable

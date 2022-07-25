@@ -511,7 +511,7 @@ private:
 	void removeNodeFromUpdateLists(int node);
 
 	/**
-	 * @brief Find connected nodes with gain and cluster them to only allow of of the connected nodes
+	 * @brief Find connected nodes with gain and cluster them to only allow one of the connected nodes
 	 * to become a frontier (by setting the other node's gain to 0)
 	 * @param List of pruned nodes ordered ascending by path length to robot
 	 */

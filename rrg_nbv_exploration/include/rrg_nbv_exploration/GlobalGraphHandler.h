@@ -580,7 +580,7 @@ private:
 	 * @param Reference to the path leading to the first frontier
 	 * @param Index of the path leading to the second frontier
 	 * @param Reference to the first frontier
-	 * @param Reference to the closest mergeable frontier that was already merged and is  unprunable
+	 * @param Reference to the closest mergeable frontier that was already merged and is unprunable
 	 * @param Reference to a list of mergeable frontiers
 	 * @param If the path length of the path to the first frontier is added to the complete length
 	 * (optional, defaults to true)

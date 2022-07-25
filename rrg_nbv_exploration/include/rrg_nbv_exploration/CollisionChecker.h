@@ -488,7 +488,7 @@ private:
 	 * @param New direction the circle need to move to because of a collision (cannot be center or none)
 	 * @return False if a contradictory direction was found, true otherwise
 	 */
-	bool checkDirection(int &current_direction, bool &fixed, int new_direction);
+	bool mergeDirection(int &current_direction, bool &fixed, int new_direction);
 
 	/**
 	 * @brief Round the given points coordinates to be in the middle of a grid cell (necessary for collision checking)
