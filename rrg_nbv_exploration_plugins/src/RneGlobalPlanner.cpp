@@ -36,26 +36,10 @@ void RneGlobalPlanner::initialize(std::string name,
 bool RneGlobalPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 		const geometry_msgs::PoseStamped &goal,
 		std::vector<geometry_msgs::PoseStamped> &plan) {
-	//ROS_ERROR_STREAM("Global planner make plan");
 	if (_exploration_running) {
 		rrg_nbv_exploration_msgs::RequestPath srv;
 		if (_request_path_service.call(srv)) {
 			plan = srv.response.path;
-//			std::vector<geometry_msgs::PoseStamped> plan_to_nearest_node;
-//			if (plan.size() > 1
-//					&& global_planner.makePlan(plan[0], plan[1],
-//							plan_to_nearest_node)) {
-//				double height_difference_i = (plan[1].pose.position.z
-//						- plan[0].pose.position.z)
-//						/ (double) plan_to_nearest_node.size();
-//				for (int i = 0; i < plan_to_nearest_node.size(); i++) {
-//					plan_to_nearest_node[i].pose.position.z =
-//							plan[0].pose.position.z
-//									+ (double) i * height_difference_i;
-//				}
-//				plan.insert(plan.begin(), plan_to_nearest_node.begin(),
-//						plan_to_nearest_node.end());
-//			}
 		} else {
 			ROS_ERROR("Failed to call Request Path service");
 		}

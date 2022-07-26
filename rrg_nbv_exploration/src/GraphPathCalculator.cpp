@@ -14,6 +14,7 @@ GraphPathCalculator::GraphPathCalculator() :
 	private_nh.param("traversability_factor", _traversability_factor, 1.0);
 	private_nh.param("inflation_active", _inflation_active, true);
 	private_nh.param("grid_map_occupied", _grid_map_occupied, 100);
+	private_nh.param("add_inter_nodes", _add_inter_nodes, false);
 	_last_robot_yaw = 0;
 	_robot_radius_squared = pow(_robot_radius, 2);
 	_last_nearest_node = 0;
@@ -391,8 +392,10 @@ void GraphPathCalculator::getLocalNavigationPath(
 										2));
 				quaternion.setRPY(0, 0, yaw);
 				quaternion.normalize();
-				addInterNodes(path, robot_pos, rrg.nodes[i].position,
-						tf2::toMsg(quaternion), yaw, distance);
+				if (_add_inter_nodes) {
+					addInterNodes(path, robot_pos, rrg.nodes[i].position,
+							tf2::toMsg(quaternion), yaw, distance);
+				}
 			}
 			if (i != path_to_robot.back()) { // if node is not last element in list, get orientation between this node and the next
 				int heading;
@@ -413,7 +416,7 @@ void GraphPathCalculator::getLocalNavigationPath(
 			path_pose.pose.orientation = tf2::toMsg(quaternion);
 			path.push_back(path_pose);
 			// add in between nodes
-			if (i != path_to_robot.back()) { // add in between node
+			if (_add_inter_nodes && i != path_to_robot.back()) { // add in between node
 				addInterNodes(path, rrg.nodes[i].position,
 						rrg.nodes[*(&i + 1)].position, tf2::toMsg(quaternion),
 						yaw, distance);
@@ -436,8 +439,10 @@ void GraphPathCalculator::getPathFromRobotToPosition(
 	tf2::Quaternion quaternion;
 	quaternion.setRPY(0, 0, yaw);
 	quaternion.normalize();
-	addInterNodes(path, robot_pose, goal, tf2::toMsg(quaternion), yaw,
-			distance); // add poses between robot and node
+	if (_add_inter_nodes) {
+		addInterNodes(path, robot_pose, goal, tf2::toMsg(quaternion), yaw,
+				distance); // add poses between robot and node
+	}
 	path_pose.pose.position = goal;
 	if (_sensor_horizontal_fov == 360 || best_yaw == -1) { // use best yaw for orientation at goal node or keep yaw for 360 horizontal FoV
 		path_pose.pose.orientation = tf2::toMsg(quaternion);
@@ -508,8 +513,10 @@ void GraphPathCalculator::getNavigationPath(
 					+ pow(waypoints.at(closest_waypoint).y - robot_pos.y, 2));
 	quaternion.setRPY(0, 0, yaw);
 	quaternion.normalize();
-	addInterNodes(path, robot_pos, waypoints.at(waypoints.size() - 1),
-			tf2::toMsg(quaternion), yaw, distance);
+	if (_add_inter_nodes) {
+		addInterNodes(path, robot_pos, waypoints.at(waypoints.size() - 1),
+				tf2::toMsg(quaternion), yaw, distance);
+	}
 	for (int i = closest_waypoint; i >= 0; i--) { // waypoints start at frontier (index 0) and end at closest waypoint to robot
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
@@ -532,7 +539,7 @@ void GraphPathCalculator::getNavigationPath(
 		quaternion.normalize();
 		path_pose.pose.orientation = tf2::toMsg(quaternion);
 		path.push_back(path_pose);
-		if (i != 0) { // add in between nodes
+		if (_add_inter_nodes && i != 0) { // add in between nodes
 			addInterNodes(path, waypoints.at(i), waypoints.at(i - 1),
 					tf2::toMsg(quaternion), yaw, distance);
 		}

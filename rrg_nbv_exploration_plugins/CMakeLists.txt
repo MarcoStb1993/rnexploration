@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   	geometry_msgs
   	rrg_nbv_exploration_msgs
   	tf2_geometry_msgs
+  	tf2
+    tf2_ros
   	costmap_2d
   	nav_core
   	base_local_planner
@@ -38,6 +40,10 @@ add_executable(rneServiceProviderNode
 	src/RneServiceProviderNode.cpp
 	src/RneServiceProvider.cpp)	
 	
+add_executable(aedeInterfaceNode
+	src/AedeInterfaceNode.cpp
+	src/AedeInterface.cpp)	
+	
 target_link_libraries(rne_plugins
   ${catkin_LIBRARIES}
   )
@@ -50,8 +56,11 @@ target_link_libraries(rneServiceProviderNode
   ${catkin_LIBRARIES}
   )
   
+target_link_libraries(aedeInterfaceNode
+  ${catkin_LIBRARIES}
+  )
+  
 add_dependencies(rne_plugins ${catkin_EXPORTED_TARGETS})
-
 add_dependencies(rne_global_planner ${catkin_EXPORTED_TARGETS})
-
 add_dependencies(rneServiceProviderNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(aedeInterfaceNode ${catkin_EXPORTED_TARGETS})

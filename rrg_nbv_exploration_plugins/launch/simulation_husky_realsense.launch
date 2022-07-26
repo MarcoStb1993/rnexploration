@@ -256,6 +256,7 @@
 		<arg name="samples_per_loop" default="10" />
 		<arg name="global_exploration_active" default="$(arg global_exploration_active)" />
 		<arg name="measure_algorithm_runtime" default="true" />
+		<arg name="add_inter_nodes" default="true" />
 	</include>
 
 	<!-- RViz für Exploration -->

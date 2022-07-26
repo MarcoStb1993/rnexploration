@@ -276,6 +276,10 @@ private:
 	 * @brief Index of the node that was previously the nearest node to the robot
 	 */
 	int _last_nearest_node;
+	/**
+	 * @brief If nodes in between two waypoints of a path should be added
+	 */
+	bool _add_inter_nodes;
 
 	/**
 	 * @brief Find the yaw in deg and distance in m from the start node to the end node and return true if it was found
