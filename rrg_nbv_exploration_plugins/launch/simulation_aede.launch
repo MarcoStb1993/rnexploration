@@ -10,8 +10,6 @@
   <arg name="gazebo_gui" default="true"/>
   <arg name="checkTerrainConn" default="false"/>
 
-  <include file="$(find ps3joy)/launch/ps3.launch" />
-
   <include file="$(find local_planner)/launch/local_planner.launch" >
     <arg name="cameraOffsetZ" value="$(arg cameraOffsetZ)"/>
     <arg name="goalX" value="$(arg vehicleX)"/>
@@ -50,16 +48,16 @@
 
 	<!-- Octomap -->
 	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-		<param name="resolution" value="0.05" />
+		<param name="resolution" value="0.15" />
 		<param name="frame_id" type="string" value="map" />
 		<param name="sensor_model/min_range" value="0.5" />
 		<param name="sensor_model/max_range" value="100.0" />
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
-		<remap from="cloud_in" to="/registered_scan" />
+		<remap from="cloud_in" to="/sensor_scan" />
 		<param name="publish_free_space" value="true" />
-		<param name="occupancy_min_z" value="0.1" />
-		<param name="occupancy_max_z" value="1.0" />
+		<param name="occupancy_min_z" value="0.0" />
+		<param name="occupancy_max_z" value="2.0" />
 	</node>
 	
 	<!-- RN Exploration -->
@@ -72,7 +70,7 @@
 		<arg name="sensor_size" value="0.05" />
 		<arg name="sensor_max_range" value="100.0" />
 		<arg name="sensor_min_range" value="0.5" />
-		<arg name="delta_radius" value="0.05" />
+		<arg name="delta_radius" value="0.15" />
 		<arg name="delta_phi" value="10" />
 		<arg name="delta_theta" value="10" />
 		<arg name="sensor_horizontal_fov" value="360" />
@@ -81,8 +79,8 @@
 		<arg name="min_view_score" value="0.05" />
 		<arg name="occupancy_grid_topic" value="/projected_map" />
 		<arg name="local_exploration_finished_timer_duration" value="10.0" />
-		<arg name="oc_resolution" default="0.05" />
-		<arg name="grid_map_resolution" default="0.05" />
+		<arg name="oc_resolution" default="0.15" />
+		<arg name="grid_map_resolution" default="0.15" />
 		<arg name="grid_map_occupied" default="99" />
 		<arg name="grid_map_unknown" default="-1" />
 		<arg name="local_sampling_radius" value="10" />
@@ -90,5 +88,14 @@
 		<arg name="max_node_height_difference" default="1.0" />
 		<arg name="samples_per_loop" default="10" />
 	</include>
+	
+	
+	<node pkg="rrg_nbv_exploration_plugins"
+		type="aedeInterfaceNode" name="aedeInterfaceNode"
+		output="screen">
+		<param name="update_frequency" value="1" />
+		<param name="robot_frame" value="sensor" />
+		<param name="position_tolerance" value="0.2" />
+	</node>
 
 </launch>

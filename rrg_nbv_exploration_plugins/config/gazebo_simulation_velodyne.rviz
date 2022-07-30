@@ -104,68 +104,8 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+          Value: true
         base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_bumper_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_left_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        front_right_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        imu_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        inertial_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        rear_bumper_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rear_left_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        rear_right_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_chassis_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_plate_front_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        top_plate_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        top_plate_rear_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        user_rail_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -345,7 +285,7 @@ Visualization Manager:
       Marker Topic: /rne/globalgraph_vis
       Name: GlobalGraph
       Namespaces:
-        globalgraph_vis: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -353,7 +293,7 @@ Visualization Manager:
       Marker Topic: /rne/globalgraph_vis_info
       Name: GlobalGraph Info
       Namespaces:
-        globalgraph_vis_info: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -361,7 +301,7 @@ Visualization Manager:
       Marker Topic: /rne/rrg_vis
       Name: RRG
       Namespaces:
-        rrg_vis: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -369,7 +309,7 @@ Visualization Manager:
       Marker Topic: /rne/rrg_vis_info
       Name: RRG Info
       Namespaces:
-        rrg_vis_info: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -496,6 +436,34 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic: /terrain_map
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
