@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   	angles
   	nav_msgs
   	global_planner
+  	sensor_msgs
 )
 
 catkin_package(
@@ -44,6 +45,11 @@ add_executable(aedeInterfaceNode
 	src/AedeInterfaceNode.cpp
 	src/AedeInterface.cpp)	
 	
+	
+add_executable(aedeMessageInterfaceNode
+	src/AedeMessageInterfaceNode.cpp
+	src/AedeMessageInterface.cpp)	
+	
 target_link_libraries(rne_plugins
   ${catkin_LIBRARIES}
   )
@@ -60,7 +66,12 @@ target_link_libraries(aedeInterfaceNode
   ${catkin_LIBRARIES}
   )
   
+target_link_libraries(aedeMessageInterfaceNode
+  ${catkin_LIBRARIES}
+  )
+  
 add_dependencies(rne_plugins ${catkin_EXPORTED_TARGETS})
 add_dependencies(rne_global_planner ${catkin_EXPORTED_TARGETS})
 add_dependencies(rneServiceProviderNode ${catkin_EXPORTED_TARGETS})
 add_dependencies(aedeInterfaceNode ${catkin_EXPORTED_TARGETS})
+add_dependencies(aedeMessageInterfaceNode ${catkin_EXPORTED_TARGETS})

@@ -17,12 +17,10 @@
 #include <rrg_nbv_exploration_msgs/ExplorationGoalObsolete.h>
 #include <std_srvs/Trigger.h>
 #include <std_msgs/Bool.h>
-#include <std_msgs/String.h>
+#include <std_msgs/Int8.h>
 #include <std_srvs/SetBool.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/Point.h>
-#include <geometry_msgs/Twist.h>
-#include <geometry_msgs/TwistStamped.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -35,6 +33,7 @@ public:
 	virtual ~AedeInterface();
 	void setExplorationState(bool running);
 	void updatePosition();
+	void explorationStarted();
 
 private:
 	ros::NodeHandle _nh;
@@ -43,9 +42,8 @@ private:
 	ros::ServiceClient _set_rrt_state_service;
 	ros::Subscriber _exploration_goal_obsolete_subscriber;
 	ros::Publisher _way_point_publisher;
-	ros::Subscriber _cmd_vel_stamped_subscriber;
-	ros::Publisher _cmd_vel_publisher;
 	ros::Publisher _path_publisher;
+	ros::Publisher _stop_aede_publisher;
 
 	ros::Timer _idle_timer;
 
@@ -85,9 +83,13 @@ private:
 	 */
 	geometry_msgs::Point _current_position;
 	/**
-	 * Time in s that the robot can remain stationary before navigation counts as aborted because the robot is stuck
+	 * @brief Time in s that the robot can remain stationary before navigation counts as aborted because the robot is stuck
 	 */
 	double _idle_timer_duration;
+	/**
+	 * @brief If the AEDE local planner is running (=0) or not (>0)
+	 */
+	bool _exploration_running;
 
 	void waypointReached();
 	bool isAtWaypoint(bool goal = false);
@@ -99,12 +101,10 @@ private:
 	void updateCurrentGoal(uint8_t status);
 	void publishWayPoint();
 	void publishPath();
+	void publishAedeStop(bool stop);
 
 	std::string pointToString(geometry_msgs::Point p);
 	std::string pathToString(std::vector<geometry_msgs::PoseStamped> path);
-
-	void cmdVelStampedCallback(
-			const geometry_msgs::TwistStamped::ConstPtr &vel);
 
 	void explorationGoalObsoleteCallback(
 			const rrg_nbv_exploration_msgs::ExplorationGoalObsolete::ConstPtr &best_goal);

@@ -21,10 +21,7 @@ AedeInterface::AedeInterface() :
 	private_nh.param("idle_timer_duration", _idle_timer_duration, 10.0);
 	_way_point_publisher = _nh.advertise<geometry_msgs::PointStamped>(
 			"way_point", 1, true);
-	_cmd_vel_publisher = _nh.advertise<geometry_msgs::Twist>("cmd_vel", 1,
-			true);
-	_cmd_vel_stamped_subscriber = _nh.subscribe("cmd_vel_stamped", 1,
-			&AedeInterface::cmdVelStampedCallback, this);
+	_stop_aede_publisher = _nh.advertise<std_msgs::Int8>("stop", 1, true);
 
 	ros::NodeHandle nh("rne");
 	_request_path_service = nh.serviceClient<
@@ -39,27 +36,31 @@ AedeInterface::AedeInterface() :
 	_idle_timer = nh.createTimer(ros::Duration(_idle_timer_duration),
 			&AedeInterface::idleTimerCallback, this, false, false);
 	_follows_goal = false;
+	_exploration_running = false;
 }
 
 AedeInterface::~AedeInterface() {
 }
 
 void AedeInterface::updatePosition() {
-	if (!_follows_goal) {
-		requestPath();
-	}
-	if (_follows_goal) {
-//		ROS_INFO_STREAM("Follows goal");
-		_current_position = getRobotPose().position;
-		if (isAtWaypoint(_current_plan.size() == 1)) {
-//			ROS_INFO_STREAM("is at waypoint");
-			waypointReached();
-			_idle_timer.stop();
-		} else {
-			checkIfRobotMoved();
+	if (_exploration_running) {
+		if (!_follows_goal) {
+			requestPath();
 		}
-		publishWayPoint();
-		publishPath();
+		if (_follows_goal) {
+//		ROS_INFO_STREAM("Follows goal");
+			_current_position = getRobotPose().position;
+			if (isAtWaypoint(_current_plan.size() == 1)) {
+//			ROS_INFO_STREAM("is at waypoint");
+				waypointReached();
+				_idle_timer.stop();
+			} else {
+				checkIfRobotMoved();
+			}
+			publishWayPoint();
+			publishPath();
+		} else {
+		}
 	}
 }
 
@@ -77,6 +78,10 @@ void AedeInterface::waypointReached() {
 //		ROS_INFO_STREAM(
 //				"Remove element from plan, New plan: " << pathToString(_current_plan));
 	}
+}
+
+void AedeInterface::explorationStarted() {
+	_exploration_running = true;
 }
 
 std::string AedeInterface::pointToString(geometry_msgs::Point p) {
@@ -180,11 +185,10 @@ void AedeInterface::publishPath() {
 	_path_publisher.publish(path);
 }
 
-void AedeInterface::cmdVelStampedCallback(
-		const geometry_msgs::TwistStamped::ConstPtr &vel) {
-	geometry_msgs::Twist cmd;
-	cmd = vel->twist;
-	_cmd_vel_publisher.publish(cmd);
+void AedeInterface::publishAedeStop(bool stop) {
+	std_msgs::Int8 msg;
+	msg.data = stop ? 1 : 0;
+	_stop_aede_publisher.publish(msg);
 }
 
 void AedeInterface::explorationGoalObsoleteCallback(
