@@ -48,10 +48,8 @@ void AedeInterface::updatePosition() {
 			requestPath();
 		}
 		if (_follows_goal) {
-//		ROS_INFO_STREAM("Follows goal");
 			_current_position = getRobotPose().position;
 			if (isAtWaypoint(_current_plan.size() == 1)) {
-//			ROS_INFO_STREAM("is at waypoint");
 				waypointReached();
 				_idle_timer.stop();
 			} else {
@@ -65,37 +63,17 @@ void AedeInterface::updatePosition() {
 }
 
 void AedeInterface::waypointReached() {
-//	ROS_INFO_STREAM(
-//			"Waypoint (" << pointToString(_current_waypoint) << ") reached, plan " << pathToString(_current_plan));
 	if (_current_plan.size() <= 1) { //last waypoint in plan=goal
-//		ROS_INFO_STREAM("Reached goal");
 		updateCurrentGoal(rrg_nbv_exploration_msgs::Node::VISITED);
 		_follows_goal = false;
-		requestPath();
 	} else {
 		_current_plan.erase(_current_plan.begin()); //remove first element from plan
 		_current_waypoint = _current_plan.front().pose.position;
-//		ROS_INFO_STREAM(
-//				"Remove element from plan, New plan: " << pathToString(_current_plan));
 	}
 }
 
-void AedeInterface::explorationStarted() {
+void AedeInterface::startExploration() {
 	_exploration_running = true;
-}
-
-std::string AedeInterface::pointToString(geometry_msgs::Point p) {
-	return "x: " + std::to_string(p.x) + " y: " + std::to_string(p.y) + " z: "
-			+ std::to_string(p.z);
-}
-
-std::string AedeInterface::pathToString(
-		std::vector<geometry_msgs::PoseStamped> path) {
-	std::string s;
-	for (auto p : path) {
-		s += "(" + std::to_string(p.pose.position.x) + "),";
-	}
-	return s;
 }
 
 bool AedeInterface::isAtWaypoint(bool goal) {
@@ -108,7 +86,6 @@ void AedeInterface::checkIfRobotMoved() {
 			> _goal_tolerance_squared;
 	_last_position = _current_position;
 	if (!robot_moved) {
-//		ROS_INFO_STREAM("Robot did not move, start timer");
 		_idle_timer.start();
 	} else {
 		_idle_timer.stop();
@@ -129,7 +106,6 @@ geometry_msgs::Pose AedeInterface::getRobotPose() {
 		robot_pose.position.y = transformStamped.transform.translation.y;
 		robot_pose.position.z = transformStamped.transform.translation.z;
 		robot_pose.orientation = transformStamped.transform.rotation;
-//		ROS_INFO_STREAM("Robot pos: " << pointToString(robot_pose.position));
 	} catch (tf2::TransformException &ex) {
 		ROS_WARN("%s", ex.what());
 	}
@@ -145,11 +121,7 @@ void AedeInterface::requestPath() {
 		if (isAtWaypoint(_current_plan.size() == 1)) {
 			waypointReached();
 		}
-//		ROS_INFO_STREAM("New plan: " << pathToString(_current_plan));
 	}
-//	else {
-//		ROS_ERROR("Failed to call Request Path service");
-//	}
 }
 
 void AedeInterface::updateCurrentGoal(uint8_t status) {
@@ -160,16 +132,7 @@ void AedeInterface::updateCurrentGoal(uint8_t status) {
 	}
 }
 
-void AedeInterface::setExplorationState(bool running) {
-	std_srvs::SetBool srv;
-	srv.request.data = running;
-	if (!_set_rrt_state_service.call(srv)) {
-		ROS_ERROR("Failed to call Set RRT State service");
-	}
-}
-
 void AedeInterface::publishWayPoint() {
-//	ROS_INFO_STREAM("publish way point: " << pointToString(_current_waypoint));
 	geometry_msgs::PointStamped waypoint;
 	waypoint.header.frame_id = "map";
 	waypoint.header.stamp = ros::Time::now();
@@ -185,12 +148,6 @@ void AedeInterface::publishPath() {
 	_path_publisher.publish(path);
 }
 
-void AedeInterface::publishAedeStop(bool stop) {
-	std_msgs::Int8 msg;
-	msg.data = stop ? 1 : 0;
-	_stop_aede_publisher.publish(msg);
-}
-
 void AedeInterface::explorationGoalObsoleteCallback(
 		const rrg_nbv_exploration_msgs::ExplorationGoalObsolete::ConstPtr &exploration_goal_obsolete) {
 	if (exploration_goal_obsolete->goal_obsolete) {
@@ -202,7 +159,6 @@ void AedeInterface::explorationGoalObsoleteCallback(
 }
 
 void AedeInterface::idleTimerCallback(const ros::TimerEvent &event) {
-//	ROS_INFO_STREAM("Idle timer aede interface");
 	updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
 	_current_plan.clear();
 	_follows_goal = false;

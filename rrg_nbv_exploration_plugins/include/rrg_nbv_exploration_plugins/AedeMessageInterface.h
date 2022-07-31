@@ -18,6 +18,13 @@
 #include <tf2/convert.h>
 
 namespace rne {
+
+/**
+ * Refactors messages of the Autonomous Exploration Development Environment (AEDE) which is used for
+ * local planning including terrain analysis. The required point cloud for terrain analysis is
+ * transformed from the sensor to the map frame and the command velocity is changed from a TwistStamped
+ * to a Twist message.
+ */
 class AedeMessageInterface {
 public:
 	AedeMessageInterface();

@@ -19,7 +19,7 @@ void loopCallback(const ros::TimerEvent&) {
 
 void rrgCallback(const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
 	if (rrg->node_counter) {
-		aede_interface->explorationStarted();
+		aede_interface->startExploration();
 		rrg_sub.shutdown();
 	}
 }
