@@ -957,6 +957,7 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 	}
 	if (active_frontiers.size() == 1 && _auto_homing) { // only origin remains
 		ROS_INFO_STREAM("Next frontier goal is the origin, going home");
+		connectPathsToLocalGraphToNearestNode(rrg);
 		_global_route.push_back(std::make_pair(0, 0));
 		_next_global_goal = 0;
 	} else if (active_frontiers.size() <= 1) {

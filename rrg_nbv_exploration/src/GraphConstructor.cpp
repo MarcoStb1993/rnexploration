@@ -193,10 +193,15 @@ void GraphConstructor::runExploration() {
 				geometry_msgs::Point frontier;
 				std::vector<int> connected_paths =
 						_global_graph_handler->frontierReached(frontier);
-				initLocalGraph(frontier);
-				resetHelperClasses();
-				_rrg.nodes.front().connected_to = connected_paths;
-				_local_running = true;
+				if (connected_paths.empty()) { // reached frontier must be origin, auto homing is active->exploration finished
+					ROS_INFO_STREAM("Exploration finished");
+					_running = false;
+				} else {
+					initLocalGraph(frontier);
+					resetHelperClasses();
+					_rrg.nodes.front().connected_to = connected_paths;
+					_local_running = true;
+				}
 			}
 		}
 		publishExplorationGoalObsolete();
