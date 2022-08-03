@@ -155,6 +155,7 @@ void GraphConstructor::runExploration() {
 	if (_running) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_local_running) {
+			ROS_INFO_STREAM("+++++runExploration local");
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
@@ -179,6 +180,7 @@ void GraphConstructor::runExploration() {
 			if (_nodes_to_update.empty() && _current_goal_node == -1) {
 				_local_exploration_finished_timer.start();
 			}
+			ROS_INFO_STREAM("-----runExploration local");
 		} else if (_global_exploration_active && !_local_running) {
 			if (!_global_graph_handler->checkIfNextFrontierWithPathIsValid()) {
 				if (!_global_graph_handler->calculateNextFrontierGoal(_rrg)) { // exploration finished
@@ -223,6 +225,7 @@ void GraphConstructor::runExploration() {
 }
 
 void GraphConstructor::expandGraph(bool update_paths) {
+	ROS_INFO_STREAM("+++++expandGraph");
 	for (int i = 0; i < _samples_per_loop; i++) {
 		geometry_msgs::Point rand_sample;
 		insertNewNode(samplePoint(rand_sample), rand_sample, update_paths,
@@ -235,6 +238,7 @@ void GraphConstructor::expandGraph(bool update_paths) {
 		insertNewNode(true, new_node_position, update_paths, true);
 	}
 	_new_node_positions.clear();
+	ROS_INFO_STREAM("-----expandGraph");
 }
 
 void GraphConstructor::insertNewNode(bool sampling_success,
@@ -292,6 +296,7 @@ bool GraphConstructor::samplePointInRadius(geometry_msgs::Point &rand_sample,
 }
 
 void GraphConstructor::pruneLocalGraph() {
+	ROS_INFO_STREAM("+++++pruneLocalGraph");
 	std::set<int> pruned_nodes;
 	std::set<int> pruned_edges;
 	std::vector<int> disconnected_nodes = findOutOfLocalGraphRadiusNodes(
@@ -328,6 +333,7 @@ void GraphConstructor::pruneLocalGraph() {
 		handlePrunedEdges(pruned_edges);
 		_graph_searcher->rebuildIndex(_rrg);
 	}
+	ROS_INFO_STREAM("-----pruneLocalGraph");
 }
 
 std::vector<int> GraphConstructor::findOutOfLocalGraphRadiusNodes(
@@ -406,6 +412,7 @@ void GraphConstructor::removeNodeFromUpdateLists(int node) {
 }
 
 void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
+	ROS_INFO_STREAM("+++++handlePrunedNodes");
 	std::vector<int> nodes(pruned_nodes.begin(), pruned_nodes.end());
 	std::sort(nodes.begin(), nodes.end(), [this](int node_one, int node_two) {
 		return sortByPathLength(node_one, node_two);
@@ -439,6 +446,7 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 	if (removed_nodes) {
 		_collision_checker->removeDeletedAvailableNodes(_rrg.node_counter);
 	}
+	ROS_INFO_STREAM("-----handlePrunedNodes");
 }
 
 bool GraphConstructor::sortByPathLength(int node_one, int node_two) {
@@ -447,6 +455,7 @@ bool GraphConstructor::sortByPathLength(int node_one, int node_two) {
 }
 
 void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
+	ROS_INFO_STREAM("+++++findConnectedNodesWithGain");
 	std::set<int> possible_frontiers;
 	for (auto node : nodes) {
 		if (_rrg.nodes.at(node).gain > 0.0) {
@@ -484,9 +493,11 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 			}
 		}
 	}
+	ROS_INFO_STREAM("-----findConnectedNodesWithGain");
 }
 
 void GraphConstructor::deactivateNode(int node) {
+	ROS_INFO_STREAM("Deactivate node " << node);
 	if (node == _current_goal_node) {
 		_local_goal_obsolete = true;
 	}
@@ -579,20 +590,25 @@ void GraphConstructor::determineNextNodeInPath() {
 			return;
 	}
 	_next_node = -1;
+	ROS_INFO_STREAM("+++++determineNextNodeInPath, node " << _next_node);
 }
 
 void GraphConstructor::resetNextNodeInPath() {
 	_next_node = -1;
 	_edge_to_next_node = -1;
+	ROS_INFO_STREAM("+++++resetNextNodeInPath, node " << _next_node);
 }
 
 bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 	if (pos.x != _last_robot_pos.x || pos.y != _last_robot_pos.y
 			|| pos.z != _last_robot_pos.z) {
+		ROS_INFO_STREAM("+++++determineNearestNodeToRobot");
 		_last_robot_pos = pos;
 		double min_distance;
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
+		ROS_INFO_STREAM(
+				"new nearest node: " << nearest_node << " old: " << _rrg.nearest_node << " next node: " << _next_node);
 		if (nearest_node != _rrg.nearest_node) { // if nearest node changed
 			if (_next_node != -1 && nearest_node != _next_node) {
 				// projection of robot pos on the edge between nearest and next node
@@ -622,6 +638,8 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 																			- _rrg.nodes[_rrg.nearest_node].position.y))),
 											2);
 					if (distance_to_edge <= min_distance) { // robot is closer to edge than to nearest node, keep current one
+						ROS_INFO_STREAM(
+								"----determineNearestNodeToRobot, changed: false");
 						return false;
 					}
 				}
@@ -631,6 +649,7 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 			_rrg.nearest_node = nearest_node;
 			_distance_to_nearest_node_squared = min_distance;
 			addNodeToLastThreeNodesPath(nearest_node);
+			ROS_INFO_STREAM("----determineNearestNodeToRobot, changed: true");
 			return true;
 		} else { // nearest node remained the same, just update distance
 			double recalculate_distance = _robot_radius_squared / SQRT10;
@@ -643,6 +662,7 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 			_distance_to_nearest_node_squared = min_distance;
 		}
 	}
+	ROS_INFO_STREAM("----determineNearestNodeToRobot, changed: false");
 	return false;
 }
 
@@ -666,6 +686,7 @@ void GraphConstructor::publishExplorationGoalObsolete() {
 }
 
 void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
+	ROS_INFO_STREAM("+++++updateNodes");
 	std::vector<std::pair<int, double>> updatable_nodes =
 			_graph_searcher->searchInRadius(center_node, _radius_search_range);
 	for (auto iterator : updatable_nodes) {
@@ -696,9 +717,11 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 						iterator.first);
 		}
 	}
+	ROS_INFO_STREAM("-----updateNodes");
 }
 
 void GraphConstructor::pruneEngulfedNodes(std::vector<int> engulfed_nodes) {
+	ROS_INFO_STREAM("+++++pruneEngulfedNodes");
 	std::set<int> pruned_nodes;
 	std::set<int> pruned_edges;
 	for (auto engulfed_node : engulfed_nodes) {
@@ -723,6 +746,7 @@ void GraphConstructor::pruneEngulfedNodes(std::vector<int> engulfed_nodes) {
 	}
 	handlePrunedNodes(pruned_nodes);
 	handlePrunedEdges(pruned_edges);
+	ROS_INFO_STREAM("-----pruneEngulfedNodes");
 }
 
 void GraphConstructor::sortNodesToUpdateByDistanceToRobot() {
@@ -739,6 +763,7 @@ bool GraphConstructor::compareNodeDistancesToRobot(const int &node_one,
 }
 
 void GraphConstructor::publishNodeToUpdate() {
+	ROS_INFO_STREAM("+++++publishNodeToUpdate");
 	if (!_nodes_to_update.empty()) {
 		if (_sort_nodes_to_update)
 			sortNodesToUpdateByDistanceToRobot();
@@ -758,6 +783,7 @@ void GraphConstructor::publishNodeToUpdate() {
 		msg.force_update = false;
 		_node_to_update_publisher.publish(msg);
 	}
+	ROS_INFO_STREAM("-----publishNodeToUpdate");
 }
 
 void GraphConstructor::handleCurrentLocalGoalFinished() {
@@ -838,6 +864,7 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
+	ROS_INFO_STREAM("+++++updatedNodeCallback");
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
 					== rrg_nbv_exploration_msgs::Node::INACTIVE) {
@@ -891,6 +918,7 @@ void GraphConstructor::updatedNodeCallback(
 		}
 		publishNodeToUpdate(); // if gain calculation is faster than update frequency, this needs to be called
 	}
+	ROS_INFO_STREAM("-----updatedNodeCallback");
 }
 
 void GraphConstructor::tryFailedNodesRecovery() {
@@ -926,6 +954,7 @@ void GraphConstructor::tryFailedNodesRecovery() {
 }
 
 void GraphConstructor::addNodeToLastThreeNodesPath(int node) {
+	ROS_INFO_STREAM("addNodeToLastThreeNodesPath, node " << node);
 	if (!_reupdate_nodes)
 		return;
 	auto it = std::find(_last_three_nodes_path.begin(),
@@ -944,6 +973,7 @@ void GraphConstructor::addNodeToLastThreeNodesPath(int node) {
 	} else {
 		std::iter_swap(it, _last_three_nodes_path.rbegin());
 	}
+	ROS_INFO_STREAM("addNodeToLastThreeNodesPath");
 }
 
 void GraphConstructor::convertOctomapMsgToOctree(

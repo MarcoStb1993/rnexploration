@@ -182,6 +182,25 @@ public:
 			double max_distance_threshold);
 
 	/**
+	 * @brief Find the next node on the shortest path from the node to be removed to the node
+	 * nearest to the robot which also considers failed nodes as the former node is currently
+	 * without a path to the latter node
+	 * @param Reference to the RRG
+	 * @param Index of the node to be removed from the RRG which has no path to the nearest node
+	 * @param Reference to a list of waypoints to which the next node's position will be appended
+	 * @param Reference to the index of the next node on the shortest path from the node to be removed
+	 * to the nearest node to the robot
+	 * @param Reference to the length of the edge between the node to be removed and the next node on
+	 * the shortest path to the node nearest to the robot
+	 * @return If a path could be found connecting the node to be removed and the nearest node to
+	 * the robot
+	 */
+	bool findPathToNearestNodeThroughFailedNodes(
+			rrg_nbv_exploration_msgs::Graph &rrg, int removed_node,
+			std::vector<geometry_msgs::Point> &waypoints, int &connecting_node,
+			double &length);
+
+	/**
 	 * @brief Calculate the 2D-Euclidean distance between two points
 	 * @param Reference to the first point
 	 * @param Reference to the second point

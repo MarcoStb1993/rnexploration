@@ -1210,9 +1210,11 @@ void CollisionChecker::insertNodeInRrg(rrg_nbv_exploration_msgs::Node &node,
 	if (!_available_nodes.empty()) {
 		rrg.nodes.at(*_available_nodes.begin()) = node;
 		_available_nodes.erase(_available_nodes.begin());
+		ROS_INFO_STREAM("Insert node at " << *_available_nodes.begin());
 	} else {
 		rrg.nodes.push_back(node);
 		rrg.node_counter++;
+		ROS_INFO_STREAM("Push node at " << rrg.node_counter);
 	}
 }
 
@@ -1239,14 +1241,14 @@ void CollisionChecker::removeDeletedAvailableNodes(int node_counter) {
 			++it;
 		}
 	}
+	ROS_INFO_STREAM(
+			"Removed " << removals << " available nodes above equal index " << node_counter);
 }
 
 void CollisionChecker::removeDeletedAvailableEdges(int edge_counter) {
-	int removals = 0;
 	for (auto it = _available_edges.begin(); it != _available_edges.end();) {
 		if (*it >= edge_counter) {
 			it = _available_edges.erase(it);
-			removals++;
 		} else {
 			++it;
 		}

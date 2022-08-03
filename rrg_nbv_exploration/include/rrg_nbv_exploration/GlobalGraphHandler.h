@@ -18,6 +18,8 @@
 #include <rrg_nbv_exploration/GraphSearcher.h>
 #include <rrg_nbv_exploration/CollisionChecker.h>
 
+#include <stdexcept>
+
 namespace rrg_nbv_exploration {
 
 /**
@@ -261,7 +263,7 @@ private:
 	 * @param Reference to the RRG
 	 * @param Reference to the list of waypoints where the new connecting node's position will be added
 	 * @param Reference to the connecting node for a path
-	 * @param Reference to the length of the connecting path to which the edge length will be added
+	 * @param Reference to a length to which the edge length will be added
 	 * @return If a connection to an active node of the local graph could be made from this node
 	 */
 	bool getConnectingNode(int node, rrg_nbv_exploration_msgs::Graph &rrg,

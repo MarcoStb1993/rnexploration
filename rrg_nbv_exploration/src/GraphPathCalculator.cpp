@@ -683,6 +683,62 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 	return missing_frontier_local_path_map;
 }
 
+bool GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
+		rrg_nbv_exploration_msgs::Graph &rrg, int removed_node,
+		std::vector<geometry_msgs::Point> &waypoints, int &connecting_node,
+		double &length) {
+	ROS_INFO_STREAM(
+			"+++++findPathToNearestNodeThroughFailedNodes, removed node: " << removed_node);
+	std::vector<LocalNode> local_nodes; // copy of all RRG nodes including only relevant information
+	for (auto node : rrg.nodes) {
+		local_nodes.emplace_back(node.index,
+				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
+	}
+	std::set<std::pair<double, int>> node_queue; // node's distance to frontier connected node (first) and index (second)
+	local_nodes.at(removed_node).path_length = 0;
+	local_nodes.at(removed_node).path_to_frontier.push_back(removed_node);
+	node_queue.insert(std::make_pair(0, removed_node));
+	while (!node_queue.empty()) {
+		int current_node = node_queue.begin()->second;
+		node_queue.erase(node_queue.begin());
+		for (auto edge : rrg.nodes[current_node].edges) {
+			int neighbor_node_index =
+					rrg.edges[edge].first_node == current_node ?
+							rrg.edges[edge].second_node :
+							rrg.edges[edge].first_node;
+			double new_length = local_nodes.at(current_node).path_length
+					+ rrg.edges.at(edge).length;
+			if (neighbor_node_index == rrg.nearest_node) { //found shortest connection to nearest node (Dijkstra's)
+				if (local_nodes.at(removed_node).path_to_frontier.size() > 1) {
+					connecting_node =
+							local_nodes.at(removed_node).path_to_frontier.at(1);
+					length += rrg.edges.at(edge).length;
+					waypoints.push_back(rrg.nodes.at(connecting_node).position);
+					ROS_INFO_STREAM(
+							"-----findPathToNearestNodeThroughFailedNodes, connecting node: " << connecting_node);
+					return true;
+				} else {
+					ROS_INFO_STREAM(
+							"-----findPathToNearestNodeThroughFailedNodes, no connecting node");
+					return false;
+				}
+			}
+			if (new_length < local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
+				local_nodes.at(neighbor_node_index).path_length = new_length;
+				local_nodes.at(neighbor_node_index).path_to_frontier =
+						local_nodes.at(current_node).path_to_frontier;
+				local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+						neighbor_node_index);
+				node_queue.insert(
+						std::make_pair(new_length, neighbor_node_index));
+			}
+		}
+	}
+	ROS_INFO_STREAM(
+			"-----findPathToNearestNodeThroughFailedNodes, no connecting node");
+	return false;
+}
+
 void GraphPathCalculator::dynamicReconfigureCallback(
 		rrg_nbv_exploration::GraphConstructorConfig &config, uint32_t level) {
 	_distance_factor = config.distance_factor;
