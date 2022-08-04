@@ -400,6 +400,16 @@ private:
 			std::vector<LocalNode> &local_nodes,
 			std::vector<ShortestFrontierConnectionStruct> &local_paths,
 			std::vector<std::pair<int, int> > &missing_frontiers_with_connecting_node);
+
+	/**
+	 * @brief Add the given node index to the node queue if it is not already present, replace it if
+	 * the new length is shorter than the existing length
+	 * @param Reference to the node queue with the path length (first) and the node index (second)
+	 * @param Node index to be added to the node queue
+	 * @param Cost of the node
+	 */
+	void addToNodeQueue(std::set<std::pair<double, int> > &node_queue,
+			int neighbor_node_index, double cost);
 }
 ;
 }
