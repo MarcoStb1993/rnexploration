@@ -280,7 +280,7 @@
 		name="aedeInterfaceNode" output="screen">
 		<param name="update_frequency" value="20" />
 		<param name="robot_frame" value="$(arg robot_frame)" />
-		<param name="position_tolerance" value="0.2" />
+		<param name="position_tolerance" value="0.25" />
 	</node>
 
 	<node pkg="rrg_nbv_exploration_plugins"

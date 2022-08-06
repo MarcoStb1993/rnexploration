@@ -145,6 +145,10 @@ void AedeInterface::publishPath() {
 	path.header.frame_id = "map";
 	path.header.stamp = ros::Time::now();
 	path.poses = _current_plan;
+	//add robot position as first pose for visualization
+	geometry_msgs::PoseStamped robot_pos;
+	robot_pos.pose.position = _current_position;
+	path.poses.insert(path.poses.begin(), robot_pos);
 	_path_publisher.publish(path);
 }
 

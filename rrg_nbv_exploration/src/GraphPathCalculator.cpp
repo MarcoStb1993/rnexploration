@@ -707,15 +707,21 @@ bool GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 			ROS_INFO_STREAM(
 					"Distance to node " << neighbor_node_index << " is " << new_length);
 			if (neighbor_node_index == rrg.nearest_node) { //found shortest connection to nearest node (Dijkstra's)
+				local_nodes.at(neighbor_node_index).path_to_frontier =
+						local_nodes.at(current_node).path_to_frontier;
+				local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+						neighbor_node_index);
 				ROS_INFO_STREAM(
-						"Path length: " << local_nodes.at(removed_node).path_to_frontier.size());
+						"Path length: " << local_nodes.at(neighbor_node_index).path_to_frontier.size());
 				ROS_INFO_STREAM(
-						"Path at 0: " << local_nodes.at(removed_node).path_to_frontier.at(0));
-//				ROS_INFO_STREAM(
-//						"Path at 1: " << local_nodes.at(removed_node).path_to_frontier.at(1));
-				if (local_nodes.at(removed_node).path_to_frontier.size() > 1) {
+						"Path at 0: " << local_nodes.at(neighbor_node_index).path_to_frontier.at(0));
+				ROS_INFO_STREAM(
+						"Path at 1: " << local_nodes.at(neighbor_node_index).path_to_frontier.at(1));
+				if (local_nodes.at(neighbor_node_index).path_to_frontier.size()
+						> 1) {
 					connecting_node =
-							local_nodes.at(removed_node).path_to_frontier.at(1);
+							local_nodes.at(neighbor_node_index).path_to_frontier.at(
+									1);
 					length += rrg.edges.at(edge).length;
 					waypoints.push_back(rrg.nodes.at(connecting_node).position);
 					ROS_INFO_STREAM(

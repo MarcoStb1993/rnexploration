@@ -160,12 +160,12 @@ void GraphConstructor::runExploration() {
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
 			if (new_nearest_node) {	// robot moved, update paths
-				if (_global_exploration_active) {
-					pruneLocalGraph(); // remove nodes from local RRG that are too far away
-				}
 				_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node,
 						_rrg, _robot_pose, true, _nodes_to_update,
 						_sort_nodes_to_update);
+				if (_global_exploration_active) {
+					pruneLocalGraph(); // remove nodes from local RRG that are too far away after updating paths
+				}
 				determineNextNodeInPath();
 			} else { // check if robot heading changed and update heading
 				if (_graph_path_calculator->updateHeadingToRobot(
@@ -758,8 +758,15 @@ void GraphConstructor::sortNodesToUpdateByDistanceToRobot() {
 
 bool GraphConstructor::compareNodeDistancesToRobot(const int &node_one,
 		const int &node_two) {
-	return _rrg.nodes.at(node_one).distance_to_robot
-			<= _rrg.nodes.at(node_two).distance_to_robot;
+	if (_rrg.nodes.at(node_one).distance_to_robot
+			< _rrg.nodes.at(node_two).distance_to_robot) {
+		return true;
+	} else if (_rrg.nodes.at(node_one).distance_to_robot
+			> _rrg.nodes.at(node_two).distance_to_robot) {
+		return false;
+	} else {
+		return node_one < node_two;
+	}
 }
 
 void GraphConstructor::publishNodeToUpdate() {
@@ -867,8 +874,11 @@ void GraphConstructor::updatedNodeCallback(
 	ROS_INFO_STREAM("+++++updatedNodeCallback");
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
-					== rrg_nbv_exploration_msgs::Node::INACTIVE) {
-		_nodes_to_update.remove(updated_node->index);
+					== rrg_nbv_exploration_msgs::Node::INACTIVE) { //check if node was removed while being updated
+
+		ROS_WARN_STREAM(
+				"updated node " << updated_node->index << " became inactive while updating!");
+		removeNodeFromUpdateLists(updated_node->index);
 		_last_updated_node = -1;
 		return;
 	}
@@ -882,8 +892,7 @@ void GraphConstructor::updatedNodeCallback(
 		_rrg.nodes[updated_node->index].status = updated_node->status;
 		_rrg.nodes[updated_node->index].position.z = updated_node->position.z;
 		_last_updated_node = updated_node->index;
-		_nodes_to_update.remove(updated_node->index);
-		_node_comparator->removeNode(updated_node->index);
+		removeNodeFromUpdateLists(updated_node->index);
 		if (updated_node->status != rrg_nbv_exploration_msgs::Node::EXPLORED
 				&& updated_node->status
 						!= rrg_nbv_exploration_msgs::Node::FAILED
@@ -954,26 +963,32 @@ void GraphConstructor::tryFailedNodesRecovery() {
 }
 
 void GraphConstructor::addNodeToLastThreeNodesPath(int node) {
-	ROS_INFO_STREAM("addNodeToLastThreeNodesPath, node " << node);
+	ROS_INFO_STREAM("+++++addNodeToLastThreeNodesPath, node " << node);
 	if (!_reupdate_nodes)
 		return;
 	auto it = std::find(_last_three_nodes_path.begin(),
-			_last_three_nodes_path.end(), node);
+			_last_three_nodes_path.end(), node); //check if node is already in list
 	if (it == _last_three_nodes_path.end()) {
 		if (_last_three_nodes_path.size() >= 3) {
+			ROS_INFO_STREAM(
+					"Remove first node in list: " << _last_three_nodes_path.front());
 			_last_three_nodes_path.erase(_last_three_nodes_path.begin());
 		}
 		_last_three_nodes_path.push_back(node);
 		_nodes_to_reupdate.clear();
 		_nodes_to_reupdate = _node_comparator->getListOfNodes();
 		std::sort(_nodes_to_reupdate.begin(), _nodes_to_reupdate.end(),
-				[this](int node_one, int node_two) {
+				[this](const int node_one, const int node_two) {
+					ROS_INFO_STREAM(
+							"sort, node one: " << node_one << ", node two: " << node_two);
 					return compareNodeDistancesToRobot(node_one, node_two);
 				});
 	} else {
+		ROS_INFO_STREAM(
+				"Swap existing node to the end which was: " << _last_three_nodes_path.back());
 		std::iter_swap(it, _last_three_nodes_path.rbegin());
 	}
-	ROS_INFO_STREAM("addNodeToLastThreeNodesPath");
+	ROS_INFO_STREAM("-----addNodeToLastThreeNodesPath");
 }
 
 void GraphConstructor::convertOctomapMsgToOctree(

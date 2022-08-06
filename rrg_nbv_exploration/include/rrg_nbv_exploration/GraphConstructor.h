@@ -388,10 +388,12 @@ private:
 	 */
 	void sortNodesToUpdateByDistanceToRobot();
 	/**
-	 * @brief Compares the distances to the robot of two nodes
+	 * @brief Compares the distances to the robot of two nodes, if the distance is equal, compare the
+	 * index
 	 * @param Node index of the first node
 	 * @param Node index of the second node
-	 * @return Returns true if the first node's distance to the robot is smaller than the second
+	 * @return Returns true if the first node's distance to the robot is smaller than the second and
+	 * if the index is smaller when distances are equal (strict weak ordering)
 	 */
 	bool compareNodeDistancesToRobot(const int &node_one, const int &node_two);
 	/**

@@ -148,7 +148,6 @@ void GlobalGraphHandler::addFrontier(int node,
 					path.length)) {
 		ROS_WARN_STREAM(
 				"Unable to add frontier for node " << node << ", found no connection to the RRG");
-		throw std::invalid_argument("Seen warning above");
 		return;
 	}
 	if (tryToMergeAddedFrontiers(node, path, rrg, frontier)) { // if new frontier is merged into existing
