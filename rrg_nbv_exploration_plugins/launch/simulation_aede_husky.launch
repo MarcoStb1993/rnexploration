@@ -1,5 +1,5 @@
-<!-- Simulation of a planar move robot with a Velodyne lidar in Gazebo running 
-	RSM with GMapping and RNE -->
+<!-- Simulation of Husky UGV with RealSense camera in Gazebo running  
+	GMapping, AEDE local planner and RNE -->
 
 <launch>
 	<arg name="world"
@@ -13,7 +13,7 @@
 	<arg name="delta_theta" default="10" />
 	<arg name="grid_map_resolution" default="0.05" />
 	<arg name="robot_radius" default="0.5" />
-	<arg name="min_view_score" default="0.03" />
+	<arg name="min_view_score" default="0.05" />
 	<arg name="local_sampling_radius" default="5" />
 	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
@@ -32,15 +32,17 @@
 	<arg name="yaw" default="0.0" />
 
 	<include
-		file="$(find rrg_nbv_exploration_plugins)/launch/gazebo.launch">
+		file="$(find rrg_nbv_exploration_plugins)/launch/gazebo_husky.launch">
 		<arg name="world_file" value="$(arg world)" />
 		<arg name="x" default="$(arg x)" />
 		<arg name="y" default="$(arg y)" />
 		<arg name="z" default="$(arg z)" />
 		<arg name="yaw" default="$(arg yaw)" />
+		<arg name="laser_enabled" value="false" />
+		<arg name="velodyne_enabled" value="true" />
 		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="use_ekf" value="false" />
 		<arg name="gui" default="$(arg gui)" />
-		<arg name="velodyne" default="true" />
 	</include>
 
 	<node name="velodyne_laserscan_node" pkg="velodyne_laserscan"
@@ -209,6 +211,10 @@
 		<param name="joyToSpeedDelay" value="2.0" />
 	</node>
 
+	<node pkg="tf" type="static_transform_publisher"
+		name="base_footprint_reverse"
+		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+
 	<node pkg="hector_trajectory_server"
 		type="hector_trajectory_server" name="hector_trajectory_server"
 		output="screen">
@@ -234,10 +240,10 @@
 		file="$(find rrg_nbv_exploration)/launch/simple.launch">
 		<arg name="update_frequency" value="1" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
-		<arg name="robot_width" value="0.6" />
-		<arg name="sensor_height" value="0.548" />
+		<arg name="robot_width" value="0.7" />
+		<arg name="sensor_height" value="0.515" />
 		<arg name="sensor_size" value="0.05" />
-		<arg name="sensor_max_range" value="50.0" /> <!-- Only consider half range -->
+		<arg name="sensor_max_range" value="100.0" />
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />

@@ -118,7 +118,7 @@ void AedeInterface::requestPath() {
 		_current_plan = srv.response.path;
 		_follows_goal = true;
 		_current_waypoint = _current_plan.front().pose.position;
-		if (isAtWaypoint(_current_plan.size() == 1)) {
+		if (isAtWaypoint(true)) {
 			waypointReached();
 		}
 	}
