@@ -479,7 +479,9 @@ private:
 	void deactivateNode(int node);
 
 	/**
-	 * @brief Compare two nodes and return if the path to the robot of the first is smaller than the second
+	 * @brief Compare two nodes and return if the number of nodes in the path to the robot of the
+	 * first is smaller than the second, if they are equal compare the path length in m and if those
+	 * are equal as well, compare the node indices (strict weak ordering)
 	 * @param First node index
 	 * @param Second node index
 	 * @return If the first node's path to the robot is smaller than the second's
@@ -541,6 +543,16 @@ private:
 	 * @param List of node indices to be pruned
 	 */
 	void pruneEngulfedNodes(std::vector<int> engulfed_nodes);
+
+	/**
+	 * @brief Check if one of the given nodes is connected to one or more frontiers or a gain above
+	 * zero but no path to the nearest node because of failed nodes
+	 * @param Reference to a list of node indices to check
+	 * @return If one of the nodes is connected to a frontier or a gain above zero and without path
+	 * to the nearest node
+	 */
+	bool hasRelevantNodeWithoutPath(
+				const std::vector<int> &nodes);
 
 	/**
 	 * Timer callback for setting exploration to finished

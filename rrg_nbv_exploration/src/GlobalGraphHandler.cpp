@@ -142,10 +142,7 @@ void GlobalGraphHandler::addFrontier(int node,
 	path.connection = rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH;
 	path.waypoints.push_back(rrg.nodes.at(node).position);
 	if (!getConnectingNode(node, rrg, path.waypoints, path.connecting_node,
-			path.length)
-			&& !_graph_path_calculator->findPathToNearestNodeThroughFailedNodes(
-					rrg, node, path.waypoints, path.connecting_node,
-					path.length)) {
+			path.length)) {
 		ROS_WARN_STREAM(
 				"Unable to add frontier for node " << node << ", found no connection to the RRG");
 		return;
@@ -179,12 +176,10 @@ void GlobalGraphHandler::continuePath(int node,
 	int connecting_node;
 	double length = 0;
 	if (!getConnectingNode(node, rrg, additional_waypoints, connecting_node,
-			length)
-			&& !_graph_path_calculator->findPathToNearestNodeThroughFailedNodes(
-					rrg, node, additional_waypoints, connecting_node, length)) {
-		ROS_WARN_STREAM(
+			length)) {
+		ROS_ERROR_STREAM(
 				"Unable to continue paths at node " << node << ", found no connection to the RRG");
-		throw std::invalid_argument("Seen warning above");
+		throw std::invalid_argument("Seen warning above"); //TODO: remove
 		return;
 	}
 	std::map<int, int> connecting_node_frontiers; // frontier index (first), path to connected node index (second)
@@ -1337,6 +1332,9 @@ bool GlobalGraphHandler::getFrontierPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
+		int global_target = _global_route.at(_next_global_goal).first;
+		ROS_WARN_STREAM(
+				"Requested path to global target " << global_target << " at  ("<< _gg.frontiers.at(global_target).viewpoint.x << "," << _gg.frontiers.at(global_target).viewpoint.x << ")");
 		std::vector<geometry_msgs::Point> waypoints;
 		if (_previous_global_goal_failed) { // go back to former local graph to start navigation to next frontier from there
 			waypoints.insert(waypoints.end(),

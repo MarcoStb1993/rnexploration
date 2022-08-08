@@ -102,13 +102,7 @@ double NodeComparator::getNodeRewardFunction(int node) {
 
 bool NodeComparator::compareNodeByReward(const CompareStruct &node_one,
 		const CompareStruct &node_two) {
-	if (node_one.reward_function < node_two.reward_function) {
-		return true;
-	} else if (node_one.reward_function > node_two.reward_function) {
-		return false;
-	} else {
-		return node_one < node_two;
-	}
+	return node_one.reward_function >= node_two.reward_function;
 }
 
 std::vector<int> NodeComparator::getListOfNodes() {

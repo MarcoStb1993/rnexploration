@@ -143,11 +143,11 @@ private:
 
 	/**
 	 * @brief Compares the two given nodes and returns true if the first node's reward function is better
-	 * than the second, if the reward function is equal, compare the index
+	 * than the second
 	 * @param First node
 	 * @param Second node
 	 * @param Returns if the first node's reward function is better than the second node's reward
-	 * function and the first node index is smaller when rewards are equal (strict weak ordering)
+	 * function
 	 */
 	bool compareNodeByReward(const CompareStruct &node_one,
 			const CompareStruct &node_two);

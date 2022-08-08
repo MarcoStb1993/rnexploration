@@ -411,12 +411,38 @@ void GraphConstructor::removeNodeFromUpdateLists(int node) {
 	_node_comparator->removeNode(node);
 }
 
+bool GraphConstructor::hasRelevantNodeWithoutPath(
+		const std::vector<int> &nodes) {
+	for (auto n : nodes) {
+		if ((_rrg.nodes.at(n).connected_to.size() > 0
+				|| _rrg.nodes.at(n).gain > 0)
+				&& _rrg.nodes.at(n).path_to_robot.empty()) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 	ROS_INFO_STREAM("+++++handlePrunedNodes");
 	std::vector<int> nodes(pruned_nodes.begin(), pruned_nodes.end());
+	if (hasRelevantNodeWithoutPath(nodes)) { //connect nodes to be pruned to the nearest node for adding frontiers and continuing paths
+		for (auto n : nodes) {
+			_graph_path_calculator->findPathToNearestNodeThroughFailedNodes(
+					_rrg, n);
+		}
+	}
+
 	std::sort(nodes.begin(), nodes.end(), [this](int node_one, int node_two) {
 		return sortByPathLength(node_one, node_two);
 	}); // sort ascending by path to robot length
+	std::string s = "Pruned nodes: ";
+	for (auto n : nodes) {
+		s += std::to_string(n) + "(p:"
+				+ std::to_string(_rrg.nodes.at(n).path_to_robot.size()) + ",d:"
+				+ std::to_string(_rrg.nodes.at(n).distance_to_robot) + "),";
+	}
+	ROS_INFO_STREAM(s);
 	findConnectedNodesWithGain(nodes);
 	for (int i = nodes.size() - 1; i >= 0; i--) { // deactivate nodes by path length to merge and continue paths correctly
 		deactivateNode(nodes.at(i));
@@ -450,8 +476,25 @@ void GraphConstructor::handlePrunedNodes(const std::set<int> &pruned_nodes) {
 }
 
 bool GraphConstructor::sortByPathLength(int node_one, int node_two) {
-	return _rrg.nodes[node_one].path_to_robot.size()
-			< _rrg.nodes[node_two].path_to_robot.size();
+	ROS_INFO_STREAM(
+			"+++++sortByPathLength, node one " << node_one << " node two "<< node_two);
+	if (_rrg.nodes[node_one].path_to_robot.size()
+			< _rrg.nodes[node_two].path_to_robot.size()) {
+		return true;
+	} else if (_rrg.nodes[node_one].path_to_robot.size()
+			> _rrg.nodes[node_two].path_to_robot.size()) {
+		return false;
+	} else {
+		if (_rrg.nodes[node_one].distance_to_robot
+				< _rrg.nodes[node_two].distance_to_robot) {
+			return true;
+		} else if (_rrg.nodes[node_one].distance_to_robot
+				> _rrg.nodes[node_two].distance_to_robot) {
+			return false;
+		} else {
+			return node_one < node_two;
+		}
+	}
 }
 
 void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
@@ -1077,14 +1120,14 @@ bool GraphConstructor::requestPath(
 			_graph_path_calculator->getLocalNavigationPath(rrg_path, _rrg,
 					_current_goal_node, _robot_pose.position);
 			res.path = rrg_path;
+			ROS_WARN_STREAM(
+					"Requested path to local node " << _current_goal_node << " at: (" << _rrg.nodes.at(_current_goal_node).position.x << "," << _rrg.nodes.at(_current_goal_node).position.y << ")");
 			return true;
 		}
 	} else if (_global_exploration_active && !_local_running) { // global path
 		std::vector<geometry_msgs::PoseStamped> path;
 		if (_global_graph_handler->getFrontierPath(path,
 				_robot_pose.position)) {
-			//			_graph_path_calculator->getLocalNavigationPath(path, _rrg,
-			//					connecting_node, _robot_pose.position);
 			res.path = path;
 			return true;
 		}

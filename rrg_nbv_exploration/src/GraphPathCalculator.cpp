@@ -679,20 +679,19 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 	}
 	return missing_frontier_local_path_map;
 }
-bool GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
-		rrg_nbv_exploration_msgs::Graph &rrg, int removed_node,
-		std::vector<geometry_msgs::Point> &waypoints, int &connecting_node,
-		double &length) {
+void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
+		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
 	ROS_INFO_STREAM(
-			"+++++findPathToNearestNodeThroughFailedNodes, removed node: " << removed_node << " to nn: " << rrg.nearest_node);
+			"+++++findPathToNearestNodeThroughFailedNodes, removed node: " << node << " to nn: " << rrg.nearest_node);
+	std::set<std::pair<double, int>> node_queue; // node's distance to nearest node (first) and index (second)
 	std::vector<LocalNode> local_nodes; // copy of all RRG nodes including only relevant information
 	for (auto node : rrg.nodes) {
-		local_nodes.emplace_back(node.index, false);
+		local_nodes.emplace_back(node.index,
+				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
 	}
-	std::set<std::pair<double, int>> node_queue; // node's distance to frontier connected node (first) and index (second)
-	local_nodes.at(removed_node).path_length = 0;
-	local_nodes.at(removed_node).path_to_frontier.push_back(removed_node);
-	node_queue.insert(std::make_pair(0, removed_node));
+	local_nodes.at(node).path_length = 0;
+	local_nodes.at(node).path_to_frontier.push_back(node);
+	node_queue.insert(std::make_pair(0, node));
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
 		ROS_INFO_STREAM("Check neighbors for node " << current_node);
@@ -702,52 +701,71 @@ bool GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 					rrg.edges[edge].first_node == current_node ?
 							rrg.edges[edge].second_node :
 							rrg.edges[edge].first_node;
-			double new_length = local_nodes.at(current_node).path_length
-					+ rrg.edges.at(edge).length;
 			ROS_INFO_STREAM(
-					"Distance to node " << neighbor_node_index << " is " << new_length);
-			if (neighbor_node_index == rrg.nearest_node) { //found shortest connection to nearest node (Dijkstra's)
-				local_nodes.at(neighbor_node_index).path_to_frontier =
-						local_nodes.at(current_node).path_to_frontier;
-				local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
-						neighbor_node_index);
-				ROS_INFO_STREAM(
-						"Path length: " << local_nodes.at(neighbor_node_index).path_to_frontier.size());
-				ROS_INFO_STREAM(
-						"Path at 0: " << local_nodes.at(neighbor_node_index).path_to_frontier.at(0));
-				ROS_INFO_STREAM(
-						"Path at 1: " << local_nodes.at(neighbor_node_index).path_to_frontier.at(1));
-				if (local_nodes.at(neighbor_node_index).path_to_frontier.size()
-						> 1) {
-					connecting_node =
-							local_nodes.at(neighbor_node_index).path_to_frontier.at(
-									1);
-					length += rrg.edges.at(edge).length;
-					waypoints.push_back(rrg.nodes.at(connecting_node).position);
+					"Neighbor node " << neighbor_node_index << (rrg.nodes.at(neighbor_node_index).path_to_robot.empty() ? " disconnected":" connected"));
+			if (rrg.nodes.at(neighbor_node_index).path_to_robot.empty()) { //accumulate path at disconnected nodes
+				double new_length = local_nodes.at(current_node).path_length
+						+ rrg.edges.at(edge).length;
+				if (new_length
+						< local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
 					ROS_INFO_STREAM(
-							"-----findPathToNearestNodeThroughFailedNodes, connecting node: " << connecting_node);
-					return true;
-				} else {
-					ROS_INFO_STREAM(
-							"-----findPathToNearestNodeThroughFailedNodes, no connecting node");
-					return false;
+							"Improved distance to node " << neighbor_node_index <<", add to queue");
+					local_nodes.at(neighbor_node_index).path_length =
+							new_length;
+					local_nodes.at(neighbor_node_index).path_to_frontier =
+							local_nodes.at(current_node).path_to_frontier;
+					local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+							neighbor_node_index);
+					addToNodeQueue(node_queue, neighbor_node_index, new_length);
 				}
-			}
-			if (new_length < local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
-				ROS_INFO_STREAM(
-						"Improved distance to node " << neighbor_node_index <<", add to queue");
-				local_nodes.at(neighbor_node_index).path_length = new_length;
-				local_nodes.at(neighbor_node_index).path_to_frontier =
-						local_nodes.at(current_node).path_to_frontier;
-				local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
-						neighbor_node_index);
-				addToNodeQueue(node_queue, neighbor_node_index, new_length);
+			} else { //found node connected to the nearest node
+				double new_length = local_nodes.at(current_node).path_length
+						+ rrg.nodes.at(neighbor_node_index).distance_to_robot
+						+ rrg.edges.at(edge).length;
+				if (new_length < rrg.nodes.at(node).distance_to_robot) { //update all nodes on the path
+					ROS_INFO_STREAM(
+							"Found connected node " << neighbor_node_index << " that improved the path to the robot");
+					// update current node
+					rrg.nodes.at(current_node).distance_to_robot = rrg.nodes.at(
+							neighbor_node_index).distance_to_robot
+							+ rrg.edges.at(edge).length;
+					rrg.nodes.at(current_node).path_to_robot = rrg.nodes.at(
+							neighbor_node_index).path_to_robot;
+					rrg.nodes.at(current_node).path_to_robot.push_back(
+							current_node);
+					ROS_INFO_STREAM("Updated current node " << current_node);
+					for (int i =
+							local_nodes.at(current_node).path_to_frontier.size()
+									- 2; i >= 0; i--) { //iterate over local nodes(current node) path without the current node
+						ROS_INFO_STREAM("Update at index " << i);
+						int update_node =
+								local_nodes.at(current_node).path_to_frontier.at(
+										i);
+						int last_node =
+								local_nodes.at(current_node).path_to_frontier.at(
+										i + 1);
+						int connecting_edge = findExistingEdge(rrg, update_node,
+								last_node);
+						if (connecting_edge == -1) {
+							ROS_WARN_STREAM(
+									"No existing edge between nodes " << update_node << " and " << last_node);
+							return;
+						}
+						ROS_INFO_STREAM(
+								"Update node " << update_node << " based on last node " << last_node);
+						rrg.nodes.at(update_node).distance_to_robot =
+								rrg.nodes.at(last_node).distance_to_robot
+										+ rrg.edges.at(connecting_edge).length;
+						rrg.nodes.at(update_node).path_to_robot = rrg.nodes.at(
+								last_node).path_to_robot;
+						rrg.nodes.at(update_node).path_to_robot.push_back(
+								update_node);
+					}
+				}
 			}
 		}
 	}
-	ROS_INFO_STREAM(
-			"-----findPathToNearestNodeThroughFailedNodes, no connecting node");
-	return false;
+	ROS_INFO_STREAM("-----findPathToNearestNodeThroughFailedNodes");
 }
 
 void GraphPathCalculator::addToNodeQueue(
