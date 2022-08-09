@@ -374,6 +374,11 @@ private:
 	 */
 	void checkCurrentGoal();
 	/**
+	 * @brief Check if the new goal has a path to the nearest node or if it was disconnected due to a failed node
+	 * @return True if the new goal has a path to the nearest node, false if it is disconnected
+	 */
+	bool isNewGoalConnected();
+	/**
 	 * @brief Check if a new node is nearest to the robot and if it is on the path to the current goal
 	 * @param Robot position
 	 * @return Returns true if a new node is nearest to the robot
@@ -578,5 +583,6 @@ private:
 
 	bool resetRrgState(std_srvs::Trigger::Request &req,
 			std_srvs::Trigger::Response &res);
+
 };
 }

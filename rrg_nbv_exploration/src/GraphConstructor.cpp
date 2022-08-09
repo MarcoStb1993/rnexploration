@@ -248,7 +248,7 @@ void GraphConstructor::insertNewNode(bool sampling_success,
 	if (sampling_success
 			&& _collision_checker->steer(_rrg, node, rand_sample, _robot_pose,
 					unmovable_point)) {
-		if (!std::isinf(node.cost_function)) { // do not update unreachable nodes
+		if (std::isinf(node.cost_function) == 0) { // do not update unreachable nodes
 			if (update_paths)
 				_graph_path_calculator->updatePathsToRobot(node.index, _rrg,
 						_robot_pose, false, _nodes_to_update,
@@ -308,7 +308,7 @@ void GraphConstructor::pruneLocalGraph() {
 				false, _nodes_to_update, _sort_nodes_to_update);
 	}
 	for (auto node : disconnected_nodes) {
-		if (std::isinf(_rrg.nodes[node].cost_function)) { // check if disconnected nodes are still disconnected and deactivate them
+		if (std::isinf(_rrg.nodes[node].cost_function) != 0) { // check if disconnected nodes are still disconnected and deactivate them
 			if (_rrg.nodes.at(node).status
 					== rrg_nbv_exploration_msgs::Node::FAILED
 					&& !_rrg.nodes.at(node).connected_to.empty()
@@ -602,16 +602,48 @@ void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 				}
 				connected_nodes.erase(neighbor_node);
 			} else if (!_rrg.edges[edge].inactive
-					&& !std::isinf(_rrg.nodes[neighbor_node].cost_function)) {
+					&& std::isinf(_rrg.nodes[neighbor_node].cost_function)
+							== 0) {
 				connected_nodes.insert(neighbor_node);
 			}
 		}
 	}
 }
 
+bool GraphConstructor::isNewGoalConnected() {
+	ROS_INFO_STREAM(
+			"+++++isNewGoalConnected, goal node: " << _current_goal_node);
+	if (std::isinf(_rrg.nodes.at(_current_goal_node).cost_function) != 0) {
+		_current_goal_node = -1;
+		tryFailedNodesRecovery();
+		_node_comparator->setSortList();
+		_node_comparator->maintainList(_rrg);
+		if (!_node_comparator->isEmpty()) {
+			_current_goal_node = _node_comparator->getBestNode();
+			ROS_INFO_STREAM(
+					"Replaced with new goal node: " << _current_goal_node);
+			if (std::isinf(_rrg.nodes.at(_current_goal_node).cost_function)
+					!= 0) {
+				_current_goal_node = -1;
+				ROS_INFO_STREAM("-----isNewGoalConnected: no");
+				return false;
+			}
+		} else {
+			ROS_INFO_STREAM("-----isNewGoalConnected: no, no other node");
+			return false;
+		}
+
+	}
+	ROS_INFO_STREAM("-----isNewGoalConnected: yes");
+	return true;
+}
+
 void GraphConstructor::checkCurrentGoal() {
 	if (_current_goal_node == -1 && !_node_comparator->isEmpty()) {
 		_current_goal_node = _node_comparator->getBestNode();
+		if (!isNewGoalConnected()) {
+			return;	//no new goal, try again next iteration
+		}
 		_moved_to_current_goal = false;
 		_local_goal_obsolete = false;
 		_goal_obsolete = false;
@@ -739,7 +771,7 @@ void GraphConstructor::updateNodes(geometry_msgs::Point center_node) {
 						!= rrg_nbv_exploration_msgs::Node::FAILED
 				&& _rrg.nodes[iterator.first].status
 						!= rrg_nbv_exploration_msgs::Node::INACTIVE
-				&& !std::isinf(_rrg.nodes[iterator.first].cost_function)) {
+				&& std::isinf(_rrg.nodes[iterator.first].cost_function) == 0) {
 			_nodes_to_update.push_back(iterator.first);
 		}
 		if (_rrg.nodes[iterator.first].status
@@ -974,15 +1006,16 @@ void GraphConstructor::updatedNodeCallback(
 }
 
 void GraphConstructor::tryFailedNodesRecovery() {
+	ROS_INFO_STREAM("+++++tryFailedNodesRecovery");
 	_failed_nodes_to_recover.erase(
 			std::remove_if(_failed_nodes_to_recover.begin(),
-					_failed_nodes_to_recover.end(),
-					[this](int node) {
-						int collision =
-								_collision_checker->collisionCheckForFailedNode(
-										_rrg, node, true);
+					_failed_nodes_to_recover.end(), [this](int node) {
+						ROS_INFO_STREAM("Try to recover node " << node);
+						int collision = _collision_checker->collisionCheckForFailedNode(
+			_rrg, node, true);
 						if (collision
 								== CollisionChecker::Collisions::unknown) {
+							ROS_INFO_STREAM("Recovery failed");
 							return false; // keep node and try to recover again
 						} else if (collision
 								== CollisionChecker::Collisions::empty) {
@@ -993,16 +1026,18 @@ void GraphConstructor::tryFailedNodesRecovery() {
 							_graph_path_calculator->updatePathsToRobot(node,
 									_rrg, _robot_pose, false, _nodes_to_update,
 									_sort_nodes_to_update); // check if recovered connection could improve other distances
-							if (!std::isinf(_rrg.nodes[node].cost_function)) { // check if node is reachable
+							if (std::isinf(_rrg.nodes[node].cost_function)
+									== 0) { // check if node is reachable
 								_nodes_to_update.push_back(node); // recalculate node gain
 								_sort_nodes_to_update = true;
 							}
 						}
 						return true;
 					}),
-			_failed_nodes_to_recover.end());
+					_failed_nodes_to_recover.end());
 	_collision_checker->retryEdges(_rrg, _robot_pose, _nodes_to_update,
 			_sort_nodes_to_update); // try to rebuild failed edges
+	ROS_INFO_STREAM("-----tryFailedNodesRecovery");
 }
 
 void GraphConstructor::addNodeToLastThreeNodesPath(int node) {

@@ -1133,7 +1133,7 @@ void CollisionChecker::findBestConnectionForNode(
 		}
 		if (rrg.nodes[neighbor_node_index].status
 				!= rrg_nbv_exploration_msgs::Node::FAILED
-				&& !std::isinf(rrg.nodes[neighbor_node_index].cost_function)) {
+				&& std::isinf(rrg.nodes[neighbor_node_index].cost_function)==0) {
 			// only evaluate edge if it is not to a failed or unreachable node
 			rrg_nbv_exploration_msgs::Node updated_node; // calculate potential cost if connected via this edge
 			updated_node.distance_to_robot =

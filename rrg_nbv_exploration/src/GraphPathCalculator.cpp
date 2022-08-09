@@ -229,7 +229,8 @@ void GraphPathCalculator::findBestRoutes(
 						< rrg.nodes[neighbor_node_index].cost_function) {
 					if (!reset
 							&& std::isinf(
-									rrg.nodes[neighbor_node_index].cost_function)) { // add previously unreachable node to list of nodes to update
+									rrg.nodes[neighbor_node_index].cost_function)
+									!= 0) { // add previously unreachable node to list of nodes to update
 						nodes_to_update.push_back(neighbor_node_index);
 						added_node_to_update = true;
 					}
