@@ -139,7 +139,7 @@
 		<param name="vehicleWidth" type="double" value="0.6" />
 		<param name="sensorOffsetX" value="0" />
 		<param name="sensorOffsetY" value="0" />
-		<param name="twoWayDrive" value="true" />
+		<param name="twoWayDrive" value="false" />
 		<param name="laserVoxelSize" type="double" value="0.05" />
 		<param name="terrainVoxelSize" type="double" value="0.2" />
 		<param name="useTerrainAnalysis" type="bool" value="true" />
@@ -162,8 +162,8 @@
 		<param name="minPathScale" type="double" value="0.75" />
 		<param name="pathScaleStep" type="double" value="0.25" />
 		<param name="pathScaleBySpeed" type="bool" value="true" />
-		<param name="minPathRange" type="double" value="1.0" />
-		<param name="pathRangeStep" type="double" value="0.5" />
+		<param name="minPathRange" type="double" value="0.25" />
+		<param name="pathRangeStep" type="double" value="0.25" />
 		<param name="pathRangeBySpeed" type="bool" value="true" />
 		<param name="pathCropByGoal" type="bool" value="true" />
 		<param name="autonomyMode" value="true" />
@@ -191,7 +191,7 @@
 		<param name="maxAccel" type="double" value="2.5" />
 		<param name="switchTimeThre" type="double" value="1.0" />
 		<param name="dirDiffThre" type="double" value="0.1" />
-		<param name="stopDisThre" type="double" value="0.2" />
+		<param name="stopDisThre" type="double" value="0.1" />
 		<param name="slowDwnDisThre" type="double" value="0.85" />
 		<param name="useInclRateToSlow" type="bool" value="false" />
 		<param name="inclRateThre" type="double" value="120.0" />
@@ -280,7 +280,7 @@
 		name="aedeInterfaceNode" output="screen">
 		<param name="update_frequency" value="20" />
 		<param name="robot_frame" value="$(arg robot_frame)" />
-		<param name="position_tolerance" value="0.2" />
+		<param name="position_tolerance" value="0.25" />
 	</node>
 
 	<node pkg="rrg_nbv_exploration_plugins"

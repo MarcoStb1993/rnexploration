@@ -108,11 +108,9 @@ void GlobalGraphHandler::insertFrontierInGg(
 	if (!_available_frontiers.empty()) {
 		_gg.frontiers.at(*_available_frontiers.begin()) = frontier;
 		_available_frontiers.erase(_available_frontiers.begin());
-		ROS_INFO_STREAM("+++++insertFrontierInGg, frontier " << frontier.index);
 	} else {
 		_gg.frontiers.push_back(frontier);
 		_gg.frontiers_counter++;
-		ROS_INFO_STREAM("+++++insertFrontierInGg, frontier " << frontier.index);
 	}
 }
 
@@ -121,19 +119,14 @@ void GlobalGraphHandler::insertPathInGg(
 	if (!_available_paths.empty()) {
 		_gg.paths.at(*_available_paths.begin()) = path_between_frontiers;
 		_available_paths.erase(_available_paths.begin());
-		ROS_INFO_STREAM(
-				"+++++insertPathInGg, path " << path_between_frontiers.index);
 	} else {
 		_gg.paths.push_back(path_between_frontiers);
 		_gg.paths_counter++;
-		ROS_INFO_STREAM(
-				"+++++insertPathInGg, path " << path_between_frontiers.index);
 	}
 }
 
 void GlobalGraphHandler::addFrontier(int node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	ROS_INFO_STREAM("+++++addFrontier, node " << node);
 	rrg_nbv_exploration_msgs::GlobalFrontier frontier;
 	rrg_nbv_exploration_msgs::GlobalPath path;
 	frontier.index = availableFrontierIndex();
@@ -166,12 +159,10 @@ void GlobalGraphHandler::addFrontier(int node,
 	}
 	rrg.nodes.at(path.connecting_node).connected_to.push_back(path.index);
 	_global_graph_searcher->rebuildIndex(_gg);
-	ROS_INFO_STREAM("-----addFrontier");
 }
 
 void GlobalGraphHandler::continuePath(int node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	ROS_INFO_STREAM("+++++continuePath, node " << node);
 	std::vector<geometry_msgs::Point> additional_waypoints;
 	int connecting_node;
 	double length = 0;
@@ -229,7 +220,6 @@ void GlobalGraphHandler::continuePath(int node,
 			}
 		}
 	}
-	ROS_INFO_STREAM("-----continuePath");
 }
 
 bool GlobalGraphHandler::tryToMergeContinuedPaths(int current_frontier,
@@ -635,7 +625,6 @@ void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
 }
 
 void GlobalGraphHandler::deactivateFrontier(int pruned_frontier) {
-	ROS_INFO_STREAM("+++++deactivateFrontier, frontier " << pruned_frontier);
 	_gg.frontiers.at(pruned_frontier).inactive = true;
 	_gg.frontiers.at(pruned_frontier).merged_distance = 0.0;
 	_gg.frontiers.at(pruned_frontier).paths.clear();
@@ -645,7 +634,6 @@ void GlobalGraphHandler::deactivateFrontier(int pruned_frontier) {
 }
 
 void GlobalGraphHandler::deactivatePath(int pruned_path) {
-	ROS_INFO_STREAM("+++++deactivatePath, path " << pruned_path);
 	if (_gg.paths.at(pruned_path).frontier < _gg.frontiers_counter
 			&& !_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).inactive) { // remove path from list at frontier
 		_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.erase(
@@ -1340,14 +1328,21 @@ bool GlobalGraphHandler::getFrontierPath(
 			waypoints.insert(waypoints.end(),
 					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rbegin(),
 					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rend());
-			waypoints.insert(waypoints.end(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
-		} else {
-			waypoints.insert(waypoints.end(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+			rrg_nbv_exploration_msgs::GlobalPath path_to_failed_goal;
+			path_to_failed_goal.waypoints = waypoints;
+			GlobalPathWaypointSearcher nearest_waypoint_searcher;
+			nearest_waypoint_searcher.initialize(path_to_failed_goal);
+			double min_distance;
+			int nearest_waypoint_index;
+			nearest_waypoint_searcher.findNearestNeighbour(robot_pos,
+					min_distance, nearest_waypoint_index);
+			waypoints.erase(waypoints.begin(),
+					waypoints.begin() + nearest_waypoint_index);
 		}
+		waypoints.insert(waypoints.end(),
+				_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
+				_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;

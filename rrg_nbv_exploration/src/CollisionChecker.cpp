@@ -1133,7 +1133,8 @@ void CollisionChecker::findBestConnectionForNode(
 		}
 		if (rrg.nodes[neighbor_node_index].status
 				!= rrg_nbv_exploration_msgs::Node::FAILED
-				&& std::isinf(rrg.nodes[neighbor_node_index].cost_function)==0) {
+				&& std::isinf(rrg.nodes[neighbor_node_index].cost_function)
+						== 0) {
 			// only evaluate edge if it is not to a failed or unreachable node
 			rrg_nbv_exploration_msgs::Node updated_node; // calculate potential cost if connected via this edge
 			updated_node.distance_to_robot =
@@ -1210,11 +1211,9 @@ void CollisionChecker::insertNodeInRrg(rrg_nbv_exploration_msgs::Node &node,
 	if (!_available_nodes.empty()) {
 		rrg.nodes.at(*_available_nodes.begin()) = node;
 		_available_nodes.erase(_available_nodes.begin());
-		ROS_INFO_STREAM("Insert node at " << *_available_nodes.begin());
 	} else {
 		rrg.nodes.push_back(node);
 		rrg.node_counter++;
-		ROS_INFO_STREAM("Push node at " << rrg.node_counter);
 	}
 }
 
@@ -1241,8 +1240,6 @@ void CollisionChecker::removeDeletedAvailableNodes(int node_counter) {
 			++it;
 		}
 	}
-	ROS_INFO_STREAM(
-			"Removed " << removals << " available nodes above equal index " << node_counter);
 }
 
 void CollisionChecker::removeDeletedAvailableEdges(int edge_counter) {

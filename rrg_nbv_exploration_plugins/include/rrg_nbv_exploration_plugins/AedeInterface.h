@@ -13,6 +13,7 @@
 #include <rsm_msgs/GoalStatus.h>
 #include <rrg_nbv_exploration_msgs/UpdateCurrentGoal.h>
 #include <rrg_nbv_exploration_msgs/RequestPath.h>
+#include <rrg_nbv_exploration_msgs/RequestGoal.h>
 #include <rrg_nbv_exploration_msgs/Node.h>
 #include <rrg_nbv_exploration_msgs/ExplorationGoalObsolete.h>
 #include <std_srvs/Trigger.h>
@@ -55,6 +56,7 @@ public:
 private:
 	ros::NodeHandle _nh;
 	ros::ServiceClient _request_path_service;
+	ros::ServiceClient _request_goal_service;
 	ros::ServiceClient _update_current_goal_service;
 	ros::ServiceClient _set_rrt_state_service;
 	ros::Subscriber _exploration_goal_obsolete_subscriber;
@@ -108,6 +110,10 @@ private:
 	 * @brief If the AEDE local planner is running
 	 */
 	bool _exploration_running;
+	/**
+	 * @brief If the idle timer fired already for the current goal
+	 */
+	bool _idle_timer_fired_on_goal;
 
 	/**
 	 * @brief Is called when the robot is within the position tolerance of the current way point and
@@ -141,8 +147,8 @@ private:
 	 */
 	geometry_msgs::Pose getRobotPose();
 	/**
-	 * @brief Request the path to the current goal from RNE and if it succeeds, immediately check
-	 * if the robot is already at the goal
+	 * @brief Checks if a goal is currently available and then request the path to the current goal
+	 * from RNE and if it succeeds, immediately check if the robot is already at the goal
 	 */
 	void requestPath();
 	/**

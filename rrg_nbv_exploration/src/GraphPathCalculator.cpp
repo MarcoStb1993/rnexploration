@@ -67,6 +67,7 @@ void GraphPathCalculator::updatePathsToRobot(int start_node,
 					std::numeric_limits<int>::max();
 			node.radii_to_robot = 0;
 			node.cost_function = std::numeric_limits<double>::infinity();
+			node.reward_function = 0;
 		}
 
 		initializeStartingNode(start_node, robot_pos, robot_yaw, rrg);
@@ -695,22 +696,17 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 	node_queue.insert(std::make_pair(0, node));
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
-		ROS_INFO_STREAM("Check neighbors for node " << current_node);
 		node_queue.erase(node_queue.begin());
 		for (auto edge : rrg.nodes[current_node].edges) {
 			int neighbor_node_index =
 					rrg.edges[edge].first_node == current_node ?
 							rrg.edges[edge].second_node :
 							rrg.edges[edge].first_node;
-			ROS_INFO_STREAM(
-					"Neighbor node " << neighbor_node_index << (rrg.nodes.at(neighbor_node_index).path_to_robot.empty() ? " disconnected":" connected"));
 			if (rrg.nodes.at(neighbor_node_index).path_to_robot.empty()) { //accumulate path at disconnected nodes
 				double new_length = local_nodes.at(current_node).path_length
 						+ rrg.edges.at(edge).length;
 				if (new_length
 						< local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
-					ROS_INFO_STREAM(
-							"Improved distance to node " << neighbor_node_index <<", add to queue");
 					local_nodes.at(neighbor_node_index).path_length =
 							new_length;
 					local_nodes.at(neighbor_node_index).path_to_frontier =
@@ -724,8 +720,6 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 						+ rrg.nodes.at(neighbor_node_index).distance_to_robot
 						+ rrg.edges.at(edge).length;
 				if (new_length < rrg.nodes.at(node).distance_to_robot) { //update all nodes on the path
-					ROS_INFO_STREAM(
-							"Found connected node " << neighbor_node_index << " that improved the path to the robot");
 					// update current node
 					rrg.nodes.at(current_node).distance_to_robot = rrg.nodes.at(
 							neighbor_node_index).distance_to_robot
@@ -734,7 +728,6 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 							neighbor_node_index).path_to_robot;
 					rrg.nodes.at(current_node).path_to_robot.push_back(
 							current_node);
-					ROS_INFO_STREAM("Updated current node " << current_node);
 					for (int i =
 							local_nodes.at(current_node).path_to_frontier.size()
 									- 2; i >= 0; i--) { //iterate over local nodes(current node) path without the current node
@@ -752,8 +745,6 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 									"No existing edge between nodes " << update_node << " and " << last_node);
 							return;
 						}
-						ROS_INFO_STREAM(
-								"Update node " << update_node << " based on last node " << last_node);
 						rrg.nodes.at(update_node).distance_to_robot =
 								rrg.nodes.at(last_node).distance_to_robot
 										+ rrg.edges.at(connecting_edge).length;

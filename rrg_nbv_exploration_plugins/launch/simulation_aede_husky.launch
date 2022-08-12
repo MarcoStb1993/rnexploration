@@ -141,7 +141,7 @@
 		<param name="vehicleWidth" type="double" value="0.6" />
 		<param name="sensorOffsetX" value="0" />
 		<param name="sensorOffsetY" value="0" />
-		<param name="twoWayDrive" value="true" />
+		<param name="twoWayDrive" value="false" />
 		<param name="laserVoxelSize" type="double" value="0.05" />
 		<param name="terrainVoxelSize" type="double" value="0.2" />
 		<param name="useTerrainAnalysis" type="bool" value="true" />

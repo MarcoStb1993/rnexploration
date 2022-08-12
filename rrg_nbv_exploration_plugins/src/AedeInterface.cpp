@@ -18,12 +18,14 @@ AedeInterface::AedeInterface() :
 	private_nh.param<double>("position_tolerance", position_tolerance, 0.1);
 	_goal_tolerance_squared = pow(position_tolerance, 2);
 	_waypoint_tolerance_squared = pow(2 * position_tolerance, 2);
-	private_nh.param("idle_timer_duration", _idle_timer_duration, 10.0);
+	private_nh.param("idle_timer_duration", _idle_timer_duration, 5.0);
 	_way_point_publisher = _nh.advertise<geometry_msgs::PointStamped>(
 			"way_point", 1, true);
 	_stop_aede_publisher = _nh.advertise<std_msgs::Int8>("stop", 1, true);
 
 	ros::NodeHandle nh("rne");
+	_request_goal_service = nh.serviceClient<
+			rrg_nbv_exploration_msgs::RequestGoal>("requestGoal");
 	_request_path_service = nh.serviceClient<
 			rrg_nbv_exploration_msgs::RequestPath>("requestPath");
 	_update_current_goal_service = nh.serviceClient<
@@ -37,6 +39,7 @@ AedeInterface::AedeInterface() :
 			&AedeInterface::idleTimerCallback, this, false, false);
 	_follows_goal = false;
 	_exploration_running = false;
+	_idle_timer_fired_on_goal = false;
 }
 
 AedeInterface::~AedeInterface() {
@@ -51,9 +54,6 @@ void AedeInterface::updatePosition() {
 			_current_position = getRobotPose().position;
 			if (isAtWaypoint(_current_plan.size() == 1)) {
 				waypointReached();
-				_idle_timer.stop();
-			} else {
-				checkIfRobotMoved();
 			}
 			publishWayPoint();
 			publishPath();
@@ -64,6 +64,7 @@ void AedeInterface::updatePosition() {
 
 void AedeInterface::waypointReached() {
 	if (_current_plan.size() <= 1) { //last waypoint in plan=goal
+		ROS_INFO_STREAM("Goal reached");
 		updateCurrentGoal(rrg_nbv_exploration_msgs::Node::VISITED);
 		_follows_goal = false;
 	} else {
@@ -86,9 +87,20 @@ void AedeInterface::checkIfRobotMoved() {
 			> _goal_tolerance_squared;
 	_last_position = _current_position;
 	if (!robot_moved) {
-		_idle_timer.start();
+		if (!_idle_timer_fired_on_goal && _current_plan.size() > 1) {
+			ROS_WARN_STREAM("Robot did not move, try next waypoint!");
+			_current_plan.erase(_current_plan.begin()); //remove first element from plan
+			_current_waypoint = _current_plan.front().pose.position;
+			_idle_timer_fired_on_goal = true;
+		} else {
+			ROS_WARN_STREAM("Robot did not move, update goal!");
+			_current_plan.clear();
+			_follows_goal = false;
+			updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
+		}
 	} else {
 		_idle_timer.stop();
+		_idle_timer.start();
 	}
 }
 
@@ -113,18 +125,26 @@ geometry_msgs::Pose AedeInterface::getRobotPose() {
 }
 
 void AedeInterface::requestPath() {
-	rrg_nbv_exploration_msgs::RequestPath srv;
-	if (_request_path_service.call(srv)) {
-		_current_plan = srv.response.path;
-		_follows_goal = true;
-		_current_waypoint = _current_plan.front().pose.position;
-		if (isAtWaypoint(false)) {
-			waypointReached();
+	rrg_nbv_exploration_msgs::RequestGoal goal;
+	if (_request_goal_service.call(goal)) {
+		if (goal.response.goal_available) {
+			rrg_nbv_exploration_msgs::RequestPath srv;
+			if (_request_path_service.call(srv)) {
+				_current_plan = srv.response.path;
+				_follows_goal = true;
+				_idle_timer_fired_on_goal = false;
+				_current_waypoint = _current_plan.front().pose.position;
+				_idle_timer.start();
+				if (isAtWaypoint(false)) {
+					waypointReached();
+				}
+			}
 		}
 	}
 }
 
 void AedeInterface::updateCurrentGoal(uint8_t status) {
+	_idle_timer.stop();
 	rrg_nbv_exploration_msgs::UpdateCurrentGoal srv;
 	srv.request.status = status;
 	if (!_update_current_goal_service.call(srv)) {
@@ -158,15 +178,11 @@ void AedeInterface::explorationGoalObsoleteCallback(
 		updateCurrentGoal(rrg_nbv_exploration_msgs::Node::ABORTED);
 		_follows_goal = false;
 		_current_plan.clear();
-		requestPath();
 	}
 }
 
 void AedeInterface::idleTimerCallback(const ros::TimerEvent &event) {
-	updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
-	_current_plan.clear();
-	_follows_goal = false;
-	_idle_timer.stop();
+	checkIfRobotMoved();
 }
 
 }
