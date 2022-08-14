@@ -34,6 +34,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rrg_nbv_exploration_msgs::Graph>("rrg", 1);
+	_rrg_state_publisher = nh.advertise<std_msgs::Bool>("state", 1);
 	_node_to_update_publisher = nh.advertise<
 			rrg_nbv_exploration_msgs::NodeToUpdate>("node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
@@ -206,10 +207,6 @@ void GraphConstructor::runExploration() {
 		}
 		publishExplorationGoalObsolete();
 	}
-	_rrg_publisher.publish(_rrg);
-	if (_global_exploration_active) {
-		_global_graph_handler->publishGlobalGraph();
-	}
 	if (_measure_algorithm_runtime) {
 		if (_running) {
 			_algorithm_runtime += ros::Time::now() - _rrg.header.stamp;
@@ -220,6 +217,13 @@ void GraphConstructor::runExploration() {
 		runtime.data = _algorithm_runtime;
 		_rne_runtime_publisher.publish(runtime);
 	}
+	_rrg_publisher.publish(_rrg);
+	if (_global_exploration_active) {
+		_global_graph_handler->publishGlobalGraph();
+	}
+	std_msgs::Bool rne_state;
+	rne_state.data = _running;
+	_rrg_state_publisher.publish(rne_state);
 }
 
 void GraphConstructor::expandGraph(bool update_paths) {

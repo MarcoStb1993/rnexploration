@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "std_msgs/Duration.h"
+#include "std_msgs/Bool.h"
 #include "std_srvs/SetBool.h"
 #include "std_srvs/Trigger.h"
 #include "geometry_msgs/Point.h"
@@ -68,6 +69,7 @@ private:
 	ros::Publisher _exploration_goal_obsolete_publisher;
 	ros::Publisher _node_to_update_publisher;
 	ros::Publisher _rne_runtime_publisher;
+	ros::Publisher _rrg_state_publisher;
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
