@@ -592,29 +592,22 @@ void GraphConstructor::findAllConnectedAndDisconnectedNodes(
 }
 
 bool GraphConstructor::isNewGoalConnected() {
-	ROS_INFO_STREAM(
-			"+++++isNewGoalConnected, goal node: " << _current_goal_node << " ("<< _rrg.nodes.at(_current_goal_node).cost_function << ")");
 	if (std::isinf(_rrg.nodes.at(_current_goal_node).cost_function) != 0) {
 		_current_goal_node = -1;
 		_node_comparator->setSortList();
 		_node_comparator->maintainList(_rrg);
 		if (!_node_comparator->isEmpty()) {
 			_current_goal_node = _node_comparator->getBestNode();
-			ROS_INFO_STREAM(
-					"Replaced with new goal node: " << _current_goal_node << " ("<< _rrg.nodes.at(_current_goal_node).cost_function << ")");
 			if (std::isinf(_rrg.nodes.at(_current_goal_node).cost_function)
 					!= 0) {
 				_current_goal_node = -1;
-				ROS_INFO_STREAM("-----isNewGoalConnected: no");
 				return false;
 			}
 		} else {
-			ROS_INFO_STREAM("-----isNewGoalConnected: no, no other node");
 			return false;
 		}
 
 	}
-	ROS_INFO_STREAM("-----isNewGoalConnected: yes");
 	return true;
 }
 
@@ -659,8 +652,6 @@ bool GraphConstructor::determineNearestNodeToRobot(geometry_msgs::Point pos) {
 		double min_distance;
 		int nearest_node;
 		_graph_searcher->findNearestNeighbour(pos, min_distance, nearest_node);
-		ROS_INFO_STREAM(
-				"new nearest node: " << nearest_node << " at distance: " << sqrt(min_distance) << " old: " << _rrg.nearest_node << " next node: " << _next_node);
 		if (nearest_node != _rrg.nearest_node) { // if nearest node changed
 			if (_next_node != -1 && nearest_node != _next_node) {
 				// projection of robot pos on the edge between nearest and next node

@@ -43,7 +43,7 @@
 	<arg name="measure_algorithm_runtime" default="false" />
 	<arg name="add_inter_nodes" default="false" />
 
-	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" output="screen" launch-prefix="gdb -ex run --args">
+	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" output="screen">
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
 		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
 		<param name="sensor_height" type="double" value="$(arg sensor_height)" />

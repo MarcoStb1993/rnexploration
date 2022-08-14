@@ -683,8 +683,6 @@ std::map<int, int> GraphPathCalculator::extractLocalPaths(
 }
 void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
-	ROS_INFO_STREAM(
-			"+++++findPathToNearestNodeThroughFailedNodes, removed node: " << node << " to nn: " << rrg.nearest_node);
 	std::set<std::pair<double, int>> node_queue; // node's distance to nearest node (first) and index (second)
 	std::vector<LocalNode> local_nodes; // copy of all RRG nodes including only relevant information
 	for (auto node : rrg.nodes) {
@@ -731,7 +729,6 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 					for (int i =
 							local_nodes.at(current_node).path_to_frontier.size()
 									- 2; i >= 0; i--) { //iterate over local nodes(current node) path without the current node
-						ROS_INFO_STREAM("Update at index " << i);
 						int update_node =
 								local_nodes.at(current_node).path_to_frontier.at(
 										i);
@@ -757,7 +754,6 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 			}
 		}
 	}
-	ROS_INFO_STREAM("-----findPathToNearestNodeThroughFailedNodes");
 }
 
 void GraphPathCalculator::addToNodeQueue(
