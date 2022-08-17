@@ -170,7 +170,6 @@ void GlobalGraphHandler::continuePath(int node,
 			length)) {
 		ROS_ERROR_STREAM(
 				"Unable to continue paths at node " << node << ", found no connection to the RRG");
-		throw std::invalid_argument("Seen warning above"); //TODO: remove
 		return;
 	}
 	std::map<int, int> connecting_node_frontiers; // frontier index (first), path to connected node index (second)
@@ -1321,8 +1320,6 @@ bool GlobalGraphHandler::getFrontierPath(
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
 		int global_target = _global_route.at(_next_global_goal).first;
-		ROS_WARN_STREAM(
-				"Requested path to global target " << global_target << " at  ("<< _gg.frontiers.at(global_target).viewpoint.x << "," << _gg.frontiers.at(global_target).viewpoint.x << ")");
 		std::vector<geometry_msgs::Point> waypoints;
 		if (_previous_global_goal_failed) { // go back to former local graph to start navigation to next frontier from there
 			waypoints.insert(waypoints.end(),
@@ -1423,12 +1420,13 @@ bool GlobalGraphHandler::updateClosestWaypoint(
 	int nearest_node;
 	_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
 			min_distance, nearest_node);
+	if (nearest_node == 0) { // frontier reached
+		_active_paths_closest_waypoint = std::make_pair(-1, -1);
+		return true;
+	}
 	if (nearest_node != _active_paths_closest_waypoint.second) {
 		_active_paths_closest_waypoint.second = nearest_node;
-		if (nearest_node == 0) { // frontier reached
-			_active_paths_closest_waypoint = std::make_pair(-1, -1);
-			return true;
-		} else if (_previous_global_goal_failed
+		if (_previous_global_goal_failed
 				&& nearest_node
 						== _gg.paths.at(_active_paths_closest_waypoint.first).waypoints.size()
 								- 1) { // reached start of path, transfer to path to next frontier

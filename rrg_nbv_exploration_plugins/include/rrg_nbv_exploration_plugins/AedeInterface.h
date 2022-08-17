@@ -52,6 +52,10 @@ public:
 	 * Starts the main functionality of this class by activating the updatePosition method
 	 */
 	void startExploration();
+	/**
+	 * Stops the main functionality of this class by deactivating the updatePosition method
+	 */
+	void stopExploration();
 
 private:
 	ros::NodeHandle _nh;

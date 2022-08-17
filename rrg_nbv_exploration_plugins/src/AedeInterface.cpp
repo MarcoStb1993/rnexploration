@@ -77,6 +77,10 @@ void AedeInterface::startExploration() {
 	_exploration_running = true;
 }
 
+void AedeInterface::stopExploration() {
+	_exploration_running = false;
+}
+
 bool AedeInterface::isAtWaypoint(bool goal) {
 	return squaredDistance(_current_position, _current_waypoint)
 			<= (goal ? _goal_tolerance_squared : _waypoint_tolerance_squared);

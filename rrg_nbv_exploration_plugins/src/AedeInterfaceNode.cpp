@@ -8,7 +8,7 @@
 #include "ros/ros.h"
 
 #include <rrg_nbv_exploration_plugins/AedeInterface.h>
-#include <rrg_nbv_exploration_msgs/Graph.h>
+#include <std_msgs/Bool.h>
 
 boost::shared_ptr<rne::AedeInterface> aede_interface;
 ros::Subscriber rrg_sub;
@@ -17,10 +17,11 @@ void loopCallback(const ros::TimerEvent&) {
 	aede_interface->updatePosition();
 }
 
-void rrgCallback(const rrg_nbv_exploration_msgs::Graph::ConstPtr &rrg) {
-	if (rrg->node_counter) {
+void stateCallback(const std_msgs::Bool::ConstPtr &state) {
+	if (state->data) {
 		aede_interface->startExploration();
-		rrg_sub.shutdown();
+	} else {
+		aede_interface->stopExploration();
 	}
 }
 
@@ -32,7 +33,7 @@ int main(int argc, char **argv) {
 	double loop_rate;
 	private_nh.param("update_frequency", loop_rate, 1.0);
 	ros::NodeHandle nh("rne");
-	rrg_sub = nh.subscribe("rrg", 10, rrgCallback);
+	rrg_sub = nh.subscribe("state", 10, stateCallback);
 	ros::Timer loop_timer = private_nh.createTimer(ros::Duration(1 / loop_rate),
 			loopCallback, false);
 	ros::spin();

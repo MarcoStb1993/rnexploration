@@ -189,7 +189,7 @@ void GraphConstructor::runExploration() {
 					_global_goal_updated = true;
 					_updating_global_goal = false;
 				}
-			} else if (_global_graph_handler->updateClosestWaypoint(
+			} else if (_reached_frontier_goal || _global_graph_handler->updateClosestWaypoint(
 					_robot_pose.position)) { // frontier reached
 				geometry_msgs::Point frontier;
 				std::vector<int> connected_paths =
@@ -976,20 +976,16 @@ void GraphConstructor::updatedNodeCallback(
 
 void GraphConstructor::tryFailedNodesRecovery() {
 	if (!_failed_nodes_to_recover.empty()) {
-		ROS_WARN_STREAM("+++++tryFailedNodesRecovery");
 		_failed_nodes_to_recover.erase(
 				std::remove_if(_failed_nodes_to_recover.begin(),
 						_failed_nodes_to_recover.end(), [this](int node) {
-							ROS_INFO_STREAM("Try to recover node " << node);
 							int collision = _collision_checker->collisionCheckForFailedNode(
 				_rrg, node, true);
 							if (collision
 									== CollisionChecker::Collisions::unknown) {
-								ROS_INFO_STREAM("Recovery failed");
 								return false; // keep node and try to recover again
 							} else if (collision
 									== CollisionChecker::Collisions::empty) {
-								ROS_INFO_STREAM("Recovery successful");
 								_rrg.nodes[node].status =
 										rrg_nbv_exploration_msgs::Node::INITIAL;
 								_collision_checker->findBestConnectionForNode(
@@ -1004,15 +1000,12 @@ void GraphConstructor::tryFailedNodesRecovery() {
 									_nodes_to_update.push_back(node); // recalculate node gain
 									_sort_nodes_to_update = true;
 								}
-							} else {
-								ROS_INFO_STREAM("Node is blocked");
 							}
 							return true;
 						}),
 						_failed_nodes_to_recover.end());
 		_collision_checker->retryEdges(_rrg, _robot_pose, _nodes_to_update,
 				_sort_nodes_to_update); // try to rebuild failed edges
-		ROS_WARN_STREAM("-----tryFailedNodesRecovery");
 	}
 }
 
@@ -1123,8 +1116,6 @@ bool GraphConstructor::requestPath(
 			_graph_path_calculator->getLocalNavigationPath(rrg_path, _rrg,
 					_current_goal_node, _robot_pose.position);
 			res.path = rrg_path;
-			ROS_WARN_STREAM(
-					"Requested path to local node " << _current_goal_node << " at: (" << _rrg.nodes.at(_current_goal_node).position.x << "," << _rrg.nodes.at(_current_goal_node).position.y << ")");
 			return true;
 		}
 	} else if (_global_exploration_active && !_local_running) { // global path
