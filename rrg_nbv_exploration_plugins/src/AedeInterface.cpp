@@ -40,6 +40,7 @@ AedeInterface::AedeInterface() :
 	_follows_goal = false;
 	_exploration_running = false;
 	_idle_timer_fired_on_goal = false;
+	_consecutive_failed_path_requests = 0;
 }
 
 AedeInterface::~AedeInterface() {
@@ -142,8 +143,13 @@ void AedeInterface::requestPath() {
 				if (isAtWaypoint(false)) {
 					waypointReached();
 				}
+				_consecutive_failed_path_requests = 0;
+				return;
 			}
 		}
+	}
+	if (++_consecutive_failed_path_requests) {
+		updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
 	}
 }
 

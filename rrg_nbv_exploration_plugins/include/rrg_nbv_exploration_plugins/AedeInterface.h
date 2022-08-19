@@ -118,6 +118,10 @@ private:
 	 * @brief If the idle timer fired already for the current goal
 	 */
 	bool _idle_timer_fired_on_goal;
+	/**
+	 * @brief Number of consecutive failed path requests (which indicate something went wrong)
+	 */
+	int _consecutive_failed_path_requests;
 
 	/**
 	 * @brief Is called when the robot is within the position tolerance of the current way point and
