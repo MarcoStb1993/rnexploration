@@ -40,7 +40,6 @@ AedeInterface::AedeInterface() :
 	_follows_goal = false;
 	_exploration_running = false;
 	_idle_timer_fired_on_goal = false;
-	_consecutive_failed_path_requests = 0;
 }
 
 AedeInterface::~AedeInterface() {
@@ -93,19 +92,16 @@ void AedeInterface::checkIfRobotMoved() {
 	_last_position = _current_position;
 	if (!robot_moved) {
 		if (!_idle_timer_fired_on_goal && _current_plan.size() > 1) {
-			ROS_WARN_STREAM("Robot did not move, try next waypoint!");
+			ROS_ERROR_STREAM("Robot did not move, try next waypoint!");
 			_current_plan.erase(_current_plan.begin()); //remove first element from plan
 			_current_waypoint = _current_plan.front().pose.position;
 			_idle_timer_fired_on_goal = true;
 		} else {
-			ROS_WARN_STREAM("Robot did not move, update goal!");
+			ROS_ERROR_STREAM("Robot did not move, update goal!");
 			_current_plan.clear();
 			_follows_goal = false;
 			updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
 		}
-	} else {
-		_idle_timer.stop();
-		_idle_timer.start();
 	}
 }
 
@@ -143,13 +139,9 @@ void AedeInterface::requestPath() {
 				if (isAtWaypoint(false)) {
 					waypointReached();
 				}
-				_consecutive_failed_path_requests = 0;
 				return;
 			}
 		}
-	}
-	if (++_consecutive_failed_path_requests) {
-		updateCurrentGoal(rrg_nbv_exploration_msgs::Node::FAILED);
 	}
 }
 
