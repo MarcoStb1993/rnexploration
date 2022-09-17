@@ -39,7 +39,7 @@
 		<arg name="z" default="$(arg z)" />
 		<arg name="yaw" default="$(arg yaw)" />
 		<arg name="robot_frame" value="$(arg robot_frame)" />
-		<arg name="gui" default="$(arg gui)" />
+		<arg name="gui" default="false" />
 		<arg name="velodyne" default="true" />
 	</include>
 
@@ -281,6 +281,7 @@
 		<param name="update_frequency" value="20" />
 		<param name="robot_frame" value="$(arg robot_frame)" />
 		<param name="position_tolerance" value="0.25" />
+		<param name="idle_timer_duration" value="3.0" />
 	</node>
 
 	<node pkg="rrg_nbv_exploration_plugins"

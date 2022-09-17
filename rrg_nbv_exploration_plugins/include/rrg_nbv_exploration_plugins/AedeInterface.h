@@ -99,13 +99,13 @@ private:
 	 */
 	double _waypoint_tolerance_squared;
 	/**
-	 * @brief Last position of the robot
+	 * @brief Last pose of the robot
 	 */
-	geometry_msgs::Point _last_position;
+	geometry_msgs::Pose _last_position;
 	/**
-	 * @brief Current position of the robot
+	 * @brief Current pose of the robot
 	 */
-	geometry_msgs::Point _current_position;
+	geometry_msgs::Pose _current_position;
 	/**
 	 * @brief Time in s that the robot can remain stationary before navigation counts as aborted because the robot is stuck
 	 */
@@ -145,6 +145,13 @@ private:
 	 * @return Squared Euclidean distance between the two points
 	 */
 	double squaredDistance(geometry_msgs::Point p1, geometry_msgs::Point p2);
+
+	/**
+	 * @brief Calculate the yaw from the given pose
+	 * @param Pose to calculate yaw for
+	 * @return Yaw of the pose in rad
+	 */
+	double getYawFromPose(geometry_msgs::Pose &pose);
 	/**
 	 * @brief Helper function to request the current robot position using the tf2 library
 	 * @return Current robot pose

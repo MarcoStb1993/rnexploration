@@ -71,7 +71,7 @@ void GlobalGraphHandler::initialize(rrg_nbv_exploration_msgs::Node &root,
 	_available_paths.clear();
 	_global_route.clear();
 	_next_global_goal = -1;
-	_previous_global_goal_failed = false;
+	_previous_global_goal_failed = -1;
 	_active_paths_closest_waypoint = std::make_pair(-1, -1);
 	_global_graph_searcher->initialize(_gg);
 }
@@ -1320,26 +1320,51 @@ bool GlobalGraphHandler::getFrontierPath(
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
 		int global_target = _global_route.at(_next_global_goal).first;
+		ROS_INFO_STREAM("Get path to target " << global_target);
 		std::vector<geometry_msgs::Point> waypoints;
-		if (_previous_global_goal_failed) { // go back to former local graph to start navigation to next frontier from there
+		if (_previous_global_goal_failed >= 0) {
+			// Add path from local graph to next frontier but skip last waypoint as it is always present in the path
+			ROS_INFO_STREAM(
+					"Start with path to " << _global_route.at(_next_global_goal).first);
 			waypoints.insert(waypoints.end(),
-					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rbegin(),
-					_gg.paths.at(_global_route.at(_next_global_goal - 1).second).waypoints.rend());
-			rrg_nbv_exploration_msgs::GlobalPath path_to_failed_goal;
-			path_to_failed_goal.waypoints = waypoints;
-			GlobalPathWaypointSearcher nearest_waypoint_searcher;
-			nearest_waypoint_searcher.initialize(path_to_failed_goal);
+					_gg.paths.at(
+							_gg.frontiers.at(
+									_global_route.at(_next_global_goal).first).paths.front()).waypoints.begin(),
+					std::prev(
+							_gg.paths.at(
+									_gg.frontiers.at(
+											_global_route.at(_next_global_goal).first).paths.front()).waypoints.end()));
+			// go back to former local graph to start navigation to next frontier from there
+			ROS_INFO_STREAM(
+					"Add reversed path from " << _previous_global_goal_failed);
+			waypoints.insert(waypoints.end(),
+					_gg.paths.at(
+							_gg.frontiers.at(_previous_global_goal_failed).paths.front()).waypoints.rbegin(),
+					_gg.paths.at(
+							_gg.frontiers.at(_previous_global_goal_failed).paths.front()).waypoints.rend());
+			// prune waypoints from the path back to the local graph up to the nearest one to the robot
+			rrg_nbv_exploration_msgs::GlobalPath path_to_next_goal_from_failed_goal;
+			path_to_next_goal_from_failed_goal.waypoints = waypoints;
+			//rebuild waypoint searcher to update closest waypoint
+			_global_path_waypoint_searcher->rebuildIndex(
+					path_to_next_goal_from_failed_goal);
 			double min_distance;
 			int nearest_waypoint_index;
-			nearest_waypoint_searcher.findNearestNeighbour(robot_pos,
+			_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
 					min_distance, nearest_waypoint_index);
-			waypoints.erase(waypoints.begin(),
-					waypoints.begin() + nearest_waypoint_index);
+			ROS_INFO_STREAM(path_to_next_goal_from_failed_goal);
+			ROS_INFO_STREAM(
+					sqrt(min_distance) << "m to nearest waypoint  " << nearest_waypoint_index << " at (" << waypoints.at(nearest_waypoint_index).x << ","<< waypoints.at(nearest_waypoint_index).y << ")");
+//			waypoints.erase(waypoints.begin(),
+//					waypoints.begin() + nearest_waypoint_index);
+			_active_paths_closest_waypoint = std::make_pair(
+					_global_route.at(_next_global_goal).second,
+					nearest_waypoint_index); // start at waypoint at nearest node in RRG
+		} else {
+			waypoints.insert(waypoints.end(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
+					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
 		}
-		waypoints.insert(waypoints.end(),
-				_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
-				_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
-
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;
@@ -1356,7 +1381,7 @@ std::vector<int> GlobalGraphHandler::frontierReached(
 		position = _gg.frontiers.at(frontier).viewpoint;
 		_next_global_goal = -1;
 		_global_route.clear();
-		_previous_global_goal_failed = false;
+		_previous_global_goal_failed = -1;
 		std::set<int> pruned_frontiers;
 		std::set<int> pruned_paths;
 		pruned_frontiers.insert(frontier);
@@ -1376,7 +1401,8 @@ bool GlobalGraphHandler::frontierFailed() {
 	if (_next_global_goal >= _global_route.size() - 1) { // last frontier in route, exploration finished
 		return true;
 	} else {
-		_previous_global_goal_failed = true;
+		_previous_global_goal_failed =
+				_global_route.at(_next_global_goal).first;
 		_next_global_goal++;
 		ROS_INFO_STREAM(
 				"Frontier " << _global_route.at(_next_global_goal - 1).first << " failed, try next frontier " << _global_route.at(_next_global_goal).first);
@@ -1421,24 +1447,26 @@ bool GlobalGraphHandler::updateClosestWaypoint(
 	_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
 			min_distance, nearest_node);
 	if (nearest_node == 0) { // frontier reached
+		ROS_INFO_STREAM("Frontier waypoint reached " << nearest_node);
 		_active_paths_closest_waypoint = std::make_pair(-1, -1);
 		return true;
 	}
 	if (nearest_node != _active_paths_closest_waypoint.second) {
+		ROS_INFO_STREAM("New closest waypoint " << nearest_node);
 		_active_paths_closest_waypoint.second = nearest_node;
-		if (_previous_global_goal_failed
-				&& nearest_node
-						== _gg.paths.at(_active_paths_closest_waypoint.first).waypoints.size()
-								- 1) { // reached start of path, transfer to path to next frontier
-			_active_paths_closest_waypoint =
-					std::make_pair(_global_route.at(_next_global_goal).second,
-							_gg.paths.at(
-									_global_route.at(_next_global_goal).second).waypoints.size()
-									- 1);
-			_global_path_waypoint_searcher->rebuildIndex(
-					_gg.paths.at(_global_route.at(_next_global_goal).second));
-			_previous_global_goal_failed = false;
-		}
+//		if (_previous_global_goal_failed
+//				&& nearest_node
+//						== _gg.paths.at(_active_paths_closest_waypoint.first).waypoints.size()
+//								- 1) { // reached start of path, transfer to path to next frontier
+//			_active_paths_closest_waypoint =
+//					std::make_pair(_global_route.at(_next_global_goal).second,
+//							_gg.paths.at(
+//									_global_route.at(_next_global_goal).second).waypoints.size()
+//									- 1);
+//			_global_path_waypoint_searcher->rebuildIndex(
+//					_gg.paths.at(_global_route.at(_next_global_goal).second));
+//			_previous_global_goal_failed = false;
+//		}
 	}
 	return false;
 }

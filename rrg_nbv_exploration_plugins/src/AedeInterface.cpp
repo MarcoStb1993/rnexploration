@@ -51,7 +51,7 @@ void AedeInterface::updatePosition() {
 			requestPath();
 		}
 		if (_follows_goal) {
-			_current_position = getRobotPose().position;
+			_current_position = getRobotPose();
 			if (isAtWaypoint(_current_plan.size() == 1)) {
 				waypointReached();
 			}
@@ -82,13 +82,17 @@ void AedeInterface::stopExploration() {
 }
 
 bool AedeInterface::isAtWaypoint(bool goal) {
-	return squaredDistance(_current_position, _current_waypoint)
+	return squaredDistance(_current_position.position, _current_waypoint)
 			<= (goal ? _goal_tolerance_squared : _waypoint_tolerance_squared);
 }
 
 void AedeInterface::checkIfRobotMoved() {
-	bool robot_moved = squaredDistance(_current_position, _last_position)
-			> _goal_tolerance_squared;
+	bool robot_moved = squaredDistance(_current_position.position,
+			_last_position.position) > _goal_tolerance_squared
+			|| std::abs(
+					getYawFromPose(_current_position)
+							- getYawFromPose(_last_position))
+					> _goal_tolerance_squared;
 	_last_position = _current_position;
 	if (!robot_moved) {
 		if (!_idle_timer_fired_on_goal && _current_plan.size() > 1) {
@@ -108,6 +112,16 @@ void AedeInterface::checkIfRobotMoved() {
 double AedeInterface::squaredDistance(geometry_msgs::Point p1,
 		geometry_msgs::Point p2) {
 	return pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2);
+}
+
+double AedeInterface::getYawFromPose(geometry_msgs::Pose &pose) {
+	// get current robot orientation (yaw) for heading change calculation
+	tf2::Quaternion q(pose.orientation.x, pose.orientation.y,
+			pose.orientation.z, pose.orientation.w);
+	tf2::Matrix3x3 m(q);
+	double roll, pitch, yaw;
+	m.getRPY(roll, pitch, yaw);
+	return yaw;
 }
 
 geometry_msgs::Pose AedeInterface::getRobotPose() {
@@ -169,7 +183,7 @@ void AedeInterface::publishPath() {
 	path.poses = _current_plan;
 	//add robot position as first pose for visualization
 	geometry_msgs::PoseStamped robot_pos;
-	robot_pos.pose.position = _current_position;
+	robot_pos.pose = _current_position;
 	path.poses.insert(path.poses.begin(), robot_pos);
 	_path_publisher.publish(path);
 }

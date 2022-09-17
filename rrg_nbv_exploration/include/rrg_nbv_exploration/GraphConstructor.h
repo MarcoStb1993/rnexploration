@@ -276,17 +276,13 @@ private:
 	 */
 	bool _goal_obsolete;
 	/**
-	 * @brief If a local goal was pursued before global exploration starts again
+	 * @brief If a local goal is currently pursued
 	 */
-	bool _pursued_local_goal;
+	bool _pursuing_local_goal;
 	/**
 	 * @brief If the frontier goal was reached by the robot
 	 */
 	bool _reached_frontier_goal;
-	/**
-	 * @brief If the global frontier currently active became obsolete
-	 */
-	bool _global_frontier_obsolete;
 	/**
 	 * @brief If a global goal is currently pursued, false if a local goal is pursued
 	 */
@@ -388,8 +384,9 @@ private:
 	bool determineNearestNodeToRobot(geometry_msgs::Point robot_pos);
 	/**
 	 * @brief Publish if there is a better goal than the currently pursued goal
+	 * @param Set the published state to true, defaults to false
 	 */
-	void publishExplorationGoalObsolete();
+	void publishExplorationGoalObsolete(bool obsolete=false);
 	/**
 	 * @brief Sorts the nodes which gain needs to be (re)calculated by their distance to the robot (closest first)
 	 */

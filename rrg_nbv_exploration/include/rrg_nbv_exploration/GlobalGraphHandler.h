@@ -251,9 +251,9 @@ private:
 	 */
 	bool _auto_homing;
 	/**
-	 * @brief If the navigation to the previous global goal failed
+	 * @brief If the navigation to the previous global goal failed this contains the index of the frontier that failed
 	 */
-	bool _previous_global_goal_failed;
+	int _previous_global_goal_failed;
 
 	/**
 	 * @brief Returns the second to last node in the given node's path to the robot in the local graph
