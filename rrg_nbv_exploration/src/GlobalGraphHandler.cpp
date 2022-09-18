@@ -769,9 +769,10 @@ void GlobalGraphHandler::prunePathsAroundNewNode(int new_node,
 			continue;
 		}
 		int path = frontier.paths.front(); // path to local graph
-		_global_path_waypoint_searcher->rebuildIndex(_gg.paths.at(path));
+		GlobalPathWaypointSearcher global_path_waypoint_searcher;
+		global_path_waypoint_searcher.rebuildIndex(_gg.paths.at(path));
 		std::vector<std::pair<int, double>> waypoints_near_new_node =
-				_global_path_waypoint_searcher->searchInRadius(
+				global_path_waypoint_searcher.searchInRadius(
 						rrg.nodes.at(new_node).position,
 						_inflation_active ?
 								pow(
