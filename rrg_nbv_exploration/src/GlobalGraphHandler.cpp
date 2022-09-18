@@ -1364,7 +1364,11 @@ bool GlobalGraphHandler::getFrontierPath(
 			waypoints.insert(waypoints.end(),
 					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
 					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+			ROS_INFO_STREAM(
+					"Inserted waypoints of path " << _global_route.at(_next_global_goal).second);
 		}
+		ROS_INFO_STREAM(
+				"Waypoints: " << waypoints.size() << ", closest wp: " << _active_paths_closest_waypoint.second);
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;

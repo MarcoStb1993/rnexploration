@@ -135,7 +135,6 @@ void GraphConstructor::initLocalGraph(
 	_local_goal_updated = true;
 	_updating_local_goal = false;
 	_sort_nodes_to_update = false;
-	_goal_obsolete = false;
 	_pursuing_local_goal = false;
 	_local_goal_obsolete = false;
 	_current_goal_node = -1;
@@ -628,7 +627,6 @@ void GraphConstructor::checkCurrentGoal() {
 		}
 		_moved_to_current_goal = false;
 		_local_goal_obsolete = false;
-		_goal_obsolete = false;
 		_updating_local_goal = false;
 		_local_goal_updated = true;
 		_pursuing_local_goal = true;
@@ -877,6 +875,7 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 			}
 			tryFailedNodesRecovery();
 		}
+		_local_goal_obsolete = false;
 		resetNextNodeInPath();
 		break;
 	case rrg_nbv_exploration_msgs::Node::FAILED:
@@ -964,6 +963,7 @@ void GraphConstructor::updatedNodeCallback(
 			if (updated_node->status == rrg_nbv_exploration_msgs::Node::EXPLORED
 					&& _current_goal_node == updated_node->index
 					&& _node_comparator->isEmpty()) { // current goal is explored, change goal
+				ROS_INFO_STREAM("Current local goal node is already explored, became obsolete");
 				_local_goal_obsolete = true;
 			}
 		}
@@ -1055,8 +1055,7 @@ void GraphConstructor::switchFromLocalToGlobalExploration() {
 	if (_pursuing_local_goal) { // if a current frontier goal is active, it became obsolete
 		ROS_INFO_STREAM(
 				"Local goal became obsolete because of switch to global exploration");
-		publishExplorationGoalObsolete(false);
-//		_pursued_local_goal = true; //is this necessary?
+		publishExplorationGoalObsolete(true);
 	}
 	_local_running = false;
 }
@@ -1094,7 +1093,6 @@ bool GraphConstructor::requestGoal(
 			res.best_yaw = _graph_path_calculator->determineGoalYaw(
 					_current_goal_node, _rrg, _last_robot_pos, !_running);
 			_local_goal_updated = false;
-//			_pursuing_global_goal = false; //is this necessary
 			ROS_INFO_STREAM(
 					"Request goal: local node " << _current_goal_node << " at (" << _rrg.nodes.at(_current_goal_node).position.x << ", " << _rrg.nodes.at(_current_goal_node).position.y << ")");
 		}
@@ -1153,7 +1151,7 @@ bool GraphConstructor::updateCurrentGoal(
 			_rrg.nodes[_current_goal_node].status = req.status;
 			handleCurrentLocalGoalFinished();
 		}
-	} else { // global goal
+	} else if(_pursuing_global_goal) { // global goal
 		ROS_INFO_STREAM(
 				"Updating global goal target, updating global: " << _updating_global_goal);
 		if (!_updating_global_goal) {
@@ -1177,6 +1175,8 @@ bool GraphConstructor::updateCurrentGoal(
 				}
 			}
 		}
+	} else {
+		ROS_INFO_STREAM("Currently not pursuing any goal, update discarded");
 	}
 	res.success = true;
 	res.message = "Changed current goal's status";

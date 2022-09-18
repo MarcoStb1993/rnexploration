@@ -94,7 +94,7 @@ void AedeInterface::checkIfRobotMoved() {
 			|| std::abs(
 					getYawFromPose(_current_position)
 							- getYawFromPose(_last_position))
-					> _goal_tolerance_squared;
+					> 0.785398; //45deg
 	_last_position = _current_position;
 	if (!robot_moved) {
 		if (!_idle_timer_fired_on_goal && _current_plan.size() > 1) {

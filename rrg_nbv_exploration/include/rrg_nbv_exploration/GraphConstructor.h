@@ -272,10 +272,6 @@ private:
 	 */
 	int _samples_per_loop;
 	/**
-	 * @brief If there currently is a better goal than the currently pursued goal
-	 */
-	bool _goal_obsolete;
-	/**
 	 * @brief If a local goal is currently pursued
 	 */
 	bool _pursuing_local_goal;
