@@ -176,6 +176,10 @@ private:
 	 */
 	void publishPath();
 	/**
+	 * @brief Publish the stop command for AEDE local planner (stops on true, continues to move on false)
+	 */
+	void publishStopAede(bool stop);
+	/**
 	 * @brief Receives if the current goal node is obsolete and updates its status to aborted
 	 */
 	void explorationGoalObsoleteCallback(

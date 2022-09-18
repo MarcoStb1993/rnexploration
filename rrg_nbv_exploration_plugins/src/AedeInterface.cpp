@@ -57,9 +57,11 @@ void AedeInterface::updatePosition() {
 			}
 			publishWayPoint();
 			publishPath();
-		} else {
+			publishStopAede(false);
+			return;
 		}
 	}
+	publishStopAede(true);
 }
 
 void AedeInterface::waypointReached() {
@@ -186,6 +188,12 @@ void AedeInterface::publishPath() {
 	robot_pos.pose = _current_position;
 	path.poses.insert(path.poses.begin(), robot_pos);
 	_path_publisher.publish(path);
+}
+
+void AedeInterface::publishStopAede(bool stop) {
+	std_msgs::Int8 stop_aede;
+	stop_aede.data = stop ? 10 : 0;
+	_stop_aede_publisher.publish(stop_aede);
 }
 
 void AedeInterface::explorationGoalObsoleteCallback(
