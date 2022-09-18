@@ -138,6 +138,7 @@ void GraphConstructor::initLocalGraph(
 	_goal_obsolete = false;
 	_pursuing_local_goal = false;
 	_local_goal_obsolete = false;
+	_current_goal_node = -1;
 	_consecutive_failed_goals = 0;
 	_last_robot_pos = root_position;
 	_nodes_to_update.push_back(0);
@@ -204,6 +205,7 @@ void GraphConstructor::runExploration() {
 					resetHelperClasses();
 					_rrg.nodes.front().connected_to = connected_paths;
 					_local_running = true;
+					_local_exploration_finished_timer.start();
 					ROS_INFO_STREAM("Init local exploration finished");
 				}
 			}
@@ -923,7 +925,6 @@ void GraphConstructor::updatedNodeCallback(
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
 					== rrg_nbv_exploration_msgs::Node::INACTIVE) { //check if node was removed while being updated
-
 		ROS_WARN_STREAM(
 				"updated node " << updated_node->index << " became inactive while updating!");
 		removeNodeFromUpdateLists(updated_node->index);
