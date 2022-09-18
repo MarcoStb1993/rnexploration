@@ -292,6 +292,10 @@ private:
 	 */
 	bool _global_exploration_active;
 	/**
+	 * @brief If a initialization node should be added without traversability check
+	 */
+	bool _add_initialization_node;
+	/**
 	 * @brief Measure the total time the algorithm is running since the current exploration started
 	 */
 	bool _measure_algorithm_runtime;
@@ -305,7 +309,7 @@ private:
 	 * ordered by gain list with root node
 	 * @param Seed position for RRG and global graph at which the root node is placed
 	 */
-	void initExploration(const geometry_msgs::Point &seed);
+	void initExploration(const geometry_msgs::Pose &seed);
 	/**
 	 * @brief Initialize the RRG with a root node at the given position and insert it into lists for
 	 * updating
@@ -539,6 +543,14 @@ private:
 	void switchFromLocalToGlobalExploration();
 
 	/**
+	 * @brief Reinitialize the local graph after global exploration reached a frontier
+	 * @param Position of the reached frontier
+	 * @param List of path indices connected to the new local graph's root
+	 */
+	void switchFromGlobalToToLocalExploration(const geometry_msgs::Point &frontier,
+			const std::vector<int> &connected_paths);
+
+	/**
 	 * @brief Deactivate and removed nodes completely engulfed by an inflated node from the RRG
 	 * @param List of node indices to be pruned
 	 */
@@ -578,6 +590,5 @@ private:
 
 	bool resetRrgState(std_srvs::Trigger::Request &req,
 			std_srvs::Trigger::Response &res);
-
 };
 }

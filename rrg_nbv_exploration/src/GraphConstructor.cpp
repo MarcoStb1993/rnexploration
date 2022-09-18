@@ -29,6 +29,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("samples_per_loop", _samples_per_loop, 10);
 	private_nh.param("global_exploration_active", _global_exploration_active,
 			true);
+	private_nh.param("add_initialization_node", _add_initialization_node,
+			false);
 	private_nh.param("measure_algorithm_runtime", _measure_algorithm_runtime,
 			false);
 
@@ -90,13 +92,54 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	_local_running = false;
 }
 
-void GraphConstructor::initExploration(const geometry_msgs::Point &seed) {
+void GraphConstructor::initExploration(const geometry_msgs::Pose &seed) {
 	_pursuing_global_goal = false;
 	_reached_frontier_goal = false;
 	_global_goal_updated = true;
 	_updating_global_goal = false;
-	initLocalGraph(seed);
+	initLocalGraph(seed.position);
 	resetHelperClasses();
+	if (_add_initialization_node) {
+		ROS_INFO_STREAM("Add initialization node");
+		rrg_nbv_exploration_msgs::Node init_node;
+		init_node.index = 1;
+		init_node.position = seed.position;
+		init_node.position.z = _sensor_height;
+		//add node 2m in front of the robot's heading
+		tf2::Quaternion q(seed.orientation.x, seed.orientation.y,
+				seed.orientation.z, seed.orientation.w);
+		tf2::Matrix3x3 m(q);
+		double roll, pitch, yaw;
+		m.getRPY(roll, pitch, yaw);
+		init_node.position.x += cos(yaw) * 2.0;
+		init_node.position.y += sin(yaw) * 2.0;
+		init_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
+		init_node.gain = -1;
+		init_node.reward_function = 0;
+		init_node.edges.push_back(0);
+		init_node.edge_counter++;
+		init_node.radius = _robot_radius;
+		init_node.retry_inflation = true;
+		init_node.path_to_robot.push_back(1);
+		init_node.path_to_robot.push_back(0);
+		_rrg.nodes.push_back(init_node);
+		_rrg.node_counter++;
+		// add edge between init and root node
+		rrg_nbv_exploration_msgs::Edge edge;
+		edge.index = 0;
+		edge.first_node = 0;
+		edge.second_node = 1;
+		edge.inactive = false;
+		edge.length = 2.0;
+		edge.yaw = (int) (yaw * 180 / M_PI);
+		_rrg.edges.push_back(edge);
+		_rrg.edge_counter++;
+		// update root node's edges
+		_rrg.nodes.front().edges.push_back(0);
+		_rrg.nodes.front().edge_counter++;
+		_nodes_to_update.push_back(1);
+		_add_initialization_node = false; //only add for first local graph
+	}
 	if (_global_exploration_active) {
 		_global_graph_handler->initialize(_rrg.nodes.at(0),
 				_graph_path_calculator, _graph_searcher, _collision_checker);
@@ -199,13 +242,8 @@ void GraphConstructor::runExploration() {
 					ROS_INFO_STREAM("Exploration finished");
 					_running = false;
 				} else {
-					ROS_INFO_STREAM("Init local exploration");
-					initLocalGraph(frontier);
-					resetHelperClasses();
-					_rrg.nodes.front().connected_to = connected_paths;
-					_local_running = true;
-					_local_exploration_finished_timer.start();
-					ROS_INFO_STREAM("Init local exploration finished");
+					switchFromGlobalToToLocalExploration(frontier,
+							connected_paths);
 				}
 			}
 		}
@@ -963,7 +1001,8 @@ void GraphConstructor::updatedNodeCallback(
 			if (updated_node->status == rrg_nbv_exploration_msgs::Node::EXPLORED
 					&& _current_goal_node == updated_node->index
 					&& _node_comparator->isEmpty()) { // current goal is explored, change goal
-				ROS_INFO_STREAM("Current local goal node is already explored, became obsolete");
+				ROS_INFO_STREAM(
+						"Current local goal node is already explored, became obsolete");
 				_local_goal_obsolete = true;
 			}
 		}
@@ -1073,6 +1112,18 @@ void GraphConstructor::localExplorationFinishedTimerCallback(
 	}
 }
 
+void GraphConstructor::switchFromGlobalToToLocalExploration(
+		const geometry_msgs::Point &frontier,
+		const std::vector<int> &connected_paths) {
+	ROS_INFO_STREAM("Init local exploration");
+	initLocalGraph(frontier);
+	resetHelperClasses();
+	_rrg.nodes.front().connected_to = connected_paths;
+	_local_running = true;
+	_local_exploration_finished_timer.start();
+	ROS_INFO_STREAM("Init local exploration finished");
+}
+
 bool GraphConstructor::requestGoal(
 		rrg_nbv_exploration_msgs::RequestGoal::Request &req,
 		rrg_nbv_exploration_msgs::RequestGoal::Response &res) {
@@ -1151,7 +1202,7 @@ bool GraphConstructor::updateCurrentGoal(
 			_rrg.nodes[_current_goal_node].status = req.status;
 			handleCurrentLocalGoalFinished();
 		}
-	} else if(_pursuing_global_goal) { // global goal
+	} else if (_pursuing_global_goal) { // global goal
 		ROS_INFO_STREAM(
 				"Updating global goal target, updating global: " << _updating_global_goal);
 		if (!_updating_global_goal) {
@@ -1184,7 +1235,7 @@ bool GraphConstructor::updateCurrentGoal(
 }
 
 void GraphConstructor::startExploration() {
-	initExploration(_graph_path_calculator->getRobotPose().position);
+	initExploration(_graph_path_calculator->getRobotPose());
 	_running = true;
 	_local_running = true;
 }
@@ -1228,7 +1279,7 @@ bool GraphConstructor::getRrgState(std_srvs::Trigger::Request &req,
 bool GraphConstructor::resetRrgState(std_srvs::Trigger::Request &req,
 		std_srvs::Trigger::Response &res) {
 	_running = false;
-	initExploration(geometry_msgs::Point());
+	initExploration(geometry_msgs::Pose());
 	res.message = true;
 	res.message = "Tree reset";
 	return true;

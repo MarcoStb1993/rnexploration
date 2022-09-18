@@ -977,8 +977,12 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 		ROS_INFO_STREAM(
 				"Next frontier goal is " << _global_route.at(_next_global_goal).first << " with path " << _global_route.at(_next_global_goal).second);
 	}
+	ROS_INFO_STREAM(
+			"Rebuild global path waypoint searcher for path " << _global_route.at(_next_global_goal).second);
 	_global_path_waypoint_searcher->rebuildIndex(
 			_gg.paths.at(_global_route.at(_next_global_goal).second));
+	ROS_INFO_STREAM(
+			"Set closest waypoint to " << _gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size() - 1);
 	_active_paths_closest_waypoint =
 			std::make_pair(_global_route.at(_next_global_goal).second,
 					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size()
@@ -1350,14 +1354,13 @@ bool GlobalGraphHandler::getFrontierPath(
 			_global_path_waypoint_searcher->rebuildIndex(
 					path_to_next_goal_from_failed_goal);
 			double min_distance;
-			int nearest_waypoint_index;
+			int nearest_waypoint_index = -1;
 			_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
 					min_distance, nearest_waypoint_index);
 			ROS_INFO_STREAM(path_to_next_goal_from_failed_goal);
 			ROS_INFO_STREAM(
 					sqrt(min_distance) << "m to nearest waypoint  " << nearest_waypoint_index << " at (" << waypoints.at(nearest_waypoint_index).x << ","<< waypoints.at(nearest_waypoint_index).y << ")");
-//			waypoints.erase(waypoints.begin(),
-//					waypoints.begin() + nearest_waypoint_index);
+			//update closest waypoint
 			_active_paths_closest_waypoint = std::make_pair(
 					_global_route.at(_next_global_goal).second,
 					nearest_waypoint_index); // start at waypoint at nearest node in RRG
@@ -1370,6 +1373,8 @@ bool GlobalGraphHandler::getFrontierPath(
 		}
 		ROS_INFO_STREAM(
 				"Waypoints: " << waypoints.size() << ", closest wp: " << _active_paths_closest_waypoint.second);
+
+		//This still fails because closest wp > waypoints
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;
@@ -1459,19 +1464,6 @@ bool GlobalGraphHandler::updateClosestWaypoint(
 	if (nearest_node != _active_paths_closest_waypoint.second) {
 		ROS_INFO_STREAM("New closest waypoint " << nearest_node);
 		_active_paths_closest_waypoint.second = nearest_node;
-//		if (_previous_global_goal_failed
-//				&& nearest_node
-//						== _gg.paths.at(_active_paths_closest_waypoint.first).waypoints.size()
-//								- 1) { // reached start of path, transfer to path to next frontier
-//			_active_paths_closest_waypoint =
-//					std::make_pair(_global_route.at(_next_global_goal).second,
-//							_gg.paths.at(
-//									_global_route.at(_next_global_goal).second).waypoints.size()
-//									- 1);
-//			_global_path_waypoint_searcher->rebuildIndex(
-//					_gg.paths.at(_global_route.at(_next_global_goal).second));
-//			_previous_global_goal_failed = false;
-//		}
 	}
 	return false;
 }

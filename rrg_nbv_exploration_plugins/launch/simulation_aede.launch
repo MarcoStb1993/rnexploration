@@ -274,6 +274,7 @@
 			default="$(arg global_exploration_active)" />
 		<arg name="measure_algorithm_runtime" default="true" />
 		<arg name="add_inter_nodes" default="false" />
+		<arg name="add_initialization_node" default="true" />
 	</include>
 
 	<node pkg="rrg_nbv_exploration_plugins" type="aedeInterfaceNode"
