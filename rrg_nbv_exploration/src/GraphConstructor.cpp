@@ -959,6 +959,9 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
+	if(!_local_running){ // discard updated node if local exploration is not running
+		return;
+	}
 	if (updated_node->index >= _rrg.node_counter
 			|| _rrg.nodes.at(updated_node->index).status
 					== rrg_nbv_exploration_msgs::Node::INACTIVE) { //check if node was removed while being updated

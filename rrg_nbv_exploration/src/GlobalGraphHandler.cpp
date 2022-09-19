@@ -1324,8 +1324,8 @@ bool GlobalGraphHandler::getFrontierPath(
 		std::vector<geometry_msgs::PoseStamped> &path,
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
-		int global_target = _global_route.at(_next_global_goal).first;
-		ROS_INFO_STREAM("Get path to target " << global_target);
+		ROS_INFO_STREAM(
+				"Get path to target " << _global_route.at(_next_global_goal).first);
 		std::vector<geometry_msgs::Point> waypoints;
 		if (_previous_global_goal_failed >= 0) {
 			// Add path from local graph to next frontier but skip last waypoint as it is always present in the path
