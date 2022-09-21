@@ -8,18 +8,18 @@
 	<arg name="gui" default="true" />
 	<arg name="min_edge_distance" default="1.0" />
 	<arg name="max_edge_distance" default="2.0" />
-	<arg name="oc_resolution" default="0.1" />
+	<arg name="oc_resolution" default="0.3" />
 	<arg name="delta_phi" default="10" />
 	<arg name="delta_theta" default="10" />
-	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="grid_map_resolution" default="0.1" />
 	<arg name="robot_radius" default="0.5" />
 	<arg name="min_view_score" default="0.03" />
-	<arg name="local_sampling_radius" default="10" />
-	<arg name="local_graph_radius" default="20" />
+	<arg name="local_sampling_radius" default="7.5" />
+	<arg name="local_graph_radius" default="15" />
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
 	<arg name="global_exploration_active" default="true" />
-	<arg name="distance_factor" default="1.0" />
+	<arg name="distance_factor" default="0.25" />
 	<arg name="heading_factor" default="1.0" />
 	<arg name="traversability_factor" default="1.0" />
 	<arg name="radius_factor" default="1.0" />
@@ -232,12 +232,12 @@
 	<!-- RN Exploration -->
 	<include
 		file="$(find rrg_nbv_exploration)/launch/simple.launch">
-		<arg name="update_frequency" value="1" />
+		<arg name="update_frequency" value="5" />
 		<arg name="robot_radius" value="$(arg robot_radius)" />
 		<arg name="robot_width" value="0.6" />
 		<arg name="sensor_height" value="0.548" />
 		<arg name="sensor_size" value="0.05" />
-		<arg name="sensor_max_range" value="50.0" /> <!-- Only consider half range -->
+		<arg name="sensor_max_range" value="20.0" /> <!-- Only consider half range -->
 		<arg name="sensor_min_range" value="0.5" />
 		<arg name="delta_radius" value="$(arg oc_resolution)" />
 		<arg name="delta_phi" value="$(arg delta_phi)" />
@@ -248,7 +248,7 @@
 		<arg name="min_view_score" value="$(arg min_view_score)" />
 		<arg name="occupancy_grid_topic"
 			value="/move_base/global_costmap/costmap" />
-		<arg name="local_exploration_finished_timer_duration" value="10.0" />
+		<arg name="local_exploration_finished_timer_duration" value="5.0" />
 		<arg name="oc_resolution" default="$(arg oc_resolution)" />
 		<arg name="grid_map_resolution"
 			default="$(arg grid_map_resolution)" />
@@ -269,7 +269,7 @@
 		<arg name="move_nodes" default="$(arg move_nodes)" />
 		<arg name="auto_homing" default="$(arg auto_homing)" />
 		<arg name="reupdate_nodes" default="$(arg reupdate_nodes)" />
-		<arg name="samples_per_loop" default="20" />
+		<arg name="samples_per_loop" default="4" />
 		<arg name="global_exploration_active"
 			default="$(arg global_exploration_active)" />
 		<arg name="measure_algorithm_runtime" default="true" />
@@ -281,8 +281,8 @@
 		name="aedeInterfaceNode" output="screen">
 		<param name="update_frequency" value="20" />
 		<param name="robot_frame" value="$(arg robot_frame)" />
-		<param name="position_tolerance" value="0.25" />
-		<param name="idle_timer_duration" value="3.0" />
+		<param name="position_tolerance" value="0.35" />
+		<param name="idle_timer_duration" value="2.0" />
 	</node>
 
 	<node pkg="rrg_nbv_exploration_plugins"
