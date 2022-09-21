@@ -1098,6 +1098,7 @@ void GraphConstructor::switchFromLocalToGlobalExploration() {
 		ROS_INFO_STREAM(
 				"Local goal became obsolete because of switch to global exploration");
 		publishExplorationGoalObsolete(true);
+		_current_goal_node = -1;
 	}
 	_local_running = false;
 }
@@ -1209,6 +1210,7 @@ bool GraphConstructor::updateCurrentGoal(
 		ROS_INFO_STREAM(
 				"Updating global goal target, updating global: " << _updating_global_goal);
 		if (!_updating_global_goal) {
+			_pursuing_global_goal = false;
 			_updating_global_goal = true;
 			if (req.status == rrg_nbv_exploration_msgs::Node::VISITED
 					|| req.status == rrg_nbv_exploration_msgs::Node::ABORTED) { // reached frontier goal or aborted it for new one

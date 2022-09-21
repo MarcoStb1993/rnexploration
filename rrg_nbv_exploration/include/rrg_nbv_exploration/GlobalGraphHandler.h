@@ -534,6 +534,15 @@ private:
 			std::vector<int> &active_frontiers);
 
 	/**
+	 * @brief Sort frontiers by the length of the global paths from the robot's positions to
+	 * the respective viewpoint
+	 * @param First frontier index
+	 * @param Second frontier index
+	 * @return Return true if the path to frontier one is shorter than the one to frontier two
+	 */
+	bool sortByPathLengthToFrontier(int frontier_one, int frontier_two);
+
+	/**
 	 * @brief Iterate over all possible 2-opt swaps in the global route and return if one of them
 	 * improved the route's path length
 	 * @param Reference to the current route
@@ -621,6 +630,7 @@ private:
 			std::map<int, int> &connecting_node_frontiers,
 			std::set<int> &new_frontier_connections,
 			rrg_nbv_exploration_msgs::Graph &rrg);
+	void debugRoute(std::vector<std::pair<int, int> > &route, std::string prefix, double length);
 };
 
 } /* namespace rrg_nbv_exploration */

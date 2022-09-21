@@ -990,6 +990,23 @@ bool GlobalGraphHandler::calculateNextFrontierGoal(
 	return true;
 }
 
+void GlobalGraphHandler::debugRoute(std::vector<std::pair<int, int> > &route,
+		std::string prefix, double length) {
+	std::string s = prefix + " route: ";
+	for (auto n : route) {
+		s += "(" + std::to_string(n.first) + ")-" + std::to_string(n.second)
+				+ "->";
+	}
+	s += " dist: " + std::to_string(length);
+	ROS_INFO_STREAM(s);
+}
+
+bool GlobalGraphHandler::sortByPathLengthToFrontier(int frontier_one,
+		int frontier_two) {
+	return _gg.paths.at(_gg.frontiers.at(frontier_one).paths.front()).length
+			< _gg.paths.at(_gg.frontiers.at(frontier_two).paths.front()).length;
+}
+
 std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 		std::vector<int> &active_frontiers) {
 	std::vector<std::pair<int, int>> route; // frontier index (first) and path index from previous frontier in route (second)
@@ -998,16 +1015,23 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 	if (origin != active_frontiers.end()) { // remove origin from active frontiers (will be pushed back later when homing)
 		active_frontiers.erase(origin);
 	}
-	route.push_back(
-			std::make_pair(rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH,
-					-1)); // start at robot position (local graph) with no path
+
+	// sort active frontiers ascending by global path to frontier length
+	std::sort(active_frontiers.begin(), active_frontiers.end(),
+			[this](int frontier_one, int frontier_two) {
+				return sortByPathLengthToFrontier(frontier_one, frontier_two);
+			});
 	if (_auto_homing) {
 		active_frontiers.push_back(
 				rrg_nbv_exploration_msgs::GlobalPath::ORIGIN); // origin as last frontier
 	}
 	route.push_back(
+			std::make_pair(rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH,
+					-1)); // start at robot position (local graph) with no path
+	route.push_back(
 			std::make_pair(active_frontiers.front(),
 					_gg.frontiers.at(active_frontiers.front()).paths.front())); // add first active frontier and path to local graph to route
+
 	for (int i = 1; i < active_frontiers.size(); i++) { // add frontier index and index of path from previous frontier to route except for first entry
 		int path_index = findPathToNextFrontier(active_frontiers.at(i - 1),
 				active_frontiers.at(i));
@@ -1016,6 +1040,7 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 		}
 		route.push_back(std::make_pair(active_frontiers.at(i), path_index));
 	}
+//	debugRoute(route, "initial", calculateRouteLength(route));
 	bool improved = true;
 	while (improved) {
 		improved = iterateOverTwoOptSwaps(route);
@@ -1033,10 +1058,14 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 			if (twoOptSwap(route, new_route, i, k)) { // if swap resulted in traversable route
 				double new_distance = calculateRouteLength(new_route);
 				if (new_distance < best_distance) {
+//					debugRoute(new_route, "superior swap", new_distance);
 					route = new_route;
 					best_distance = new_distance;
 					return true;
 				}
+//				else {
+//					debugRoute(new_route, "inferior swap", new_distance);
+//				}
 			}
 		}
 	}
@@ -1357,7 +1386,7 @@ bool GlobalGraphHandler::getFrontierPath(
 			int nearest_waypoint_index = -1;
 			_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
 					min_distance, nearest_waypoint_index);
-			ROS_INFO_STREAM(path_to_next_goal_from_failed_goal);
+//			ROS_INFO_STREAM(path_to_next_goal_from_failed_goal);
 			ROS_INFO_STREAM(
 					sqrt(min_distance) << "m to nearest waypoint  " << nearest_waypoint_index << " at (" << waypoints.at(nearest_waypoint_index).x << ","<< waypoints.at(nearest_waypoint_index).y << ")");
 			//update closest waypoint
@@ -1373,8 +1402,11 @@ bool GlobalGraphHandler::getFrontierPath(
 		}
 		ROS_INFO_STREAM(
 				"Waypoints: " << waypoints.size() << ", closest wp: " << _active_paths_closest_waypoint.second);
-
-		//This still fails because closest wp > waypoints
+		if (waypoints.size() == 0) {
+			ROS_INFO_STREAM("Waypoints empty, insert frontier waypoint");
+			waypoints.push_back(
+					_gg.frontiers.at(_global_route.at(_next_global_goal).first).viewpoint);
+		}
 		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
 				_active_paths_closest_waypoint.second);
 		return true;
