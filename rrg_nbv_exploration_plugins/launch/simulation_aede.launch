@@ -8,18 +8,18 @@
 	<arg name="gui" default="true" />
 	<arg name="min_edge_distance" default="1.0" />
 	<arg name="max_edge_distance" default="2.0" />
-	<arg name="oc_resolution" default="0.3" />
+	<arg name="oc_resolution" default="0.35" />
 	<arg name="delta_phi" default="10" />
-	<arg name="delta_theta" default="10" />
+	<arg name="delta_theta" default="20" />
 	<arg name="grid_map_resolution" default="0.1" />
 	<arg name="robot_radius" default="0.5" />
-	<arg name="min_view_score" default="0.03" />
-	<arg name="local_sampling_radius" default="7.5" />
-	<arg name="local_graph_radius" default="15" />
+	<arg name="min_view_score" default="0.1" />
+	<arg name="local_sampling_radius" default="10" />
+	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
 	<arg name="move_nodes" default="true" />
 	<arg name="global_exploration_active" default="true" />
-	<arg name="distance_factor" default="0.25" />
+	<arg name="distance_factor" default="0.15" />
 	<arg name="heading_factor" default="1.0" />
 	<arg name="traversability_factor" default="1.0" />
 	<arg name="radius_factor" default="1.0" />
@@ -222,7 +222,11 @@
 		<param name="resolution" value="$(arg oc_resolution)" />
 		<param name="frame_id" type="string" value="map" />
 		<param name="sensor_model/min_range" value="0.5" />
-		<param name="sensor_model/max_range" value="100.0" />
+		<param name="sensor_model/max_range" value="20.0" />
+		<param name="sensor_model/hit" value="0.65" />
+		<param name="sensor_model/miss" value="0.4" />
+		<param name="sensor_model/min" value="0.12" />
+		<param name="sensor_model/max" value="0.9" />
 		<param name="latch" value="false" />
 		<param name="filter_ground" value="false" />
 		<remap from="cloud_in" to="/velodyne_points" />
@@ -269,7 +273,7 @@
 		<arg name="move_nodes" default="$(arg move_nodes)" />
 		<arg name="auto_homing" default="$(arg auto_homing)" />
 		<arg name="reupdate_nodes" default="$(arg reupdate_nodes)" />
-		<arg name="samples_per_loop" default="4" />
+		<arg name="samples_per_loop" default="10" />
 		<arg name="global_exploration_active"
 			default="$(arg global_exploration_active)" />
 		<arg name="measure_algorithm_runtime" default="true" />

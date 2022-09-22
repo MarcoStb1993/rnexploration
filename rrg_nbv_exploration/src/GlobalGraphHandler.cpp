@@ -1420,6 +1420,9 @@ std::vector<int> GlobalGraphHandler::frontierReached(
 	std::vector<int> connected_paths;
 	if (checkIfNextFrontierWithPathIsValid()) {
 		int frontier = _global_route.at(_next_global_goal).first;
+		if(_auto_homing && frontier == 0) { //reached home
+			return connected_paths;
+		}
 		position = _gg.frontiers.at(frontier).viewpoint;
 		_next_global_goal = -1;
 		_global_route.clear();
