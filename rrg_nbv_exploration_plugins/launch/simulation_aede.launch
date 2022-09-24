@@ -13,7 +13,7 @@
 	<arg name="delta_theta" default="20" />
 	<arg name="grid_map_resolution" default="0.1" />
 	<arg name="robot_radius" default="0.5" />
-	<arg name="min_view_score" default="0.1" />
+	<arg name="min_view_score" default="0.07" />
 	<arg name="local_sampling_radius" default="10" />
 	<arg name="local_graph_radius" default="20" />
 	<arg name="inflation_active" default="true" />
