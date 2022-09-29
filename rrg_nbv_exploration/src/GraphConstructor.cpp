@@ -199,10 +199,12 @@ void GraphConstructor::runExploration() {
 	if (_running) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_local_running) {
+			ROS_INFO_STREAM("Run local");
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
 			if (new_nearest_node) {	// robot moved, update paths
+				ROS_INFO_STREAM("New nearest node " << new_nearest_node);
 				_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node,
 						_rrg, _robot_pose, true, _nodes_to_update,
 						_sort_nodes_to_update);
@@ -569,6 +571,7 @@ void GraphConstructor::findConnectedNodesWithGain(std::vector<int> &nodes) {
 
 void GraphConstructor::deactivateNode(int node) {
 	if (node == _current_goal_node) {
+		ROS_INFO_STREAM("Deactivated current goal node");
 		_local_goal_obsolete = true;
 	}
 	if (node == _last_updated_node) {
@@ -667,7 +670,6 @@ void GraphConstructor::checkCurrentGoal() {
 		_local_goal_obsolete = false;
 		_updating_local_goal = false;
 		_local_goal_updated = true;
-		_pursuing_local_goal = true;
 		determineNextNodeInPath();
 		ROS_INFO_STREAM("Current goal node set to " << _current_goal_node);
 	}
@@ -760,6 +762,17 @@ void GraphConstructor::publishExplorationGoalObsolete(bool obsolete) {
 							|| _local_goal_obsolete))
 			|| (_pursuing_global_goal && !_reached_frontier_goal
 					&& _current_goal_node != -1)) {
+		if (obsolete) {
+			ROS_INFO_STREAM("Goal obsolete: set to obsolete");
+		}
+		if (_pursuing_local_goal) {
+			ROS_INFO_STREAM(
+					"Local goal obsolete: best node: " << _node_comparator->getBestNode() << " current goal: " << _current_goal_node << " local obs: " << _local_goal_obsolete ? "true":"false");
+		}
+		if (_pursuing_global_goal) {
+			ROS_INFO_STREAM(
+					"Global goal obsolete: reached frontier: " << _reached_frontier_goal << " current goal: " << _current_goal_node);
+		}
 		msg.goal_obsolete = true;
 	} else {
 		msg.goal_obsolete = false;
@@ -959,7 +972,7 @@ void GraphConstructor::handleCurrentLocalGoalFinished() {
 
 void GraphConstructor::updatedNodeCallback(
 		const rrg_nbv_exploration_msgs::Node::ConstPtr &updated_node) {
-	if(!_local_running){ // discard updated node if local exploration is not running
+	if (!_local_running) { // discard updated node if local exploration is not running
 		return;
 	}
 	if (updated_node->index >= _rrg.node_counter
@@ -1147,6 +1160,8 @@ bool GraphConstructor::requestGoal(
 			res.goal = _rrg.nodes.at(_current_goal_node).position;
 			res.best_yaw = _graph_path_calculator->determineGoalYaw(
 					_current_goal_node, _rrg, _last_robot_pos, !_running);
+			_pursuing_local_goal = true;
+			_pursuing_global_goal = false;
 			_local_goal_updated = false;
 			ROS_INFO_STREAM(
 					"Request goal: local node " << _current_goal_node << " at (" << _rrg.nodes.at(_current_goal_node).position.x << ", " << _rrg.nodes.at(_current_goal_node).position.y << ")");
@@ -1160,6 +1175,7 @@ bool GraphConstructor::requestGoal(
 			res.goal = goal;
 			res.best_yaw = yaw;
 			_pursuing_global_goal = true;
+			_pursuing_local_goal = false;
 			_global_goal_updated = false;
 			_reached_frontier_goal = false;
 			ROS_INFO_STREAM(
