@@ -29,8 +29,8 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 	private_nh.param("samples_per_loop", _samples_per_loop, 10);
 	private_nh.param("global_exploration_active", _global_exploration_active,
 			true);
-	private_nh.param("add_initialization_node", _add_initialization_node,
-			false);
+	private_nh.param("initialization_node_distance",
+			_initialization_node_distance, 0.0);
 	private_nh.param("measure_algorithm_runtime", _measure_algorithm_runtime,
 			false);
 
@@ -99,20 +99,20 @@ void GraphConstructor::initExploration(const geometry_msgs::Pose &seed) {
 	_updating_global_goal = false;
 	initLocalGraph(seed.position);
 	resetHelperClasses();
-	if (_add_initialization_node) {
+	if (_initialization_node_distance > 0) {
 		ROS_INFO_STREAM("Add initialization node");
 		rrg_nbv_exploration_msgs::Node init_node;
 		init_node.index = 1;
 		init_node.position = seed.position;
 		init_node.position.z = _sensor_height;
-		//add node 2m in front of the robot's heading
+		//add node in front of the robot's heading
 		tf2::Quaternion q(seed.orientation.x, seed.orientation.y,
 				seed.orientation.z, seed.orientation.w);
 		tf2::Matrix3x3 m(q);
 		double roll, pitch, yaw;
 		m.getRPY(roll, pitch, yaw);
-		init_node.position.x += cos(yaw) * 2.0;
-		init_node.position.y += sin(yaw) * 2.0;
+		init_node.position.x += cos(yaw) * _initialization_node_distance;
+		init_node.position.y += sin(yaw) * _initialization_node_distance;
 		init_node.status = rrg_nbv_exploration_msgs::Node::INITIAL;
 		init_node.gain = -1;
 		init_node.reward_function = 0;
@@ -138,7 +138,7 @@ void GraphConstructor::initExploration(const geometry_msgs::Pose &seed) {
 		_rrg.nodes.front().edges.push_back(0);
 		_rrg.nodes.front().edge_counter++;
 		_nodes_to_update.push_back(1);
-		_add_initialization_node = false; //only add for first local graph
+		_initialization_node_distance = 0.0; //only add for first local graph
 	}
 	if (_global_exploration_active) {
 		_global_graph_handler->initialize(_rrg.nodes.at(0),

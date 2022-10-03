@@ -42,7 +42,7 @@
 	<arg name="global_exploration_active" default="true" />
 	<arg name="measure_algorithm_runtime" default="false" />
 	<arg name="add_inter_nodes" default="false" />
-	<arg name="add_initialization_node" default="false" />
+	<arg name="initialization_node_distance" default="0.0" />
 
 	<node pkg="rrg_nbv_exploration" type="rneNode" name="rneNode" output="screen" >
 		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
@@ -75,7 +75,7 @@
 		<param name="add_inter_nodes" type="bool" value="$(arg add_inter_nodes)" />		
 		<param name="global_exploration_active" type="bool" value="$(arg global_exploration_active)" />
 		<param name="measure_algorithm_runtime" type="bool" value="$(arg measure_algorithm_runtime)" />
-		<param name="add_initialization_node" type="bool" value="$(arg add_initialization_node)" />							
+		<param name="initialization_node_distance" type="double" value="$(arg initialization_node_distance)" />							
 	</node>
 	
 	<node pkg="rrg_nbv_exploration" type="gainCalcNode" name="gainCalcNode"

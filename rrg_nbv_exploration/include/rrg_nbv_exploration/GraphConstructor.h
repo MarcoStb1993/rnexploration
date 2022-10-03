@@ -292,9 +292,10 @@ private:
 	 */
 	bool _global_exploration_active;
 	/**
-	 * @brief If a initialization node should be added without traversability check
+	 * @brief The distance of an initialization node added without traversability check at the given
+	 * distance in front of the robot (no node if = 0)
 	 */
-	bool _add_initialization_node;
+	double _initialization_node_distance;
 	/**
 	 * @brief Measure the total time the algorithm is running since the current exploration started
 	 */
