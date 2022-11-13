@@ -239,7 +239,7 @@ void GraphConstructor::runExploration() {
 							_robot_pose.position)) { // frontier reached
 				geometry_msgs::Point frontier;
 				std::vector<int> connected_paths =
-						_global_graph_handler->frontierReached(frontier);
+						_global_graph_handler->targetReached(frontier);
 				if (connected_paths.empty()) { // reached frontier must be origin, auto homing is active->exploration finished
 					ROS_INFO_STREAM("Exploration finished");
 					_running = false;
@@ -1241,7 +1241,7 @@ bool GraphConstructor::updateCurrentGoal(
 					_rrg.node_counter = -1; // for evaluation purposes
 					stopExploration();
 				}
-				if (_global_graph_handler->frontierFailed()) {
+				if (_global_graph_handler->targetFailed()) {
 					ROS_INFO_STREAM("Exploration finished");
 					_running = false;
 				}

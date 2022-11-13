@@ -18,8 +18,8 @@ find_package(catkin REQUIRED COMPONENTS
    Edge.msg
    ExplorationGoalObsolete.msg
    NodeToUpdate.msg
-   GlobalPath.msg
-   GlobalFrontier.msg
+   GlobalConnection.msg
+   GlobalTarget.msg
    GlobalGraph.msg
    )
    

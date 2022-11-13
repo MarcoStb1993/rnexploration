@@ -1,29 +1,29 @@
 #include "ros/ros.h"
-#include "rrg_nbv_exploration_msgs/GlobalPath.h"
+#include "rrg_nbv_exploration_msgs/GlobalConnection.h"
 
 #include <rrg_nbv_exploration/nanoflann.hpp>
 
 /**
- * @brief The GlobalPathWaypointSearcher class provides functionality for constructing a KD tree and executing
- * nearest neighbor search as well as radius search in the waypoints of a global path. It always treats
+ * @brief The GlobalGraphWaypointSearcher class provides functionality for constructing a KD tree and executing
+ * nearest neighbor search as well as radius search in the waypoints of a global connection. It always treats
  * all waypoints as if they were on the same height (z=0)
  */
-class GlobalPathWaypointSearcher {
+class GlobalGraphWaypointSearcher {
 public:
 	/**
 	 * @brief Constructor that initializes the KDTreeSingleIndexAdaptor
 	 */
-	GlobalPathWaypointSearcher();
+	GlobalGraphWaypointSearcher();
 	/**
 	 * @brief Initializes the kd-tree index and update the tree
-	 * @param Global path with waypoints that act as nodes for the kd tree
+	 * @param Global connection with waypoints that act as nodes for the kd tree
 	 */
-	void initialize(rrg_nbv_exploration_msgs::GlobalPath &path);
+	void initialize(rrg_nbv_exploration_msgs::GlobalConnection &connection);
 	/**
 	 * @brief Rebuilds the kd-tree if necessary
-	 * @param Global path with waypoints that act as nodes for the kd tree
+	 * @param Global connection with waypoints that act as nodes for the kd tree
 	 */
-	void rebuildIndex(rrg_nbv_exploration_msgs::GlobalPath &path);
+	void rebuildIndex(rrg_nbv_exploration_msgs::GlobalConnection &connection);
 	/**
 	 * @brief Find the nearest neighbor in the current kd-tree to the point given as parameter
 	 * @param 3D point
@@ -45,20 +45,20 @@ public:
 
 private:
 	/**
-	 * @brief The path_adaptor struct serves as an adaptor for nanoflann, using the waypoints in a global path
+	 * @brief The connection_adaptor struct serves as an adaptor for nanoflann, using the waypoints in a global connection
 	 */
-	struct path_adaptor {
-		rrg_nbv_exploration_msgs::GlobalPath path;
+	struct connection_adaptor {
+		rrg_nbv_exploration_msgs::GlobalConnection connection;
 		inline size_t kdtree_get_point_count() const {
-			return path.waypoints.size();
+			return connection.waypoints.size();
 		}
 		inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
 			if (dim == 0)
-				return path.waypoints[idx].x;
+				return connection.waypoints[idx].x;
 			else if (dim == 1)
-				return path.waypoints[idx].y;
+				return connection.waypoints[idx].y;
 			else
-				return 0; //path.waypoints[idx].z;
+				return 0; //connection.waypoints[idx].z;
 		}
 		template<class BBOX>
 		bool kdtree_get_bbox(BBOX& /* bb */) const {
@@ -66,7 +66,7 @@ private:
 		}
 	};
 	typedef nanoflann::KDTreeSingleIndexAdaptor<
-			nanoflann::L2_Simple_Adaptor<double, path_adaptor>, path_adaptor, 3> path_kd_tree_adaptor;
-	path_adaptor _path_kd_adaptor;
-	path_kd_tree_adaptor _path_kd_tree_index;
+			nanoflann::L2_Simple_Adaptor<double, connection_adaptor>, connection_adaptor, 3> connection_kd_tree_adaptor;
+	connection_adaptor _connection_kd_adaptor;
+	connection_kd_tree_adaptor _connection_kd_tree_index;
 };

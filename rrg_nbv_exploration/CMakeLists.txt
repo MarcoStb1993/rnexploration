@@ -50,7 +50,7 @@ add_executable(rneNode src/RneNode.cpp
 				src/NodeComparator.cpp
 				src/GlobalGraphHandler.cpp
 				src/GlobalGraphSearcher.cpp
-				src/GlobalPathWaypointSearcher.cpp)
+				src/GlobalGraphWaypointSearcher.cpp)
 add_executable(gainCalcNode src/GainCalcNode.cpp
 				src/GainCalculator.cpp)
 add_executable(rneVisualizationNode src/RneVisualizationNode.cpp

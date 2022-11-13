@@ -27,7 +27,7 @@ RneVisualizer::RneVisualizer() {
 			visualization_msgs::MarkerArray>("globalgraph_vis_info", 10);
 	_info_interval = 1.0;
 	_last_rrg_node_count = 0;
-	_last_gg_frontier_count = 0;
+	_last_gg_target_count = 0;
 }
 
 RneVisualizer::~RneVisualizer() {
@@ -208,19 +208,19 @@ std_msgs::ColorRGBA RneVisualizer::getColor(
 }
 
 void RneVisualizer::initializeGgVisualization(
-		visualization_msgs::Marker &frontier_points,
+		visualization_msgs::Marker &target_points,
 		visualization_msgs::Marker &path_lines) {
-	frontier_points.header.frame_id = "map";
-	frontier_points.ns = "globalgraph_vis";
-	frontier_points.id = 0;
-	frontier_points.action = visualization_msgs::Marker::ADD;
-	frontier_points.pose.orientation.w = 1.0;
-	frontier_points.type = visualization_msgs::Marker::CUBE_LIST;
-	frontier_points.scale.x = _robot_radius * 0.2f;
-	frontier_points.scale.y = _robot_radius * 0.2f;
-	frontier_points.scale.z = _robot_radius * 0.2f;
-	frontier_points.color.g = 1.0f;
-	frontier_points.color.a = 1.0f;
+	target_points.header.frame_id = "map";
+	target_points.ns = "globalgraph_vis";
+	target_points.id = 0;
+	target_points.action = visualization_msgs::Marker::ADD;
+	target_points.pose.orientation.w = 1.0;
+	target_points.type = visualization_msgs::Marker::CUBE_LIST;
+	target_points.scale.x = _robot_radius * 0.2f;
+	target_points.scale.y = _robot_radius * 0.2f;
+	target_points.scale.z = _robot_radius * 0.2f;
+	target_points.color.g = 1.0f;
+	target_points.color.a = 1.0f;
 	path_lines.header.frame_id = "map";
 	path_lines.ns = "globalgraph_vis";
 	path_lines.id = 1;
@@ -236,91 +236,91 @@ void RneVisualizer::visualizeGgGraph(
 		const rrg_nbv_exploration_msgs::GlobalGraph::ConstPtr &gg) {
 	if (_gg_visualization_pub.getNumSubscribers() > 0) {
 		bool clear_info_texts = false;
-		bool clear_global_paths = false;
+		bool clear_global_connections = false;
 		bool publishInfo = _gg_text_info_visualization_pub.getNumSubscribers()
 				> 0
 				&& (ros::Time::now() - _last_gg_info_publish).toSec()
 						>= _info_interval;
-		visualization_msgs::Marker frontier_points;
+		visualization_msgs::Marker target_points;
 		visualization_msgs::Marker path_lines;
-		visualization_msgs::MarkerArray frontier_info_texts;
-		initializeGgVisualization(frontier_points, path_lines);
-		for (int i = 0; i < gg->frontiers_counter; i++) {
-			if (!gg->frontiers[i].inactive) {
-				frontier_points.points.push_back(gg->frontiers[i].viewpoint);
-				frontier_points.colors.push_back(
-						getFrontierColor(gg->frontiers[i].index));
+		visualization_msgs::MarkerArray target_info_texts;
+		initializeGgVisualization(target_points, path_lines);
+		for (int i = 0; i < gg->targets_counter; i++) {
+			if (!gg->targets[i].inactive) {
+				target_points.points.push_back(gg->targets[i].viewpoint);
+				target_points.colors.push_back(
+						getFrontierColor(gg->targets[i].index));
 				if (publishInfo)
-					addGgInfoTextVisualization(frontier_info_texts, i, gg);
+					addGgInfoTextVisualization(target_info_texts, i, gg);
 			} else
 				clear_info_texts = true;
 		}
-		for (int i = 0; i < gg->paths_counter; i++) {
-			if (!gg->paths[i].inactive) {
-				for (auto j = 0; j < gg->paths[i].waypoints.size() - 1; j++) {
-					path_lines.points.push_back(gg->paths[i].waypoints[j]);
+		for (int i = 0; i < gg->connections_counter; i++) {
+			if (!gg->connections[i].inactive) {
+				for (auto j = 0; j < gg->connections[i].waypoints.size() - 1; j++) {
+					path_lines.points.push_back(gg->connections[i].waypoints[j]);
 					path_lines.colors.push_back(
-							getFrontierColor(gg->paths[i].frontier));
-					path_lines.points.push_back(gg->paths[i].waypoints[j + 1]);
+							getFrontierColor(gg->connections[i].first_target));
+					path_lines.points.push_back(gg->connections[i].waypoints[j + 1]);
 					path_lines.colors.push_back(
-							getFrontierColor(gg->paths[i].frontier));
+							getFrontierColor(gg->connections[i].first_target));
 				}
 			} else {
-				clear_global_paths = true;
+				clear_global_connections = true;
 			}
 		}
-		if (clear_global_paths)
+		if (clear_global_connections)
 			clearGlobalPaths();
-		_gg_visualization_pub.publish(frontier_points);
+		_gg_visualization_pub.publish(target_points);
 		_gg_visualization_pub.publish(path_lines);
 		if (publishInfo) {
 			if (clear_info_texts
-					|| gg->frontiers_counter < _last_gg_frontier_count) { //graph normally only grows
+					|| gg->targets_counter < _last_gg_target_count) { //graph normally only grows
 				clearGgInfoText();
 			}
-			_gg_text_info_visualization_pub.publish(frontier_info_texts);
+			_gg_text_info_visualization_pub.publish(target_info_texts);
 			_last_gg_info_publish = ros::Time::now();
 		}
 	}
 }
 
 void RneVisualizer::addGgInfoTextVisualization(
-		visualization_msgs::MarkerArray &frontier_info_texts, int frontier,
+		visualization_msgs::MarkerArray &target_info_texts, int target,
 		const rrg_nbv_exploration_msgs::GlobalGraph::ConstPtr &gg) {
-	visualization_msgs::Marker frontier_info_text;
-	frontier_info_text.header.frame_id = "map";
-	frontier_info_text.ns = "globalgraph_vis_info";
-	frontier_info_text.id = frontier;
-	frontier_info_text.action = visualization_msgs::Marker::ADD;
-	frontier_info_text.pose.orientation.w = 1.0;
-	frontier_info_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-	frontier_info_text.scale.z = 0.5f;
-	frontier_info_text.color.r = 1.0f;
-	frontier_info_text.color.g = 1.0f;
-	frontier_info_text.color.b = 1.0f;
-	frontier_info_text.color.a = 1.0f;
-	frontier_info_text.pose.position.x = gg->frontiers[frontier].viewpoint.x;
-	frontier_info_text.pose.position.y = gg->frontiers[frontier].viewpoint.y;
-	frontier_info_text.pose.position.z = gg->frontiers[frontier].viewpoint.z
+	visualization_msgs::Marker target_info_text;
+	target_info_text.header.frame_id = "map";
+	target_info_text.ns = "globalgraph_vis_info";
+	target_info_text.id = target;
+	target_info_text.action = visualization_msgs::Marker::ADD;
+	target_info_text.pose.orientation.w = 1.0;
+	target_info_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+	target_info_text.scale.z = 0.5f;
+	target_info_text.color.r = 1.0f;
+	target_info_text.color.g = 1.0f;
+	target_info_text.color.b = 1.0f;
+	target_info_text.color.a = 1.0f;
+	target_info_text.pose.position.x = gg->targets[target].viewpoint.x;
+	target_info_text.pose.position.y = gg->targets[target].viewpoint.y;
+	target_info_text.pose.position.z = gg->targets[target].viewpoint.z
 			+ 0.5;
 	std::ostringstream oss;
-	if (gg->frontiers[frontier].merged_distance > 0)
-		oss << "{" << frontier << "}";
+	if (gg->targets[target].merged_distance > 0)
+		oss << "{" << target << "}";
 	else
-		oss << "[" << frontier << "]";
-	frontier_info_text.text = oss.str();
-	frontier_info_texts.markers.push_back(frontier_info_text);
+		oss << "[" << target << "]";
+	target_info_text.text = oss.str();
+	target_info_texts.markers.push_back(target_info_text);
 }
 
 void RneVisualizer::clearGgInfoText() {
-	visualization_msgs::Marker frontier_info_text;
-	frontier_info_text.header.frame_id = "map";
-	frontier_info_text.ns = "globalgraph_vis_info";
-	frontier_info_text.id = 0;
-	frontier_info_text.action = visualization_msgs::Marker::DELETEALL;
-	visualization_msgs::MarkerArray frontier_info_texts;
-	frontier_info_texts.markers.push_back(frontier_info_text);
-	_gg_text_info_visualization_pub.publish(frontier_info_texts);
+	visualization_msgs::Marker target_info_text;
+	target_info_text.header.frame_id = "map";
+	target_info_text.ns = "globalgraph_vis_info";
+	target_info_text.id = 0;
+	target_info_text.action = visualization_msgs::Marker::DELETEALL;
+	visualization_msgs::MarkerArray target_info_texts;
+	target_info_texts.markers.push_back(target_info_text);
+	_gg_text_info_visualization_pub.publish(target_info_texts);
 }
 
 void RneVisualizer::clearGlobalPaths() {
@@ -332,21 +332,21 @@ void RneVisualizer::clearGlobalPaths() {
 	_gg_visualization_pub.publish(path_lines);
 }
 
-std_msgs::ColorRGBA RneVisualizer::getFrontierColor(int frontier) {
+std_msgs::ColorRGBA RneVisualizer::getFrontierColor(int target) {
 	std_msgs::ColorRGBA color;
 	color.r = 0.0f;
 	color.g = 0.0f;
 	color.b = 0.0f;
 	color.a = 1.0f;
-	if (frontier == 0) { //origin
+	if (target == 0) { //origin
 		color.r = 1.0f;
 		color.g = 0.6f;
-	} else if (frontier == -1) { //local graph
+	} else if (target == -1) { //local graph
 		color.r = 1.0f;
 		color.g = 1.0f;
 	} else {
-		frontier = frontier % 10;
-		switch (frontier) {
+		target = target % 10;
+		switch (target) {
 		case 0: //red
 			color.r = 0.898f;
 			color.g = 0.098f;

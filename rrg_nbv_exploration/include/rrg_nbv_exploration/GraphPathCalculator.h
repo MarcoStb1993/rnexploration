@@ -150,7 +150,7 @@ public:
 
 	/**
 	 * @brief Adds a path along the given waypoints to the provided navigation path (waypoints start at
-	 * the frontier and end at the connected node)
+	 * the target and end at the connected node)
 	 * @param Reference to a path to add waypoints to
 	 * @param Reference to the waypoints to add
 	 * @Reference to the robot's position
@@ -161,23 +161,23 @@ public:
 			geometry_msgs::Point &robot_pos, int closest_waypoint);
 
 	/**
-	 * @brief Find the shortest route between a given frontier's connecting node in the RRG and the
-	 * connecting nodes of the given frontier's the former frontier lacks a global path to using
+	 * @brief Find the shortest route between a given target's connecting node in the RRG and the
+	 * connecting nodes of the given target's the former target lacks a global path to using
 	 * Dijkstra's algorithm
 	 * @param Reference to the RRG
-	 * @param Index of the start node in the RRG which is the connecting node of a frontier in the global
+	 * @param Index of the start node in the RRG which is the connecting node of a target in the global
 	 * graph
-	 * @param Reference to the list of frontiers to which a global path is missing from the given frontier
-	 * (frontier index=first, connecting node index=second)
-	 * @param Reference to the list of paths in the RRG that will connect the given frontier
-	 * to the missing frontiers which will be populated in this method
+	 * @param Reference to the list of targets to which a global path is missing from the given target
+	 * (target index=first, connecting node index=second)
+	 * @param Reference to the list of paths in the RRG that will connect the given target
+	 * to the missing targets which will be populated in this method
 	 * @param Maximum path length threshold above which any path is discarded because there exists a path
-	 * between the given frontier and all missing frontiers with this length or less
-	 * @return Map of frontier indices (first) and corresponding local path index (second)
+	 * between the given target and all missing targets with this length or less
+	 * @return Map of target indices (first) and corresponding local path index (second)
 	 */
 	std::map<int, int> findShortestRoutes(rrg_nbv_exploration_msgs::Graph &rrg,
-			int frontier_connecting_node,
-			std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
+			int target_connecting_node,
+			std::vector<std::pair<int, int>> &missing_targets_with_connecting_node,
 			std::vector<ShortestFrontierConnectionStruct> &local_paths,
 			double max_distance_threshold);
 
@@ -219,13 +219,13 @@ private:
 
 	/**
 	 * @brief Structure to store a RRG node index together with the path to a node connecting to a
-	 * global frontier and the path's length, also stores if the node is active or was pruned from
+	 * global target and the path's length, also stores if the node is active or was pruned from
 	 * the RRG
 	 */
 	struct LocalNode {
 		int node;
 		bool inactive;
-		std::vector<int> path_to_frontier;
+		std::vector<int> path_to_target;
 		double path_length;
 
 		LocalNode(int n, bool i) {
@@ -379,20 +379,20 @@ private:
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Extract the local paths from the frontier's connecting node to the missing frontiers'
-	 * connecting nodes and return a map which local path index belongs to which frontier(s)
-	 * @param Index of the node connected to the frontier
+	 * @brief Extract the local paths from the target's connecting node to the missing targets'
+	 * connecting nodes and return a map which local path index belongs to which target(s)
+	 * @param Index of the node connected to the target
 	 * @param Reference to the list of local nodes with paths and path lengths to the connecting node
-	 * @param Reference to the list of paths in the RRG that will connect the given frontier
-	 * to the missing frontiers which will be populated in this method
-	 * @param Reference to the list of frontiers to which a global path is missing from the given frontier
-	 * (frontier index=first, connecting node index=second)
-	 * @return Map of frontier indices (first) and corresponding local path index (second)
+	 * @param Reference to the list of paths in the RRG that will connect the given target
+	 * to the missing targets which will be populated in this method
+	 * @param Reference to the list of targets to which a global path is missing from the given target
+	 * (target index=first, connecting node index=second)
+	 * @return Map of target indices (first) and corresponding local path index (second)
 	 */
-	std::map<int, int> extractLocalPaths(int frontier_connecting_node,
+	std::map<int, int> extractLocalPaths(int target_connecting_node,
 			std::vector<LocalNode> &local_nodes,
 			std::vector<ShortestFrontierConnectionStruct> &local_paths,
-			std::vector<std::pair<int, int> > &missing_frontiers_with_connecting_node);
+			std::vector<std::pair<int, int> > &missing_targets_with_connecting_node);
 
 	/**
 	 * @brief Add the given node index to the node queue if it is not already present, replace it if

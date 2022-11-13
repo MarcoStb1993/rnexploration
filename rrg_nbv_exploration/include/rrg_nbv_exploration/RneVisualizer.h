@@ -51,7 +51,7 @@ private:
 	/**
 	 * Frontier count in the GG
 	 */
-	int _last_gg_frontier_count;
+	int _last_gg_target_count;
 	/**
 	 * Radius that includes robot's footprint in m
 	 */
@@ -114,20 +114,20 @@ private:
 
 	/**
 	 * @brief Initializes the message for topic "globalgraph_vis"
-	 * @param Message for frontier points
+	 * @param Message for target points
 	 * @param Message for the path lines
 	 */
-	void initializeGgVisualization(visualization_msgs::Marker &frontier_points,
+	void initializeGgVisualization(visualization_msgs::Marker &target_points,
 			visualization_msgs::Marker &path_lines);
 
 	/**
-	 * @brief Adds info text for each frontier to the visualization consisting of it's number
+	 * @brief Adds info text for each target to the visualization consisting of it's number
 	 * @param Reference to message to populate with info text
-	 * @param Index of the frontier in the GG
+	 * @param Index of the target in the GG
 	 * @param Reference to the GG
 	 */
 	void addGgInfoTextVisualization(
-			visualization_msgs::MarkerArray &frontier_info_texts, int frontiert,
+			visualization_msgs::MarkerArray &target_info_texts, int targett,
 			const rrg_nbv_exploration_msgs::GlobalGraph::ConstPtr &gg);
 
 	/**
@@ -141,9 +141,9 @@ private:
 	void clearGlobalPaths();
 
 	/**
-	 * @brief Return the color for the given frontier based on 10 different color values
-	 * @param Index of frontier to determine color for
+	 * @brief Return the color for the given target based on 10 different color values
+	 * @param Index of target to determine color for
 	 */
-	std_msgs::ColorRGBA getFrontierColor(int frontier);
+	std_msgs::ColorRGBA getFrontierColor(int target);
 };
 }

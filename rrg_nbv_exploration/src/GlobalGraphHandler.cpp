@@ -15,7 +15,7 @@ GlobalGraphHandler::GlobalGraphHandler() {
 	private_nh.param("inflation_active", _inflation_active, true);
 	private_nh.param("robot_radius", _robot_radius, 1.0);
 	private_nh.param("robot_width", _robot_width, 1.0);
-	_half_path_box_distance_thres = sqrt(
+	_half_connection_box_distance_thres = sqrt(
 			pow(_robot_radius, 2) - pow(_robot_width / 2, 2));
 	double max_edge_distance;
 	double min_edge_distance;
@@ -33,46 +33,46 @@ GlobalGraphHandler::GlobalGraphHandler() {
 	_local_graph_radius = std::max(_local_graph_radius, 2 * _robot_radius); // cannot fall below the robot diameter
 
 	_global_graph_searcher.reset(new GlobalGraphSearcher());
-	_global_path_waypoint_searcher.reset(new GlobalPathWaypointSearcher());
+	_global_connection_waypoint_searcher.reset(new GlobalGraphWaypointSearcher());
 }
 
 GlobalGraphHandler::~GlobalGraphHandler() {
 }
 
 void GlobalGraphHandler::initialize(rrg_nbv_exploration_msgs::Node &root,
-		std::shared_ptr<GraphPathCalculator> graph_path_calculator,
+		std::shared_ptr<GraphPathCalculator> graph_connection_calculator,
 		std::shared_ptr<GraphSearcher> graph_searcher,
 		std::shared_ptr<CollisionChecker> collision_checker) {
-	_gg.frontiers.clear();
-	_gg.paths.clear();
-	_graph_path_calculator = std::move(graph_path_calculator);
+	_gg.targets.clear();
+	_gg.connections.clear();
+	_graph_connection_calculator = std::move(graph_connection_calculator);
 	_graph_searcher = std::move(graph_searcher);
 	_collision_checker = std::move(collision_checker);
 	_gg.header.frame_id = "map";
 	_gg.ns = "globalgraph";
-	_gg.frontiers_counter = 0;
-	_gg.paths_counter = 0;
-	rrg_nbv_exploration_msgs::GlobalFrontier frontier;
-	frontier.index = _gg.frontiers_counter++;
-	frontier.viewpoint = root.position;
-	rrg_nbv_exploration_msgs::GlobalPath path;
-	path.index = _gg.paths_counter++;
-	path.frontier = rrg_nbv_exploration_msgs::GlobalPath::ORIGIN;
-	path.connection = rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH;
-	path.connecting_node = root.index;
-	path.waypoints.push_back(root.position);
-	path.length = 0;
-	frontier.paths.push_back(path.index);
-	frontier.paths_counter++;
-	_gg.frontiers.push_back(frontier);
-	_gg.paths.push_back(path);
-	root.connected_to.push_back(path.index);
-	_available_frontiers.clear();
-	_available_paths.clear();
+	_gg.targets_counter = 0;
+	_gg.connections_counter = 0;
+	rrg_nbv_exploration_msgs::GlobalTarget target;
+	target.index = _gg.targets_counter++;
+	target.viewpoint = root.position;
+	rrg_nbv_exploration_msgs::GlobalConnection connection;
+	connection.index = _gg.connections_counter++;
+	connection.first_target = rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN;
+	connection.second_target = rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH;
+	connection.connecting_node = root.index;
+	connection.waypoints.push_back(root.position);
+	connection.length = 0;
+	target.connections.push_back(connection.index);
+	target.connections_counter++;
+	_gg.targets.push_back(target);
+	_gg.connections.push_back(connection);
+	root.connected_to.push_back(connection.index);
+	_available_targets.clear();
+	_available_connections.clear();
 	_global_route.clear();
 	_next_global_goal = -1;
 	_previous_global_goal_failed = -1;
-	_active_paths_closest_waypoint = std::make_pair(-1, -1);
+	_active_connections_closest_waypoint = std::make_pair(-1, -1);
 	_global_graph_searcher->initialize(_gg);
 }
 
@@ -86,7 +86,7 @@ bool GlobalGraphHandler::getConnectingNode(int node,
 		double &length) {
 	if (rrg.nodes.at(node).path_to_robot.size() > 1) {
 		int next_node = rrg.nodes.at(node).path_to_robot.size() - 2;
-		int edge = _graph_path_calculator->findExistingEdge(rrg,
+		int edge = _graph_connection_calculator->findExistingEdge(rrg,
 				rrg.nodes.at(node).path_to_robot.at(next_node + 1),
 				rrg.nodes.at(node).path_to_robot.at(next_node));
 		if (edge >= rrg.edges.size()) {
@@ -104,60 +104,60 @@ bool GlobalGraphHandler::getConnectingNode(int node,
 }
 
 void GlobalGraphHandler::insertFrontierInGg(
-		const rrg_nbv_exploration_msgs::GlobalFrontier &frontier) {
-	if (!_available_frontiers.empty()) {
-		_gg.frontiers.at(*_available_frontiers.begin()) = frontier;
-		_available_frontiers.erase(_available_frontiers.begin());
+		const rrg_nbv_exploration_msgs::GlobalTarget &target) {
+	if (!_available_targets.empty()) {
+		_gg.targets.at(*_available_targets.begin()) = target;
+		_available_targets.erase(_available_targets.begin());
 	} else {
-		_gg.frontiers.push_back(frontier);
-		_gg.frontiers_counter++;
+		_gg.targets.push_back(target);
+		_gg.targets_counter++;
 	}
 }
 
 void GlobalGraphHandler::insertPathInGg(
-		const rrg_nbv_exploration_msgs::GlobalPath &path_between_frontiers) {
-	if (!_available_paths.empty()) {
-		_gg.paths.at(*_available_paths.begin()) = path_between_frontiers;
-		_available_paths.erase(_available_paths.begin());
+		const rrg_nbv_exploration_msgs::GlobalConnection &connection_between_targets) {
+	if (!_available_connections.empty()) {
+		_gg.connections.at(*_available_connections.begin()) = connection_between_targets;
+		_available_connections.erase(_available_connections.begin());
 	} else {
-		_gg.paths.push_back(path_between_frontiers);
-		_gg.paths_counter++;
+		_gg.connections.push_back(connection_between_targets);
+		_gg.connections_counter++;
 	}
 }
 
 void GlobalGraphHandler::addFrontier(int node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	rrg_nbv_exploration_msgs::GlobalFrontier frontier;
-	rrg_nbv_exploration_msgs::GlobalPath path;
-	frontier.index = availableFrontierIndex();
-	frontier.viewpoint = rrg.nodes.at(node).position;
-	frontier.merged_distance = 0.0;
-	path.connection = rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH;
-	path.waypoints.push_back(rrg.nodes.at(node).position);
-	if (!getConnectingNode(node, rrg, path.waypoints, path.connecting_node,
-			path.length)) {
+	rrg_nbv_exploration_msgs::GlobalTarget target;
+	rrg_nbv_exploration_msgs::GlobalConnection connection;
+	target.index = availableFrontierIndex();
+	target.viewpoint = rrg.nodes.at(node).position;
+	target.merged_distance = 0.0;
+	connection.second_target = rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH;
+	connection.waypoints.push_back(rrg.nodes.at(node).position);
+	if (!getConnectingNode(node, rrg, connection.waypoints, connection.connecting_node,
+			connection.length)) {
 		ROS_WARN_STREAM(
-				"Unable to add frontier for node " << node << ", found no connection to the RRG");
+				"Unable to add target for node " << node << ", found no connection to the RRG");
 		return;
 	}
-	if (tryToMergeAddedFrontiers(node, path, rrg, frontier)) { // if new frontier is merged into existing
+	if (tryToMergeAddedFrontiers(node, connection, rrg, target)) { // if new target is merged into existing
 		return;
 	}
-	path.index = availablePathIndex();
-	path.frontier = frontier.index;
-	frontier.paths.push_back(path.index);
-	frontier.paths_counter++;
-	insertFrontierInGg(frontier);
-	insertPathInGg(path);
-	for (auto connected_path : rrg.nodes.at(node).connected_to) { // new frontier is in path of existing frontiers
-		connectFrontiers(frontier.index, _gg.paths.at(connected_path).frontier,
-				path.index, connected_path, true);
+	connection.index = availablePathIndex();
+	connection.first_target = target.index;
+	target.connections.push_back(connection.index);
+	target.connections_counter++;
+	insertFrontierInGg(target);
+	insertPathInGg(connection);
+	for (auto connected_connection : rrg.nodes.at(node).connected_to) { // new target is in connection of existing targets
+		connectFrontiers(target.index, _gg.connections.at(connected_connection).first_target,
+				connection.index, connected_connection, true);
 	}
-	for (auto connected_path : rrg.nodes.at(path.connecting_node).connected_to) { // connecting node is in path of existing frontiers, connect frontiers
-		connectFrontiers(frontier.index, _gg.paths.at(connected_path).frontier,
-				path.index, connected_path, false);
+	for (auto connected_connection : rrg.nodes.at(connection.connecting_node).connected_to) { // connecting node is in connection of existing targets, connect targets
+		connectFrontiers(target.index, _gg.connections.at(connected_connection).first_target,
+				connection.index, connected_connection, false);
 	}
-	rrg.nodes.at(path.connecting_node).connected_to.push_back(path.index);
+	rrg.nodes.at(connection.connecting_node).connected_to.push_back(connection.index);
 	_global_graph_searcher->rebuildIndex(_gg);
 }
 
@@ -169,416 +169,416 @@ void GlobalGraphHandler::continuePath(int node,
 	if (!getConnectingNode(node, rrg, additional_waypoints, connecting_node,
 			length)) {
 		ROS_ERROR_STREAM(
-				"Unable to continue paths at node " << node << ", found no connection to the RRG");
+				"Unable to continue connections at node " << node << ", found no connection to the RRG");
 		return;
 	}
-	std::map<int, int> connecting_node_frontiers; // frontier index (first), path to connected node index (second)
-	for (auto connected_path : rrg.nodes.at(connecting_node).connected_to) { // get list of already present path connections at new connected node in local graph
-		connecting_node_frontiers.insert(
-				{ _gg.paths.at(connected_path).frontier, connected_path });
+	std::map<int, int> connecting_node_targets; // target index (first), connection to connected node index (second)
+	for (auto connected_connection : rrg.nodes.at(connecting_node).connected_to) { // get list of already present connection connections at new connected node in local graph
+		connecting_node_targets.insert(
+				{ _gg.connections.at(connected_connection).first_target, connected_connection });
 	}
-	std::vector<int> connected_paths = rrg.nodes.at(node).connected_to; //create copy because connected paths can be pruned in the for loop
-	for (int path : connected_paths) {
-		if (path < _gg.paths_counter && !_gg.paths.at(path).inactive
-				&& _gg.paths.at(path).connecting_node == node) { //check if the path was not pruned (and replaced)
-			_gg.paths.at(path).waypoints.insert(
-					_gg.paths.at(path).waypoints.end(),
-					additional_waypoints.begin(), additional_waypoints.end()); // add additional waypoints to path
-			_gg.paths.at(path).connecting_node = connecting_node;
-			_gg.paths.at(path).length += length;
-			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.push_back(
-					path);
-			if (connecting_node_frontiers.size() > 0) {
-				int current_frontier = _gg.paths.at(path).frontier; // look for new connections with this frontier
-				std::set<int> new_frontier_connections;	// set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
-				for (auto elem : connecting_node_frontiers) {
-					new_frontier_connections.insert(elem.first);
+	std::vector<int> connected_connections = rrg.nodes.at(node).connected_to; //create copy because connected connections can be pruned in the for loop
+	for (int connection : connected_connections) {
+		if (connection < _gg.connections_counter && !_gg.connections.at(connection).inactive
+				&& _gg.connections.at(connection).connecting_node == node) { //check if the connection was not pruned (and replaced)
+			_gg.connections.at(connection).waypoints.insert(
+					_gg.connections.at(connection).waypoints.end(),
+					additional_waypoints.begin(), additional_waypoints.end()); // add additional waypoints to connection
+			_gg.connections.at(connection).connecting_node = connecting_node;
+			_gg.connections.at(connection).length += length;
+			rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.push_back(
+					connection);
+			if (connecting_node_targets.size() > 0) {
+				int current_target = _gg.connections.at(connection).first_target; // look for new connections with this target
+				std::set<int> new_target_connections;	// set of existing connected targets to the connecting node which will be reduced by the targets already connected to the current target
+				for (auto elem : connecting_node_targets) {
+					new_target_connections.insert(elem.first);
 				}
-				for (auto frontier_path : _gg.frontiers.at(current_frontier).paths) {
-					if (_gg.paths.at(frontier_path).connection
-							!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { // connected to another frontier
-						new_frontier_connections.erase(
-								current_frontier // current frontier can be frontier or connection at connecting path
-								== _gg.paths.at(frontier_path).frontier ?
-										_gg.paths.at(frontier_path).connection :
-										_gg.paths.at(frontier_path).frontier); // remove from new frontiers (if present)
+				for (auto target_connection : _gg.targets.at(current_target).connections) {
+					if (_gg.connections.at(target_connection).second_target
+							!= rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH) { // connected to another target
+						new_target_connections.erase(
+								current_target // current target can be target or connection at connecting connection
+								== _gg.connections.at(target_connection).first_target ?
+										_gg.connections.at(target_connection).second_target :
+										_gg.connections.at(target_connection).first_target); // remove from new targets (if present)
 					}
 				}
-				if (current_frontier
-						!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
-						&& tryToMergeContinuedPaths(current_frontier, path,
-								connecting_node_frontiers,
-								new_frontier_connections, rrg)) //if current frontier was pruned
+				if (current_target
+						!= rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN
+						&& tryToMergeContinuedPaths(current_target, connection,
+								connecting_node_targets,
+								new_target_connections, rrg)) //if current target was pruned
 					continue;
-				for (auto new_frontier_connection : new_frontier_connections) { //remaining missing frontier connections
-					connectFrontiers(current_frontier, new_frontier_connection,
-							path,
-							connecting_node_frontiers.at(
-									new_frontier_connection), false);
+				for (auto new_target_connection : new_target_connections) { //remaining missing target connections
+					connectFrontiers(current_target, new_target_connection,
+							connection,
+							connecting_node_targets.at(
+									new_target_connection), false);
 				}
 			}
 		}
 	}
 }
 
-bool GlobalGraphHandler::tryToMergeContinuedPaths(int current_frontier,
-		int path, std::map<int, int> &connecting_node_frontiers,
-		std::set<int> &new_frontier_connections,
+bool GlobalGraphHandler::tryToMergeContinuedPaths(int current_target,
+		int connection, std::map<int, int> &connecting_node_targets,
+		std::set<int> &new_target_connections,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	bool pruned_current_frontier = false;
-	std::vector<MergeableFrontierStruct> mergeable_frontiers;
-	MergeableFrontierStruct closest_mergeable_unprunable_frontier(-1,
+	bool pruned_current_target = false;
+	std::vector<MergeableFrontierStruct> mergeable_targets;
+	MergeableFrontierStruct closest_mergeable_unprunable_target(-1,
 			std::numeric_limits<double>::infinity(), 0);
-	for (auto new_frontier_connection : new_frontier_connections) { //check if can be merged
-		checkFrontierMergeability(_gg.paths.at(path),
-				connecting_node_frontiers.at(new_frontier_connection),
-				_gg.frontiers.at(current_frontier),
-				closest_mergeable_unprunable_frontier, mergeable_frontiers);
+	for (auto new_target_connection : new_target_connections) { //check if can be merged
+		checkFrontierMergeability(_gg.connections.at(connection),
+				connecting_node_targets.at(new_target_connection),
+				_gg.targets.at(current_target),
+				closest_mergeable_unprunable_target, mergeable_targets);
 	}
-	std::set<int> pruned_frontiers;
-	std::set<int> pruned_paths;
-	if (closest_mergeable_unprunable_frontier.frontier != -1) { //merge this frontier into closest mergeable unprunable frontier
-		_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance =
+	std::set<int> pruned_targets;
+	std::set<int> pruned_connections;
+	if (closest_mergeable_unprunable_target.target != -1) { //merge this target into closest mergeable unprunable target
+		_gg.targets.at(closest_mergeable_unprunable_target.target).merged_distance =
 				std::max(
-						_gg.frontiers.at(current_frontier).merged_distance
-								+ closest_mergeable_unprunable_frontier.distance_between_frontiers,
-						_gg.frontiers.at(
-								closest_mergeable_unprunable_frontier.frontier).merged_distance);
-		addFrontierToBePruned(current_frontier, pruned_frontiers, pruned_paths,
+						_gg.targets.at(current_target).merged_distance
+								+ closest_mergeable_unprunable_target.distance_between_targets,
+						_gg.targets.at(
+								closest_mergeable_unprunable_target.target).merged_distance);
+		addFrontierToBePruned(current_target, pruned_targets, pruned_connections,
 				rrg);
-		pruned_current_frontier = true;
-	} else if (mergeable_frontiers.size()) {
-		int remaining_frontier = current_frontier;
-		double shortest_path_length = _gg.paths.at(path).length;
-		std::set<std::pair<double, int>> merged_distances_to_frontiers; //merged distance to frontier (first) and frontier index (second) ordered by merged distance
-		merged_distances_to_frontiers.insert(
+		pruned_current_target = true;
+	} else if (mergeable_targets.size()) {
+		int remaining_target = current_target;
+		double shortest_connection_length = _gg.connections.at(connection).length;
+		std::set<std::pair<double, int>> merged_distances_to_targets; //merged distance to target (first) and target index (second) ordered by merged distance
+		merged_distances_to_targets.insert(
 				std::make_pair(
-						_gg.frontiers.at(current_frontier).merged_distance,
-						current_frontier));
-		double distance_current_frontier_to_remaining_frontier = 0;
-		for (auto mergeable_frontier : mergeable_frontiers) { // find remaining frontier
-			merged_distances_to_frontiers.insert(
+						_gg.targets.at(current_target).merged_distance,
+						current_target));
+		double distance_current_target_to_remaining_target = 0;
+		for (auto mergeable_target : mergeable_targets) { // find remaining target
+			merged_distances_to_targets.insert(
 					std::make_pair(
-							_gg.frontiers.at(mergeable_frontier.frontier).merged_distance
-									+ mergeable_frontier.distance_between_frontiers,
-							mergeable_frontier.frontier));
-			if (mergeable_frontier.path_length_to_local_graph
-					<= shortest_path_length) {
-				if (remaining_frontier != current_frontier) { // not in graph, cannot be pruned
-					addFrontierToBePruned(remaining_frontier, pruned_frontiers,
-							pruned_paths, rrg);
+							_gg.targets.at(mergeable_target.target).merged_distance
+									+ mergeable_target.distance_between_targets,
+							mergeable_target.target));
+			if (mergeable_target.connection_length_to_local_graph
+					<= shortest_connection_length) {
+				if (remaining_target != current_target) { // not in graph, cannot be pruned
+					addFrontierToBePruned(remaining_target, pruned_targets,
+							pruned_connections, rrg);
 					removeFrontierFromConnectableFrontierList(
-							remaining_frontier, connecting_node_frontiers,
-							new_frontier_connections);
+							remaining_target, connecting_node_targets,
+							new_target_connections);
 				}
-				remaining_frontier = mergeable_frontier.frontier;
-				shortest_path_length =
-						mergeable_frontier.path_length_to_local_graph;
-				distance_current_frontier_to_remaining_frontier =
-						mergeable_frontier.distance_between_frontiers;
+				remaining_target = mergeable_target.target;
+				shortest_connection_length =
+						mergeable_target.connection_length_to_local_graph;
+				distance_current_target_to_remaining_target =
+						mergeable_target.distance_between_targets;
 			} else {
-				addFrontierToBePruned(mergeable_frontier.frontier,
-						pruned_frontiers, pruned_paths, rrg);
+				addFrontierToBePruned(mergeable_target.target,
+						pruned_targets, pruned_connections, rrg);
 				removeFrontierFromConnectableFrontierList(
-						mergeable_frontier.frontier, connecting_node_frontiers,
-						new_frontier_connections);
+						mergeable_target.target, connecting_node_targets,
+						new_target_connections);
 			}
 		}
-		if (remaining_frontier != current_frontier) { // don't add frontier, it was merged into existing
+		if (remaining_target != current_target) { // don't add target, it was merged into existing
 			double max_relevant_merged_distance = 0;
-			if (merged_distances_to_frontiers.rbegin()->second
-					!= remaining_frontier) { //check if max merged distance is not merged distance to remaining frontier, because this would add distance_current_frontier_to_remaining_frontier twice
+			if (merged_distances_to_targets.rbegin()->second
+					!= remaining_target) { //check if max merged distance is not merged distance to remaining target, because this would add distance_current_target_to_remaining_target twice
 				max_relevant_merged_distance =
-						merged_distances_to_frontiers.rbegin()->first
-								+ distance_current_frontier_to_remaining_frontier;
-			} else { //otherwise take second merged distance which is to another frontier
+						merged_distances_to_targets.rbegin()->first
+								+ distance_current_target_to_remaining_target;
+			} else { //otherwise take second merged distance which is to another target
 				max_relevant_merged_distance = std::next(
-						merged_distances_to_frontiers.rbegin())->first
-						+ distance_current_frontier_to_remaining_frontier;
+						merged_distances_to_targets.rbegin())->first
+						+ distance_current_target_to_remaining_target;
 			}
-			if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining frontier and keep the current frontier
-				addFrontierToBePruned(remaining_frontier, pruned_frontiers,
-						pruned_paths, rrg);
-				removeFrontierFromConnectableFrontierList(remaining_frontier,
-						connecting_node_frontiers, new_frontier_connections);
-				_gg.frontiers.at(current_frontier).merged_distance =
-						merged_distances_to_frontiers.rbegin()->first;
-			} else { //merge like all other frontiers were merged into current frontier and then into remaining frontier
-				addFrontierToBePruned(current_frontier, pruned_frontiers,
-						pruned_paths, rrg);
-				_gg.frontiers.at(remaining_frontier).merged_distance = std::max(
+			if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining target and keep the current target
+				addFrontierToBePruned(remaining_target, pruned_targets,
+						pruned_connections, rrg);
+				removeFrontierFromConnectableFrontierList(remaining_target,
+						connecting_node_targets, new_target_connections);
+				_gg.targets.at(current_target).merged_distance =
+						merged_distances_to_targets.rbegin()->first;
+			} else { //merge like all other targets were merged into current target and then into remaining target
+				addFrontierToBePruned(current_target, pruned_targets,
+						pruned_connections, rrg);
+				_gg.targets.at(remaining_target).merged_distance = std::max(
 						max_relevant_merged_distance,
-						_gg.frontiers.at(remaining_frontier).merged_distance);
-				pruned_current_frontier = true;
+						_gg.targets.at(remaining_target).merged_distance);
+				pruned_current_target = true;
 			}
 		} else {
-			_gg.frontiers.at(current_frontier).merged_distance =
-					merged_distances_to_frontiers.rbegin()->first;
+			_gg.targets.at(current_target).merged_distance =
+					merged_distances_to_targets.rbegin()->first;
 		}
 	}
-	if (pruned_frontiers.size() > 0) {
-		handlePrunedFrontiers(pruned_frontiers);
-		handlePrunedPaths(pruned_paths);
+	if (pruned_targets.size() > 0) {
+		handlePrunedFrontiers(pruned_targets);
+		handlePrunedPaths(pruned_connections);
 	}
-	return pruned_current_frontier;
+	return pruned_current_target;
 }
 
-void GlobalGraphHandler::removeFrontierFromConnectableFrontierList(int frontier,
-		std::map<int, int> &connecting_node_frontiers,
-		std::set<int> &new_frontier_connections) {
-	auto it = connecting_node_frontiers.find(frontier);
-	if (it != connecting_node_frontiers.end()) {
-		connecting_node_frontiers.erase(it);
+void GlobalGraphHandler::removeFrontierFromConnectableFrontierList(int target,
+		std::map<int, int> &connecting_node_targets,
+		std::set<int> &new_target_connections) {
+	auto it = connecting_node_targets.find(target);
+	if (it != connecting_node_targets.end()) {
+		connecting_node_targets.erase(it);
 	}
-	new_frontier_connections.erase(frontier);
+	new_target_connections.erase(target);
 }
 
 bool GlobalGraphHandler::tryToMergeAddedFrontiers(int node,
-		rrg_nbv_exploration_msgs::GlobalPath &path,
+		rrg_nbv_exploration_msgs::GlobalConnection &connection,
 		rrg_nbv_exploration_msgs::Graph &rrg,
-		rrg_nbv_exploration_msgs::GlobalFrontier &frontier) {
-	bool pruned_added_frontier = false;
+		rrg_nbv_exploration_msgs::GlobalTarget &target) {
+	bool pruned_added_target = false;
 	if (!rrg.nodes.at(node).connected_to.empty()
-			|| !rrg.nodes.at(path.connecting_node).connected_to.empty()) {
-		std::vector<MergeableFrontierStruct> mergeable_frontiers;
-		MergeableFrontierStruct closest_mergeable_unprunable_frontier(-1,
+			|| !rrg.nodes.at(connection.connecting_node).connected_to.empty()) {
+		std::vector<MergeableFrontierStruct> mergeable_targets;
+		MergeableFrontierStruct closest_mergeable_unprunable_target(-1,
 				std::numeric_limits<double>::infinity(), 0);
-		for (auto connected_path : rrg.nodes.at(node).connected_to) {
-			checkFrontierMergeability(path, connected_path, frontier,
-					closest_mergeable_unprunable_frontier, mergeable_frontiers,
+		for (auto connected_connection : rrg.nodes.at(node).connected_to) {
+			checkFrontierMergeability(connection, connected_connection, target,
+					closest_mergeable_unprunable_target, mergeable_targets,
 					false);
 		}
-		for (auto connected_path : rrg.nodes.at(path.connecting_node).connected_to) {
-			checkFrontierMergeability(path, connected_path, frontier,
-					closest_mergeable_unprunable_frontier, mergeable_frontiers);
+		for (auto connected_connection : rrg.nodes.at(connection.connecting_node).connected_to) {
+			checkFrontierMergeability(connection, connected_connection, target,
+					closest_mergeable_unprunable_target, mergeable_targets);
 		}
-		if (closest_mergeable_unprunable_frontier.frontier != -1) { //merge this frontier into closest mergeable unprunable frontier
-			_gg.frontiers.at(closest_mergeable_unprunable_frontier.frontier).merged_distance =
+		if (closest_mergeable_unprunable_target.target != -1) { //merge this target into closest mergeable unprunable target
+			_gg.targets.at(closest_mergeable_unprunable_target.target).merged_distance =
 					std::max(
-							frontier.merged_distance
-									+ closest_mergeable_unprunable_frontier.distance_between_frontiers,
-							_gg.frontiers.at(
-									closest_mergeable_unprunable_frontier.frontier).merged_distance);
-			pruned_added_frontier = true;
-		} else if (mergeable_frontiers.size()) {
-			std::set<int> pruned_frontiers;
-			std::set<int> pruned_paths;
-			int remaining_frontier = frontier.index;
-			double shortest_path_length = path.length;
-			std::set<std::pair<double, int>> merged_distances_to_frontiers; //merged distance to frontier (first) and frontier index (second) ordered by merged distance
-			merged_distances_to_frontiers.insert(
-					std::make_pair(frontier.merged_distance, frontier.index));
-			double distance_current_frontier_to_remaining_frontier = 0;
-			for (auto mergeable_frontier : mergeable_frontiers) { // find remaining frontier
-				merged_distances_to_frontiers.insert(
+							target.merged_distance
+									+ closest_mergeable_unprunable_target.distance_between_targets,
+							_gg.targets.at(
+									closest_mergeable_unprunable_target.target).merged_distance);
+			pruned_added_target = true;
+		} else if (mergeable_targets.size()) {
+			std::set<int> pruned_targets;
+			std::set<int> pruned_connections;
+			int remaining_target = target.index;
+			double shortest_connection_length = connection.length;
+			std::set<std::pair<double, int>> merged_distances_to_targets; //merged distance to target (first) and target index (second) ordered by merged distance
+			merged_distances_to_targets.insert(
+					std::make_pair(target.merged_distance, target.index));
+			double distance_current_target_to_remaining_target = 0;
+			for (auto mergeable_target : mergeable_targets) { // find remaining target
+				merged_distances_to_targets.insert(
 						std::make_pair(
-								_gg.frontiers.at(mergeable_frontier.frontier).merged_distance
-										+ mergeable_frontier.distance_between_frontiers,
-								mergeable_frontier.frontier));
-				if (mergeable_frontier.path_length_to_local_graph
-						<= shortest_path_length) {
-					if (remaining_frontier != frontier.index) { // not in graph, cannot be pruned
-						addFrontierToBePruned(remaining_frontier,
-								pruned_frontiers, pruned_paths, rrg);
+								_gg.targets.at(mergeable_target.target).merged_distance
+										+ mergeable_target.distance_between_targets,
+								mergeable_target.target));
+				if (mergeable_target.connection_length_to_local_graph
+						<= shortest_connection_length) {
+					if (remaining_target != target.index) { // not in graph, cannot be pruned
+						addFrontierToBePruned(remaining_target,
+								pruned_targets, pruned_connections, rrg);
 					}
-					remaining_frontier = mergeable_frontier.frontier;
-					shortest_path_length =
-							mergeable_frontier.path_length_to_local_graph;
-					distance_current_frontier_to_remaining_frontier =
-							mergeable_frontier.distance_between_frontiers;
+					remaining_target = mergeable_target.target;
+					shortest_connection_length =
+							mergeable_target.connection_length_to_local_graph;
+					distance_current_target_to_remaining_target =
+							mergeable_target.distance_between_targets;
 				} else {
-					addFrontierToBePruned(mergeable_frontier.frontier,
-							pruned_frontiers, pruned_paths, rrg);
+					addFrontierToBePruned(mergeable_target.target,
+							pruned_targets, pruned_connections, rrg);
 				}
 			}
-			if (remaining_frontier != frontier.index) { // don't add frontier, it was merged into existing
+			if (remaining_target != target.index) { // don't add target, it was merged into existing
 				double max_relevant_merged_distance = 0;
-				if (merged_distances_to_frontiers.rbegin()->second
-						== remaining_frontier) { //check if max merged distance is not merged distance to remaining frontier, because this would add distance_current_frontier_to_remaining_frontier twice
+				if (merged_distances_to_targets.rbegin()->second
+						== remaining_target) { //check if max merged distance is not merged distance to remaining target, because this would add distance_current_target_to_remaining_target twice
 					max_relevant_merged_distance =
-							merged_distances_to_frontiers.rbegin()->first
-									+ distance_current_frontier_to_remaining_frontier;
-				} else { //otherwise take second merged distance which is to another frontier
+							merged_distances_to_targets.rbegin()->first
+									+ distance_current_target_to_remaining_target;
+				} else { //otherwise take second merged distance which is to another target
 					max_relevant_merged_distance = std::next(
-							merged_distances_to_frontiers.rbegin())->first
-							+ distance_current_frontier_to_remaining_frontier;
+							merged_distances_to_targets.rbegin())->first
+							+ distance_current_target_to_remaining_target;
 				}
-				if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining frontier and keep the added frontier
-					addFrontierToBePruned(remaining_frontier, pruned_frontiers,
-							pruned_paths, rrg);
-					frontier.merged_distance =
-							merged_distances_to_frontiers.rbegin()->first;
-				} else { //merge like all other frontiers were merged into current frontier and then into remaining frontier
-					_gg.frontiers.at(remaining_frontier).merged_distance =
+				if (max_relevant_merged_distance > _local_graph_radius) { //if new merged distance violates the constraint, prune the remaining target and keep the added target
+					addFrontierToBePruned(remaining_target, pruned_targets,
+							pruned_connections, rrg);
+					target.merged_distance =
+							merged_distances_to_targets.rbegin()->first;
+				} else { //merge like all other targets were merged into current target and then into remaining target
+					_gg.targets.at(remaining_target).merged_distance =
 							std::max(max_relevant_merged_distance,
-									_gg.frontiers.at(remaining_frontier).merged_distance);
-					pruned_added_frontier = true;
+									_gg.targets.at(remaining_target).merged_distance);
+					pruned_added_target = true;
 				}
 			} else {
-				frontier.merged_distance =
-						merged_distances_to_frontiers.rbegin()->first;
+				target.merged_distance =
+						merged_distances_to_targets.rbegin()->first;
 			}
-			if (pruned_frontiers.size() > 0) {
-				handlePrunedFrontiers(pruned_frontiers);
-				handlePrunedPaths(pruned_paths);
+			if (pruned_targets.size() > 0) {
+				handlePrunedFrontiers(pruned_targets);
+				handlePrunedPaths(pruned_connections);
 			}
-			if (!pruned_added_frontier) {
-				frontier.index = availableFrontierIndex();
+			if (!pruned_added_target) {
+				target.index = availableFrontierIndex();
 			}
 		}
 	}
-	return pruned_added_frontier;
+	return pruned_added_target;
 }
 
 void GlobalGraphHandler::checkFrontierMergeability(
-		rrg_nbv_exploration_msgs::GlobalPath &path_one, int path_two,
-		rrg_nbv_exploration_msgs::GlobalFrontier &frontier_one,
-		MergeableFrontierStruct &closest_mergeable_unprunable_frontier,
-		std::vector<MergeableFrontierStruct> &mergeable_frontiers,
-		double add_path_one_length) {
-	double combined_length = _gg.paths.at(path_two).length
-			+ (add_path_one_length ? path_one.length : 0);
-	double distance = _graph_path_calculator->distance2d(frontier_one.viewpoint,
-			_gg.frontiers.at(_gg.paths.at(path_two).frontier).viewpoint);
-	if (_gg.paths.at(path_two).frontier
-			!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN
+		rrg_nbv_exploration_msgs::GlobalConnection &connection_one, int connection_two,
+		rrg_nbv_exploration_msgs::GlobalTarget &target_one,
+		MergeableFrontierStruct &closest_mergeable_unprunable_target,
+		std::vector<MergeableFrontierStruct> &mergeable_targets,
+		double add_connection_one_length) {
+	double combined_length = _gg.connections.at(connection_two).length
+			+ (add_connection_one_length ? connection_one.length : 0);
+	double distance = _graph_connection_calculator->distance2d(target_one.viewpoint,
+			_gg.targets.at(_gg.connections.at(connection_two).first_target).viewpoint);
+	if (_gg.connections.at(connection_two).first_target
+			!= rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN
 			&& combined_length <= 2 * _local_graph_radius
 			&& distance <= _local_graph_radius) {
-		double frontier_one_new_merged_distance = frontier_one.merged_distance
+		double target_one_new_merged_distance = target_one.merged_distance
 				+ distance;
-		double frontier_two_new_merged_distance = _gg.frontiers.at(
-				_gg.paths.at(path_two).frontier).merged_distance + distance;
-		if (frontier_one_new_merged_distance <= _local_graph_radius
-				|| frontier_two_new_merged_distance <= _local_graph_radius) {
-			if (frontier_two_new_merged_distance > _local_graph_radius) { //frontier one won't have the frontiers merged into frontier two in its local graph radius, therefore frontier two is unpruneable
+		double target_two_new_merged_distance = _gg.targets.at(
+				_gg.connections.at(connection_two).first_target).merged_distance + distance;
+		if (target_one_new_merged_distance <= _local_graph_radius
+				|| target_two_new_merged_distance <= _local_graph_radius) {
+			if (target_two_new_merged_distance > _local_graph_radius) { //target one won't have the targets merged into target two in its local graph radius, therefore target two is unpruneable
 				if (combined_length
-						< closest_mergeable_unprunable_frontier.path_length_to_local_graph) {
-					closest_mergeable_unprunable_frontier =
+						< closest_mergeable_unprunable_target.connection_length_to_local_graph) {
+					closest_mergeable_unprunable_target =
 							MergeableFrontierStruct(
-									_gg.paths.at(path_two).frontier,
-									_gg.paths.at(path_two).length, distance);
+									_gg.connections.at(connection_two).first_target,
+									_gg.connections.at(connection_two).length, distance);
 				}
 			} else {
-				mergeable_frontiers.emplace_back(
-						_gg.paths.at(path_two).frontier,
-						_gg.paths.at(path_two).length, distance);
+				mergeable_targets.emplace_back(
+						_gg.connections.at(connection_two).first_target,
+						_gg.connections.at(connection_two).length, distance);
 			}
 		}
 	}
 }
 
-void GlobalGraphHandler::connectFrontiers(int frontier_one, int frontier_two,
-		int path_one, int path_two, bool connection_at_frontier) {
-	int frontier;
+void GlobalGraphHandler::connectFrontiers(int target_one, int target_two,
+		int connection_one, int connection_two, bool connection_at_target) {
+	int target;
 	int connection;
-	int frontier_path;
-	int connection_path;
-	bool skip_frontier_path = false;
-	bool skip_connection_path = false;
-	if (frontier_one > frontier_two) { // higher index frontier is always frontier, the other one connection, path always starts at frontier
-		frontier = frontier_one;
-		connection = frontier_two;
-		frontier_path = path_one;
-		connection_path = path_two;
-		if (connection_at_frontier)
-			skip_frontier_path = true;
+	int target_connection;
+	int connection_connection;
+	bool skip_target_connection = false;
+	bool skip_connection_connection = false;
+	if (target_one > target_two) { // higher index target is always target, the other one connection, connection always starts at target
+		target = target_one;
+		connection = target_two;
+		target_connection = connection_one;
+		connection_connection = connection_two;
+		if (connection_at_target)
+			skip_target_connection = true;
 	} else {
-		frontier = frontier_two;
-		connection = frontier_one;
-		frontier_path = path_two;
-		connection_path = path_one;
-		if (connection_at_frontier)
-			skip_connection_path = true;
+		target = target_two;
+		connection = target_one;
+		target_connection = connection_two;
+		connection_connection = connection_one;
+		if (connection_at_target)
+			skip_connection_connection = true;
 	}
-	rrg_nbv_exploration_msgs::GlobalPath path_between_frontiers;
-	path_between_frontiers.index = availablePathIndex();
-	path_between_frontiers.frontier = frontier;
-	path_between_frontiers.connection = connection;
-	path_between_frontiers.length = 0;
-	if (!skip_frontier_path) {
-		path_between_frontiers.waypoints.insert(
-				path_between_frontiers.waypoints.begin(),
-				_gg.paths.at(frontier_path).waypoints.begin(),
-				_gg.paths.at(frontier_path).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
-		path_between_frontiers.length += _gg.paths.at(frontier_path).length;
+	rrg_nbv_exploration_msgs::GlobalConnection connection_between_targets;
+	connection_between_targets.index = availablePathIndex();
+	connection_between_targets.first_target = target;
+	connection_between_targets.second_target = connection;
+	connection_between_targets.length = 0;
+	if (!skip_target_connection) {
+		connection_between_targets.waypoints.insert(
+				connection_between_targets.waypoints.begin(),
+				_gg.connections.at(target_connection).waypoints.begin(),
+				_gg.connections.at(target_connection).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
+		connection_between_targets.length += _gg.connections.at(target_connection).length;
 	}
-	if (!skip_connection_path) {
-		path_between_frontiers.waypoints.insert(
-				path_between_frontiers.waypoints.end(),
-				_gg.paths.at(connection_path).waypoints.rbegin(),
-				_gg.paths.at(connection_path).waypoints.rend());
-		path_between_frontiers.length += _gg.paths.at(connection_path).length;
+	if (!skip_connection_connection) {
+		connection_between_targets.waypoints.insert(
+				connection_between_targets.waypoints.end(),
+				_gg.connections.at(connection_connection).waypoints.rbegin(),
+				_gg.connections.at(connection_connection).waypoints.rend());
+		connection_between_targets.length += _gg.connections.at(connection_connection).length;
 	}
-	path_between_frontiers.connecting_node = -1;
-	_gg.frontiers.at(frontier).paths.push_back(path_between_frontiers.index);
-	_gg.frontiers.at(frontier).paths_counter++;
-	_gg.frontiers.at(connection).paths.push_back(path_between_frontiers.index);
-	_gg.frontiers.at(connection).paths_counter++;
-	insertPathInGg(path_between_frontiers);
+	connection_between_targets.connecting_node = -1;
+	_gg.targets.at(target).connections.push_back(connection_between_targets.index);
+	_gg.targets.at(target).connections_counter++;
+	_gg.targets.at(connection).connections.push_back(connection_between_targets.index);
+	_gg.targets.at(connection).connections_counter++;
+	insertPathInGg(connection_between_targets);
 }
 
 int GlobalGraphHandler::availableFrontierIndex() {
-	if (!_available_frontiers.empty()) {
-		return *_available_frontiers.begin();
+	if (!_available_targets.empty()) {
+		return *_available_targets.begin();
 	} else {
-		return _gg.frontiers_counter;
+		return _gg.targets_counter;
 	}
 }
 
 int GlobalGraphHandler::availablePathIndex() {
-	if (!_available_paths.empty()) {
-		return *_available_paths.begin();
+	if (!_available_connections.empty()) {
+		return *_available_connections.begin();
 	} else {
-		return _gg.paths_counter;
+		return _gg.connections_counter;
 	}
 }
 
-void GlobalGraphHandler::addFrontierToBePruned(int frontier_to_prune,
-		std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
+void GlobalGraphHandler::addFrontierToBePruned(int target_to_prune,
+		std::set<int> &pruned_targets, std::set<int> &pruned_connections,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	pruned_frontiers.insert(frontier_to_prune);
-	for (auto path : _gg.frontiers.at(frontier_to_prune).paths) {
-		pruned_paths.insert(path);
-		if (_gg.paths.at(path).connecting_node != -1) // remove possible connection from node in RRG
-			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.erase(
+	pruned_targets.insert(target_to_prune);
+	for (auto connection : _gg.targets.at(target_to_prune).connections) {
+		pruned_connections.insert(connection);
+		if (_gg.connections.at(connection).connecting_node != -1) // remove possible connection from node in RRG
+			rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.erase(
 					std::remove(
-							rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(),
-							rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(),
-							path),
-					rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end());
+							rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.begin(),
+							rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.end(),
+							connection),
+					rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.end());
 	}
 }
 
 void GlobalGraphHandler::handlePrunedFrontiers(
-		const std::set<int> &pruned_frontiers) {
-	bool removed_frontiers = false;
-	auto pruned_frontier = pruned_frontiers.rbegin();
-	while (pruned_frontier != pruned_frontiers.rend()) { // remove or add inactive frontiers
-		deactivateFrontier(*pruned_frontier);
-		if (*pruned_frontier == _gg.frontiers_counter - 1) {
-			int next_pruned_frontier =
-					std::next(pruned_frontier) == pruned_frontiers.rend() ?
-							0 : *std::next(pruned_frontier); // if last pruned frontier, try to remove inactive frontiers up to index 1 (origin can't be pruned)
-			for (int i = *pruned_frontier; i > next_pruned_frontier; i--) {
-				if (_gg.frontiers.at(i).inactive) {
-					_gg.frontiers.pop_back();
-					_gg.frontiers_counter--;
-					removed_frontiers = true;
+		const std::set<int> &pruned_targets) {
+	bool removed_targets = false;
+	auto pruned_target = pruned_targets.rbegin();
+	while (pruned_target != pruned_targets.rend()) { // remove or add inactive targets
+		deactivateFrontier(*pruned_target);
+		if (*pruned_target == _gg.targets_counter - 1) {
+			int next_pruned_target =
+					std::next(pruned_target) == pruned_targets.rend() ?
+							0 : *std::next(pruned_target); // if last pruned target, try to remove inactive targets up to index 1 (origin can't be pruned)
+			for (int i = *pruned_target; i > next_pruned_target; i--) {
+				if (_gg.targets.at(i).inactive) {
+					_gg.targets.pop_back();
+					_gg.targets_counter--;
+					removed_targets = true;
 				} else {
 					break;
 				}
 			}
 		} else {
-			_available_frontiers.insert(*pruned_frontier);
+			_available_targets.insert(*pruned_target);
 		}
-		pruned_frontier++;
+		pruned_target++;
 	}
 	_global_graph_searcher->rebuildIndex(_gg);
-	if (removed_frontiers) {
-		for (auto it = _available_frontiers.begin();
-				it != _available_frontiers.end();) {
-			if (*it >= _gg.frontiers_counter) {
-				it = _available_frontiers.erase(it);
+	if (removed_targets) {
+		for (auto it = _available_targets.begin();
+				it != _available_targets.end();) {
+			if (*it >= _gg.targets_counter) {
+				it = _available_targets.erase(it);
 			} else {
 				++it;
 			}
@@ -586,35 +586,35 @@ void GlobalGraphHandler::handlePrunedFrontiers(
 	}
 }
 
-void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
-	bool removed_paths = false;
-	auto pruned_path = pruned_paths.rbegin();
-	while (pruned_path != pruned_paths.rend()) { // remove or add inactive paths
-		deactivatePath(*pruned_path);
-		if (*pruned_path == _gg.paths_counter - 1) {
-			int next_pruned_path =
-					std::next(pruned_path) == pruned_paths.rend() ?
-							-1 : *std::next(pruned_path); // if last pruned path, try to remove inactive paths up to index 0
-			for (int i = *pruned_path; i > next_pruned_path; i--) {
-				if (_gg.paths.at(i).inactive) {
-					_gg.paths.pop_back();
-					_gg.paths_counter--;
-					removed_paths = true;
+void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_connections) {
+	bool removed_connections = false;
+	auto pruned_connection = pruned_connections.rbegin();
+	while (pruned_connection != pruned_connections.rend()) { // remove or add inactive connections
+		deactivatePath(*pruned_connection);
+		if (*pruned_connection == _gg.connections_counter - 1) {
+			int next_pruned_connection =
+					std::next(pruned_connection) == pruned_connections.rend() ?
+							-1 : *std::next(pruned_connection); // if last pruned connection, try to remove inactive connections up to index 0
+			for (int i = *pruned_connection; i > next_pruned_connection; i--) {
+				if (_gg.connections.at(i).inactive) {
+					_gg.connections.pop_back();
+					_gg.connections_counter--;
+					removed_connections = true;
 				} else {
 					break;
 				}
 			}
 		} else {
-			_available_paths.insert(*pruned_path);
+			_available_connections.insert(*pruned_connection);
 		}
-		pruned_path++;
+		pruned_connection++;
 	}
-	if (removed_paths) {
+	if (removed_connections) {
 		int removals = 0;
-		for (auto it = _available_paths.begin(); it != _available_paths.end();
+		for (auto it = _available_connections.begin(); it != _available_connections.end();
 				) {
-			if (*it >= _gg.paths_counter) {
-				it = _available_paths.erase(it);
+			if (*it >= _gg.connections_counter) {
+				it = _available_connections.erase(it);
 				removals++;
 			} else {
 				++it;
@@ -623,63 +623,63 @@ void GlobalGraphHandler::handlePrunedPaths(const std::set<int> &pruned_paths) {
 	}
 }
 
-void GlobalGraphHandler::deactivateFrontier(int pruned_frontier) {
-	_gg.frontiers.at(pruned_frontier).inactive = true;
-	_gg.frontiers.at(pruned_frontier).merged_distance = 0.0;
-	_gg.frontiers.at(pruned_frontier).paths.clear();
-	_gg.frontiers.at(pruned_frontier).paths_counter = 0;
-	_gg.frontiers.at(pruned_frontier).viewpoint.x = 0;
-	_gg.frontiers.at(pruned_frontier).viewpoint.y = 0;
+void GlobalGraphHandler::deactivateFrontier(int pruned_target) {
+	_gg.targets.at(pruned_target).inactive = true;
+	_gg.targets.at(pruned_target).merged_distance = 0.0;
+	_gg.targets.at(pruned_target).connections.clear();
+	_gg.targets.at(pruned_target).connections_counter = 0;
+	_gg.targets.at(pruned_target).viewpoint.x = 0;
+	_gg.targets.at(pruned_target).viewpoint.y = 0;
 }
 
-void GlobalGraphHandler::deactivatePath(int pruned_path) {
-	if (_gg.paths.at(pruned_path).frontier < _gg.frontiers_counter
-			&& !_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).inactive) { // remove path from list at frontier
-		_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.erase(
+void GlobalGraphHandler::deactivatePath(int pruned_connection) {
+	if (_gg.connections.at(pruned_connection).first_target < _gg.targets_counter
+			&& !_gg.targets.at(_gg.connections.at(pruned_connection).first_target).inactive) { // remove connection from list at target
+		_gg.targets.at(_gg.connections.at(pruned_connection).first_target).connections.erase(
 				std::remove(
-						_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.begin(),
-						_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.end(),
-						pruned_path),
-				_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths.end());
-		_gg.frontiers.at(_gg.paths.at(pruned_path).frontier).paths_counter--;
+						_gg.targets.at(_gg.connections.at(pruned_connection).first_target).connections.begin(),
+						_gg.targets.at(_gg.connections.at(pruned_connection).first_target).connections.end(),
+						pruned_connection),
+				_gg.targets.at(_gg.connections.at(pruned_connection).first_target).connections.end());
+		_gg.targets.at(_gg.connections.at(pruned_connection).first_target).connections_counter--;
 	}
-	if (_gg.paths.at(pruned_path).connection
-			> rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH
-			&& _gg.paths.at(pruned_path).connection < _gg.frontiers_counter
-			&& !_gg.frontiers.at(_gg.paths.at(pruned_path).connection).inactive) { // remove path from list at connected frontier
-		_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.erase(
+	if (_gg.connections.at(pruned_connection).second_target
+			> rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH
+			&& _gg.connections.at(pruned_connection).second_target < _gg.targets_counter
+			&& !_gg.targets.at(_gg.connections.at(pruned_connection).second_target).inactive) { // remove connection from list at connected target
+		_gg.targets.at(_gg.connections.at(pruned_connection).second_target).connections.erase(
 				std::remove(
-						_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.begin(),
-						_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.end(),
-						pruned_path),
-				_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths.end());
-		_gg.frontiers.at(_gg.paths.at(pruned_path).connection).paths_counter--;
+						_gg.targets.at(_gg.connections.at(pruned_connection).second_target).connections.begin(),
+						_gg.targets.at(_gg.connections.at(pruned_connection).second_target).connections.end(),
+						pruned_connection),
+				_gg.targets.at(_gg.connections.at(pruned_connection).second_target).connections.end());
+		_gg.targets.at(_gg.connections.at(pruned_connection).second_target).connections_counter--;
 	}
-	_gg.paths.at(pruned_path).inactive = true;
-	_gg.paths.at(pruned_path).waypoints.clear();
-	_gg.paths.at(pruned_path).length = 0;
+	_gg.connections.at(pruned_connection).inactive = true;
+	_gg.connections.at(pruned_connection).waypoints.clear();
+	_gg.connections.at(pruned_connection).length = 0;
 }
 
 std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAndPathsAroundNewNode(
 		rrg_nbv_exploration_msgs::Graph &rrg, int new_node) {
-	std::set<int> pruned_frontiers;
-	std::set<int> pruned_paths;
+	std::set<int> pruned_targets;
+	std::set<int> pruned_connections;
 	std::vector<geometry_msgs::Point> new_node_positions =
-			pruneFrontiersAroundNewNode(new_node, pruned_frontiers,
-					pruned_paths, rrg);
-	if (pruned_frontiers.size() > 0) {
-		handlePrunedFrontiers(pruned_frontiers);
-		handlePrunedPaths(pruned_paths);
+			pruneFrontiersAroundNewNode(new_node, pruned_targets,
+					pruned_connections, rrg);
+	if (pruned_targets.size() > 0) {
+		handlePrunedFrontiers(pruned_targets);
+		handlePrunedPaths(pruned_connections);
 	}
 	prunePathsAroundNewNode(new_node, rrg);
 	return new_node_positions;
 }
 
 std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAroundNewNode(
-		int new_node, std::set<int> &pruned_frontiers,
-		std::set<int> &pruned_paths, rrg_nbv_exploration_msgs::Graph &rrg) {
+		int new_node, std::set<int> &pruned_targets,
+		std::set<int> &pruned_connections, rrg_nbv_exploration_msgs::Graph &rrg) {
 	std::vector<geometry_msgs::Point> new_node_positions;
-	std::vector<std::pair<int, double>> frontiers_near_new_node =
+	std::vector<std::pair<int, double>> targets_near_new_node =
 			_global_graph_searcher->searchInRadius(
 					rrg.nodes.at(new_node).position,
 					_inflation_active ?
@@ -687,25 +687,25 @@ std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAroundNewNod
 									sqrt(
 											rrg.nodes.at(new_node).squared_radius
 													- pow(_robot_width / 2, 2))
-											+ _half_path_box_distance_thres,
+											+ _half_connection_box_distance_thres,
 									2) :
-							_max_edge_distance_squared); // frontiers in connectable distance
-	for (auto frontier_near_new_node : frontiers_near_new_node) {
-		if (frontier_near_new_node.first
-				!= rrg_nbv_exploration_msgs::GlobalPath::ORIGIN) {
-			if (frontier_near_new_node.second
+							_max_edge_distance_squared); // targets in connectable distance
+	for (auto target_near_new_node : targets_near_new_node) {
+		if (target_near_new_node.first
+				!= rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN) {
+			if (target_near_new_node.second
 					<= (_inflation_active ?
-							_robot_radius_squared : _min_edge_distance_squared)) // new node nearly at frontier position, prune it
+							_robot_radius_squared : _min_edge_distance_squared)) // new node nearly at target position, prune it
 					{
 				tryToRewirePathsToLocalGraphOverPrunedFrontier(
-						frontier_near_new_node.first, new_node,
-						sqrt(frontier_near_new_node.second), rrg);
-				addFrontierToBePruned(frontier_near_new_node.first,
-						pruned_frontiers, pruned_paths, rrg);
-			} else // try to place a node at frontier position to prune it
+						target_near_new_node.first, new_node,
+						sqrt(target_near_new_node.second), rrg);
+				addFrontierToBePruned(target_near_new_node.first,
+						pruned_targets, pruned_connections, rrg);
+			} else // try to place a node at target position to prune it
 			{
 				new_node_positions.push_back(
-						_gg.frontiers.at(frontier_near_new_node.first).viewpoint);
+						_gg.targets.at(target_near_new_node.first).viewpoint);
 			}
 		}
 	}
@@ -713,50 +713,50 @@ std::vector<geometry_msgs::Point> GlobalGraphHandler::pruneFrontiersAroundNewNod
 }
 
 void GlobalGraphHandler::tryToRewirePathsToLocalGraphOverPrunedFrontier(
-		int pruned_frontier, int new_node, double distance,
+		int pruned_target, int new_node, double distance,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	for (auto path : _gg.frontiers.at(pruned_frontier).paths) { //iterate over all frontier to frontier paths of the frontier to be pruned
-		if (_gg.paths.at(path).connection
-				!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { //ignore path to local graph
-			int other_frontier =
-					pruned_frontier == _gg.paths.at(path).frontier ?
-							_gg.paths.at(path).connection :
-							_gg.paths.at(path).frontier;
-			int other_frontiers_path_to_local_graph = _gg.frontiers.at(
-					other_frontier).paths.front();
-			double new_distance = distance + _gg.paths.at(path).length;
+	for (auto connection : _gg.targets.at(pruned_target).connections) { //iterate over all target to target connections of the target to be pruned
+		if (_gg.connections.at(connection).second_target
+				!= rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH) { //ignore connection to local graph
+			int other_target =
+					pruned_target == _gg.connections.at(connection).first_target ?
+							_gg.connections.at(connection).second_target :
+							_gg.connections.at(connection).first_target;
+			int other_targets_connection_to_local_graph = _gg.targets.at(
+					other_target).connections.front();
+			double new_distance = distance + _gg.connections.at(connection).length;
 			if (new_distance
-					< _gg.paths.at(other_frontiers_path_to_local_graph).length) // new path length through pruned frontier shorter than current
+					< _gg.connections.at(other_targets_connection_to_local_graph).length) // new connection length through pruned target shorter than current
 					{
-				_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.clear();
-				if (pruned_frontier == _gg.paths.at(path).frontier) // reverse waypoints
+				_gg.connections.at(other_targets_connection_to_local_graph).waypoints.clear();
+				if (pruned_target == _gg.connections.at(connection).first_target) // reverse waypoints
 						{
-					_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.insert(
-							_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.begin(),
-							_gg.paths.at(path).waypoints.rbegin(),
-							_gg.paths.at(path).waypoints.rend());
+					_gg.connections.at(other_targets_connection_to_local_graph).waypoints.insert(
+							_gg.connections.at(other_targets_connection_to_local_graph).waypoints.begin(),
+							_gg.connections.at(connection).waypoints.rbegin(),
+							_gg.connections.at(connection).waypoints.rend());
 				} else {
-					_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.insert(
-							_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.begin(),
-							_gg.paths.at(path).waypoints.begin(),
-							_gg.paths.at(path).waypoints.end());
+					_gg.connections.at(other_targets_connection_to_local_graph).waypoints.insert(
+							_gg.connections.at(other_targets_connection_to_local_graph).waypoints.begin(),
+							_gg.connections.at(connection).waypoints.begin(),
+							_gg.connections.at(connection).waypoints.end());
 				}
-				_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.push_back(
+				_gg.connections.at(other_targets_connection_to_local_graph).waypoints.push_back(
 						rrg.nodes.at(new_node).position);
-				_gg.paths.at(other_frontiers_path_to_local_graph).length =
+				_gg.connections.at(other_targets_connection_to_local_graph).length =
 						new_distance;
-				int connecting_node = _gg.paths.at(
-						other_frontiers_path_to_local_graph).connecting_node;
+				int connecting_node = _gg.connections.at(
+						other_targets_connection_to_local_graph).connecting_node;
 				rrg.nodes.at(connecting_node).connected_to.erase(
 						std::remove(
 								rrg.nodes.at(connecting_node).connected_to.begin(),
 								rrg.nodes.at(connecting_node).connected_to.end(),
-								other_frontiers_path_to_local_graph),
+								other_targets_connection_to_local_graph),
 						rrg.nodes.at(connecting_node).connected_to.end());
-				_gg.paths.at(other_frontiers_path_to_local_graph).connecting_node =
+				_gg.connections.at(other_targets_connection_to_local_graph).connecting_node =
 						new_node;
 				rrg.nodes.at(new_node).connected_to.push_back(
-						other_frontiers_path_to_local_graph);
+						other_targets_connection_to_local_graph);
 			}
 		}
 	}
@@ -764,15 +764,15 @@ void GlobalGraphHandler::tryToRewirePathsToLocalGraphOverPrunedFrontier(
 
 void GlobalGraphHandler::prunePathsAroundNewNode(int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	for (auto frontier : _gg.frontiers) { // iterate over all paths to local graph
-		if (frontier.inactive) {
+	for (auto target : _gg.targets) { // iterate over all connections to local graph
+		if (target.inactive) {
 			continue;
 		}
-		int path = frontier.paths.front(); // path to local graph
-		GlobalPathWaypointSearcher global_path_waypoint_searcher;
-		global_path_waypoint_searcher.rebuildIndex(_gg.paths.at(path));
+		int connection = target.connections.front(); // connection to local graph
+		GlobalGraphWaypointSearcher global_connection_waypoint_searcher;
+		global_connection_waypoint_searcher.rebuildIndex(_gg.connections.at(connection));
 		std::vector<std::pair<int, double>> waypoints_near_new_node =
-				global_path_waypoint_searcher.searchInRadius(
+				global_connection_waypoint_searcher.searchInRadius(
 						rrg.nodes.at(new_node).position,
 						_inflation_active ?
 								pow(
@@ -782,33 +782,33 @@ void GlobalGraphHandler::prunePathsAroundNewNode(int new_node,
 								_max_edge_distance_squared); // all waypoints that can be connected to the new node
 		if (waypoints_near_new_node.size() > 0) {
 
-			int closest_waypoint_to_frontier = getClosestWaypointToFrontier(
-					path, new_node, waypoints_near_new_node, rrg);
-			if (closest_waypoint_to_frontier
-					< (_gg.paths.at(path).waypoints.size() - 1)) { // if path can be pruned
-				double new_path_length = calculateNewPathLength(path, new_node,
-						closest_waypoint_to_frontier, rrg);
-				if (new_path_length < _gg.paths.at(path).length) { // only re-route path if length decreases
-					rewirePathToNewNode(path, closest_waypoint_to_frontier,
-							new_path_length, new_node, rrg);
-					tryToImproveConnectionsToOtherFrontiers(new_node, path,
+			int closest_waypoint_to_target = getClosestWaypointToFrontier(
+					connection, new_node, waypoints_near_new_node, rrg);
+			if (closest_waypoint_to_target
+					< (_gg.connections.at(connection).waypoints.size() - 1)) { // if connection can be pruned
+				double new_connection_length = calculateNewPathLength(connection, new_node,
+						closest_waypoint_to_target, rrg);
+				if (new_connection_length < _gg.connections.at(connection).length) { // only re-route connection if length decreases
+					rewirePathToNewNode(connection, closest_waypoint_to_target,
+							new_connection_length, new_node, rrg);
+					tryToImproveConnectionsToOtherFrontiers(new_node, connection,
 							rrg);
-					rrg.nodes.at(new_node).connected_to.push_back(path); // add after improving connections to not filter it out during improving
+					rrg.nodes.at(new_node).connected_to.push_back(connection); // add after improving connections to not filter it out during improving
 				}
 			}
 		}
 	}
 }
 
-int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
+int GlobalGraphHandler::getClosestWaypointToFrontier(int connection, int new_node,
 		std::vector<std::pair<int, double>> &waypoints_near_new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	int closest_waypoint_to_frontier = _gg.paths.at(path).waypoints.size() - 1; // index of last waypoint in list
-// find connectable waypoint closest to the frontier (most path reduction)
+	int closest_waypoint_to_target = _gg.connections.at(connection).waypoints.size() - 1; // index of last waypoint in list
+// find connectable waypoint closest to the target (most connection reduction)
 	if (_inflation_active) {
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
-			if (waypoint_near_new_node.first < closest_waypoint_to_frontier) { // new node must overlap with waypoint at frontier for re-wiring
-				closest_waypoint_to_frontier = waypoint_near_new_node.first;
+			if (waypoint_near_new_node.first < closest_waypoint_to_target) { // new node must overlap with waypoint at target for re-wiring
+				closest_waypoint_to_target = waypoint_near_new_node.first;
 			}
 		}
 	} else {
@@ -821,171 +821,171 @@ int GlobalGraphHandler::getClosestWaypointToFrontier(int path, int new_node,
 		for (auto waypoint_near_new_node : waypoints_near_new_node) {
 			if (_collision_checker->checkConnectionToFrontierPathWaypoint(rrg,
 					new_node,
-					_gg.paths.at(path).waypoints.at(
+					_gg.connections.at(connection).waypoints.at(
 							waypoint_near_new_node.first),
 					sqrt(waypoint_near_new_node.second))) { // check if a connection can be made
-				closest_waypoint_to_frontier = waypoint_near_new_node.first;
+				closest_waypoint_to_target = waypoint_near_new_node.first;
 				break;
 			}
 		}
 	}
-	return closest_waypoint_to_frontier;
+	return closest_waypoint_to_target;
 }
 
-double GlobalGraphHandler::calculateNewPathLength(int path, int new_node,
-		int closest_waypoint_to_frontier,
+double GlobalGraphHandler::calculateNewPathLength(int connection, int new_node,
+		int closest_waypoint_to_target,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	double new_length = 0;
 	double distance_to_new_node = sqrt(
 			pow(
-					_gg.paths.at(path).waypoints.at(
-							closest_waypoint_to_frontier).x
+					_gg.connections.at(connection).waypoints.at(
+							closest_waypoint_to_target).x
 							- rrg.nodes.at(new_node).position.x, 2)
 					+ pow(
-							_gg.paths.at(path).waypoints.at(
-									closest_waypoint_to_frontier).y
+							_gg.connections.at(connection).waypoints.at(
+									closest_waypoint_to_target).y
 									- rrg.nodes.at(new_node).position.y, 2)); // distance between closest waypoint and new connecting node
-	if ((_gg.paths.at(path).waypoints.size() - 1 - closest_waypoint_to_frontier)
-			> closest_waypoint_to_frontier) { //less waypoints remaining than pruned
-		for (int i = 1; i <= closest_waypoint_to_frontier; i++) { // calculate distances between waypoints to remain in path
+	if ((_gg.connections.at(connection).waypoints.size() - 1 - closest_waypoint_to_target)
+			> closest_waypoint_to_target) { //less waypoints remaining than pruned
+		for (int i = 1; i <= closest_waypoint_to_target; i++) { // calculate distances between waypoints to remain in connection
 			new_length += sqrt(
 					pow(
-							_gg.paths.at(path).waypoints.at(i).x
-									- _gg.paths.at(path).waypoints.at(i - 1).x,
+							_gg.connections.at(connection).waypoints.at(i).x
+									- _gg.connections.at(connection).waypoints.at(i - 1).x,
 							2)
 							+ pow(
-									_gg.paths.at(path).waypoints.at(i).y
-											- _gg.paths.at(path).waypoints.at(
+									_gg.connections.at(connection).waypoints.at(i).y
+											- _gg.connections.at(connection).waypoints.at(
 													i - 1).y, 2));
 		}
 	} else { //less waypoints pruned than remaining
-		new_length = _gg.paths.at(path).length;
-		for (int i = _gg.paths.at(path).waypoints.size() - 1;
-				i > closest_waypoint_to_frontier; i--) { // calculate distances between waypoints to be pruned from path
+		new_length = _gg.connections.at(connection).length;
+		for (int i = _gg.connections.at(connection).waypoints.size() - 1;
+				i > closest_waypoint_to_target; i--) { // calculate distances between waypoints to be pruned from connection
 			new_length -= sqrt(
 					pow(
-							_gg.paths.at(path).waypoints.at(i).x
-									- _gg.paths.at(path).waypoints.at(i - 1).x,
+							_gg.connections.at(connection).waypoints.at(i).x
+									- _gg.connections.at(connection).waypoints.at(i - 1).x,
 							2)
 							+ pow(
-									_gg.paths.at(path).waypoints.at(i).y
-											- _gg.paths.at(path).waypoints.at(
+									_gg.connections.at(connection).waypoints.at(i).y
+											- _gg.connections.at(connection).waypoints.at(
 													i - 1).y, 2));
 		}
 	}
 	return (new_length + distance_to_new_node);
 }
 
-void GlobalGraphHandler::rewirePathToNewNode(int path,
-		int closest_waypoint_to_frontier, double new_path_length, int new_node,
+void GlobalGraphHandler::rewirePathToNewNode(int connection,
+		int closest_waypoint_to_target, double new_connection_length, int new_node,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
 	std::string cons = "";
-	for (auto con_path : rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to) {
-		cons += std::to_string(con_path) + ",";
+	for (auto con_connection : rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to) {
+		cons += std::to_string(con_connection) + ",";
 	}
-	rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.erase(
+	rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.erase(
 			std::remove(
-					rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.begin(),
-					rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end(),
-					path),
-			rrg.nodes.at(_gg.paths.at(path).connecting_node).connected_to.end()); // remove path from connecting node in RRG
-	_gg.paths.at(path).waypoints.erase(
-			_gg.paths.at(path).waypoints.begin() + closest_waypoint_to_frontier
-					+ 1, _gg.paths.at(path).waypoints.end());
-	_gg.paths.at(path).waypoints.push_back(rrg.nodes.at(new_node).position);
-	_gg.paths.at(path).length = new_path_length;
-	_gg.paths.at(path).connecting_node = new_node;
+					rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.begin(),
+					rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.end(),
+					connection),
+			rrg.nodes.at(_gg.connections.at(connection).connecting_node).connected_to.end()); // remove connection from connecting node in RRG
+	_gg.connections.at(connection).waypoints.erase(
+			_gg.connections.at(connection).waypoints.begin() + closest_waypoint_to_target
+					+ 1, _gg.connections.at(connection).waypoints.end());
+	_gg.connections.at(connection).waypoints.push_back(rrg.nodes.at(new_node).position);
+	_gg.connections.at(connection).length = new_connection_length;
+	_gg.connections.at(connection).connecting_node = new_node;
 }
 
 void GlobalGraphHandler::tryToImproveConnectionsToOtherFrontiers(int new_node,
-		int path, rrg_nbv_exploration_msgs::Graph &rrg) {
-	int current_frontier = _gg.paths.at(path).frontier; // look for new connections with this frontier
-	std::set<int> new_frontier_connections; // set of existing connected frontiers to the connecting node which will be reduced by the frontiers already connected to the current frontier
-	std::vector<std::pair<int, double>> mergeable_frontiers; // frontier index first and distance to local graph second
-	std::pair<int, double> closest_mergeable_unprunable_frontier( { -1,
-			std::numeric_limits<double>::infinity() }); // frontier index first and distance to local graph second
-	for (auto connected_path : rrg.nodes.at(new_node).connected_to) {
-		new_frontier_connections.insert(_gg.paths.at(connected_path).frontier);
+		int connection, rrg_nbv_exploration_msgs::Graph &rrg) {
+	int current_target = _gg.connections.at(connection).first_target; // look for new connections with this target
+	std::set<int> new_target_connections; // set of existing connected targets to the connecting node which will be reduced by the targets already connected to the current target
+	std::vector<std::pair<int, double>> mergeable_targets; // target index first and distance to local graph second
+	std::pair<int, double> closest_mergeable_unprunable_target( { -1,
+			std::numeric_limits<double>::infinity() }); // target index first and distance to local graph second
+	for (auto connected_connection : rrg.nodes.at(new_node).connected_to) {
+		new_target_connections.insert(_gg.connections.at(connected_connection).first_target);
 	}
-	for (auto frontier_path : _gg.frontiers.at(current_frontier).paths) {
-		int other_frontier =
-				current_frontier == _gg.paths.at(frontier_path).frontier ?
-						_gg.paths.at(frontier_path).connection :
-						_gg.paths.at(frontier_path).frontier;
-		if (_gg.paths.at(frontier_path).connection
-				!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH
-				&& new_frontier_connections.erase(other_frontier) > 0) { // remove existing connection from new frontier connections (if present, try to improve path)
-			int other_frontier_path_to_local_graph = _gg.frontiers.at(
-					other_frontier).paths.front();
-			if ((_gg.paths.at(path).length
-					+ _gg.paths.at(other_frontier_path_to_local_graph).length)
-					< _gg.paths.at(frontier_path).length) { // path through new node would be shorter
-				improvePathToConnectedFrontier(frontier_path, path,
-						other_frontier, other_frontier_path_to_local_graph);
+	for (auto target_connection : _gg.targets.at(current_target).connections) {
+		int other_target =
+				current_target == _gg.connections.at(target_connection).first_target ?
+						_gg.connections.at(target_connection).second_target :
+						_gg.connections.at(target_connection).first_target;
+		if (_gg.connections.at(target_connection).second_target
+				!= rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH
+				&& new_target_connections.erase(other_target) > 0) { // remove existing connection from new target connections (if present, try to improve connection)
+			int other_target_connection_to_local_graph = _gg.targets.at(
+					other_target).connections.front();
+			if ((_gg.connections.at(connection).length
+					+ _gg.connections.at(other_target_connection_to_local_graph).length)
+					< _gg.connections.at(target_connection).length) { // connection through new node would be shorter
+				improvePathToConnectedFrontier(target_connection, connection,
+						other_target, other_target_connection_to_local_graph);
 
 			}
 		}
 	}
-	for (auto new_frontier_connection : new_frontier_connections) {
-		connectFrontiers(current_frontier, new_frontier_connection, path,
-				_gg.frontiers.at(new_frontier_connection).paths.front(), false); // first path of frontier is always path to local graph
+	for (auto new_target_connection : new_target_connections) {
+		connectFrontiers(current_target, new_target_connection, connection,
+				_gg.targets.at(new_target_connection).connections.front(), false); // first connection of target is always connection to local graph
 	}
 }
 
-void GlobalGraphHandler::improvePathToConnectedFrontier(int frontier_path,
-		int path, int other_frontier, int other_path) {
-	_gg.paths.at(frontier_path).waypoints.clear();
-	_gg.paths.at(frontier_path).length = _gg.paths.at(path).length
-			+ _gg.paths.at(_gg.frontiers.at(other_frontier).paths.at(0)).length;
-	_gg.paths.at(frontier_path).waypoints.insert(
-			_gg.paths.at(frontier_path).waypoints.begin(),
-			_gg.paths.at(path).waypoints.begin(),
-			_gg.paths.at(path).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
-	_gg.paths.at(frontier_path).waypoints.insert(
-			_gg.paths.at(frontier_path).waypoints.end(),
-			_gg.paths.at(other_path).waypoints.rbegin(),
-			_gg.paths.at(other_path).waypoints.rend());
+void GlobalGraphHandler::improvePathToConnectedFrontier(int target_connection,
+		int connection, int other_target, int other_connection) {
+	_gg.connections.at(target_connection).waypoints.clear();
+	_gg.connections.at(target_connection).length = _gg.connections.at(connection).length
+			+ _gg.connections.at(_gg.targets.at(other_target).connections.at(0)).length;
+	_gg.connections.at(target_connection).waypoints.insert(
+			_gg.connections.at(target_connection).waypoints.begin(),
+			_gg.connections.at(connection).waypoints.begin(),
+			_gg.connections.at(connection).waypoints.end() - 1); // omit last element to avoid duplicate waypoint
+	_gg.connections.at(target_connection).waypoints.insert(
+			_gg.connections.at(target_connection).waypoints.end(),
+			_gg.connections.at(other_connection).waypoints.rbegin(),
+			_gg.connections.at(other_connection).waypoints.rend());
 }
 
 bool GlobalGraphHandler::calculateNextFrontierGoal(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	std::vector<int> active_frontiers;
-	for (auto &frontier : _gg.frontiers) {
-		if (!frontier.inactive)
-			active_frontiers.push_back(frontier.index);
+	std::vector<int> active_targets;
+	for (auto &target : _gg.targets) {
+		if (!target.inactive)
+			active_targets.push_back(target.index);
 	}
-	if (active_frontiers.size() == 1 && _auto_homing) { // only origin remains
-		ROS_INFO_STREAM("Next frontier goal is the origin, going home");
+	if (active_targets.size() == 1 && _auto_homing) { // only origin remains
+		ROS_INFO_STREAM("Next target goal is the origin, going home");
 		connectPathsToLocalGraphToNearestNode(rrg);
 		_global_route.push_back(std::make_pair(0, 0));
 		_next_global_goal = 0;
-	} else if (active_frontiers.size() <= 1) {
-		ROS_INFO_STREAM("No more frontier goals available");
+	} else if (active_targets.size() <= 1) {
+		ROS_INFO_STREAM("No more target goals available");
 		return false;
 	} else {
-		establishMissingFrontierToFrontierConnections(active_frontiers, rrg);
+		establishMissingFrontierToFrontierConnections(active_targets, rrg);
 		connectPathsToLocalGraphToNearestNode(rrg);
-		std::pair<int, int> next_frontier_with_path =
-				findBestFrontierWithTspTwoOpt(active_frontiers);
-		if (next_frontier_with_path.first == -1
-				|| next_frontier_with_path.second == -1) {
+		std::pair<int, int> next_target_with_connection =
+				findBestFrontierWithTspTwoOpt(active_targets);
+		if (next_target_with_connection.first == -1
+				|| next_target_with_connection.second == -1) {
 			ROS_WARN_STREAM(
-					"Unable to determine the next frontier goal with 2-Opt");
+					"Unable to determine the next target goal with 2-Opt");
 			return false;
 		}
 		_next_global_goal = 1;
 		ROS_INFO_STREAM(
-				"Next frontier goal is " << _global_route.at(_next_global_goal).first << " with path " << _global_route.at(_next_global_goal).second);
+				"Next target goal is " << _global_route.at(_next_global_goal).first << " with connection " << _global_route.at(_next_global_goal).second);
 	}
 	ROS_INFO_STREAM(
-			"Rebuild global path waypoint searcher for path " << _global_route.at(_next_global_goal).second);
-	_global_path_waypoint_searcher->rebuildIndex(
-			_gg.paths.at(_global_route.at(_next_global_goal).second));
+			"Rebuild global connection waypoint searcher for connection " << _global_route.at(_next_global_goal).second);
+	_global_connection_waypoint_searcher->rebuildIndex(
+			_gg.connections.at(_global_route.at(_next_global_goal).second));
 	ROS_INFO_STREAM(
-			"Set closest waypoint to " << _gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size() - 1);
-	_active_paths_closest_waypoint =
+			"Set closest waypoint to " << _gg.connections.at(_global_route.at(_next_global_goal).second).waypoints.size() - 1);
+	_active_connections_closest_waypoint =
 			std::make_pair(_global_route.at(_next_global_goal).second,
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size()
+					_gg.connections.at(_global_route.at(_next_global_goal).second).waypoints.size()
 							- 1); // start at waypoint at nearest node in RRG
 	return true;
 }
@@ -1001,44 +1001,44 @@ void GlobalGraphHandler::debugRoute(std::vector<std::pair<int, int> > &route,
 	ROS_INFO_STREAM(s);
 }
 
-bool GlobalGraphHandler::sortByPathLengthToFrontier(int frontier_one,
-		int frontier_two) {
-	return _gg.paths.at(_gg.frontiers.at(frontier_one).paths.front()).length
-			< _gg.paths.at(_gg.frontiers.at(frontier_two).paths.front()).length;
+bool GlobalGraphHandler::sortByPathLengthToFrontier(int target_one,
+		int target_two) {
+	return _gg.connections.at(_gg.targets.at(target_one).connections.front()).length
+			< _gg.connections.at(_gg.targets.at(target_two).connections.front()).length;
 }
 
 std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
-		std::vector<int> &active_frontiers) {
-	std::vector<std::pair<int, int>> route; // frontier index (first) and path index from previous frontier in route (second)
-	auto origin = std::find(active_frontiers.begin(), active_frontiers.end(),
-			rrg_nbv_exploration_msgs::GlobalPath::ORIGIN);
-	if (origin != active_frontiers.end()) { // remove origin from active frontiers (will be pushed back later when homing)
-		active_frontiers.erase(origin);
+		std::vector<int> &active_targets) {
+	std::vector<std::pair<int, int>> route; // target index (first) and connection index from previous target in route (second)
+	auto origin = std::find(active_targets.begin(), active_targets.end(),
+			rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN);
+	if (origin != active_targets.end()) { // remove origin from active targets (will be pushed back later when homing)
+		active_targets.erase(origin);
 	}
 
-	// sort active frontiers ascending by global path to frontier length
-	std::sort(active_frontiers.begin(), active_frontiers.end(),
-			[this](int frontier_one, int frontier_two) {
-				return sortByPathLengthToFrontier(frontier_one, frontier_two);
+	// sort active targets ascending by global connection to target length
+	std::sort(active_targets.begin(), active_targets.end(),
+			[this](int target_one, int target_two) {
+				return sortByPathLengthToFrontier(target_one, target_two);
 			});
 	if (_auto_homing) {
-		active_frontiers.push_back(
-				rrg_nbv_exploration_msgs::GlobalPath::ORIGIN); // origin as last frontier
+		active_targets.push_back(
+				rrg_nbv_exploration_msgs::GlobalConnection::ORIGIN); // origin as last target
 	}
 	route.push_back(
-			std::make_pair(rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH,
-					-1)); // start at robot position (local graph) with no path
+			std::make_pair(rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH,
+					-1)); // start at robot position (local graph) with no connection
 	route.push_back(
-			std::make_pair(active_frontiers.front(),
-					_gg.frontiers.at(active_frontiers.front()).paths.front())); // add first active frontier and path to local graph to route
+			std::make_pair(active_targets.front(),
+					_gg.targets.at(active_targets.front()).connections.front())); // add first active target and connection to local graph to route
 
-	for (int i = 1; i < active_frontiers.size(); i++) { // add frontier index and index of path from previous frontier to route except for first entry
-		int path_index = findPathToNextFrontier(active_frontiers.at(i - 1),
-				active_frontiers.at(i));
-		if (path_index == -1) {
+	for (int i = 1; i < active_targets.size(); i++) { // add target index and index of connection from previous target to route except for first entry
+		int connection_index = findPathToNextFrontier(active_targets.at(i - 1),
+				active_targets.at(i));
+		if (connection_index == -1) {
 			return std::make_pair(-1, -1);
 		}
-		route.push_back(std::make_pair(active_frontiers.at(i), path_index));
+		route.push_back(std::make_pair(active_targets.at(i), connection_index));
 	}
 //	debugRoute(route, "initial", calculateRouteLength(route));
 	bool improved = true;
@@ -1052,8 +1052,8 @@ std::pair<int, int> GlobalGraphHandler::findBestFrontierWithTspTwoOpt(
 bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 		std::vector<std::pair<int, int>> &route) {
 	double best_distance = calculateRouteLength(route);
-	for (int i = 1; i < route.size() - 1; i++) { // omit first frontier (robot position/local graph)
-		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) { // omit last frontier (origin) when auto homing
+	for (int i = 1; i < route.size() - 1; i++) { // omit first target (robot position/local graph)
+		for (int k = i + 1; k < route.size() - (_auto_homing ? 1 : 0); k++) { // omit last target (origin) when auto homing
 			std::vector<std::pair<int, int>> new_route;
 			if (twoOptSwap(route, new_route, i, k)) { // if swap resulted in traversable route
 				double new_distance = calculateRouteLength(new_route);
@@ -1072,31 +1072,31 @@ bool GlobalGraphHandler::iterateOverTwoOptSwaps(
 	return false;
 }
 
-int GlobalGraphHandler::findPathToNextFrontier(int current_frontier,
-		int next_frontier) {
-	int path_index = -1;
-	if (current_frontier == rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH)
-		path_index = _gg.frontiers.at(next_frontier).paths.front();
-	else if (next_frontier == rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH)
-		path_index = _gg.frontiers.at(current_frontier).paths.front();
+int GlobalGraphHandler::findPathToNextFrontier(int current_target,
+		int next_target) {
+	int connection_index = -1;
+	if (current_target == rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH)
+		connection_index = _gg.targets.at(next_target).connections.front();
+	else if (next_target == rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH)
+		connection_index = _gg.targets.at(current_target).connections.front();
 	else {
-		for (auto path : _gg.frontiers.at(current_frontier).paths) {
-			if (!_gg.paths.at(path).inactive
-					&& (_gg.paths.at(path).frontier == next_frontier
-							|| _gg.paths.at(path).connection == next_frontier)) {
-				path_index = path;
+		for (auto connection : _gg.targets.at(current_target).connections) {
+			if (!_gg.connections.at(connection).inactive
+					&& (_gg.connections.at(connection).first_target == next_target
+							|| _gg.connections.at(connection).second_target == next_target)) {
+				connection_index = connection;
 				break;
 			}
 		}
 	}
-	return path_index;
+	return connection_index;
 }
 
 double GlobalGraphHandler::calculateRouteLength(
 		std::vector<std::pair<int, int>> &route) {
 	double distance = 0.0;
-	for (int i = 1; i < route.size(); i++) { // omit first frontier (local graph) in route
-		distance += _gg.paths.at(route.at(i).second).length;
+	for (int i = 1; i < route.size(); i++) { // omit first target (local graph) in route
+		distance += _gg.connections.at(route.at(i).second).length;
 	}
 	return distance;
 }
@@ -1107,10 +1107,10 @@ bool GlobalGraphHandler::twoOptSwap(std::vector<std::pair<int, int>> &route,
 		new_route.push_back(route.at(j));
 	}
 	for (int l = k; l >= i; l--) {
-		int path_index = findPathToNextFrontier(new_route.back().first,
+		int connection_index = findPathToNextFrontier(new_route.back().first,
 				route.at(l).first);
 		new_route.push_back(route.at(l));
-		new_route.back().second = path_index;
+		new_route.back().second = connection_index;
 	}
 	for (int m = k + 1; m < route.size(); m++) {
 		new_route.push_back(route.at(m));
@@ -1119,64 +1119,64 @@ bool GlobalGraphHandler::twoOptSwap(std::vector<std::pair<int, int>> &route,
 }
 
 void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
-		std::vector<int> active_frontiers,
+		std::vector<int> active_targets,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	std::vector<ShortestFrontierConnectionStruct> frontier_connections;
-	for (auto &frontier : _gg.frontiers) { // establish all missing connection between frontiers through the RRG
-		if (!frontier.inactive
-				&& frontier.paths_counter < active_frontiers.size()) { // one path to every other frontier + 1 to RRG required
-			std::set<int> missing_frontiers = getMissingFrontierConnections(
-					active_frontiers, frontier);
-			int frontier_connecting_node =
-					_gg.paths.at(frontier.paths.front()).connecting_node;
-			double max_distance_threshold = 0; // maximum path length threshold when searching for connections
-			std::vector<std::pair<int, int>> missing_frontier_connections; // missing frontier index (first) and connecting node of missing frontier to local graph (second)
-			for (auto missing_frontier : missing_frontiers) { // build the missing paths
-				if (frontier.index > missing_frontier) { // only build paths where this frontier will be frontier in path
-					int missing_frontier_connecting_node =
-							_gg.paths.at(
-									_gg.frontiers.at(missing_frontier).paths.front()).connecting_node;
+	std::vector<ShortestFrontierConnectionStruct> target_connections;
+	for (auto &target : _gg.targets) { // establish all missing connection between targets through the RRG
+		if (!target.inactive
+				&& target.connections_counter < active_targets.size()) { // one connection to every other target + 1 to RRG required
+			std::set<int> missing_targets = getMissingFrontierConnections(
+					active_targets, target);
+			int target_connecting_node =
+					_gg.connections.at(target.connections.front()).connecting_node;
+			double max_distance_threshold = 0; // maximum connection length threshold when searching for connections
+			std::vector<std::pair<int, int>> missing_target_connections; // missing target index (first) and connecting node of missing target to local graph (second)
+			for (auto missing_target : missing_targets) { // build the missing connections
+				if (target.index > missing_target) { // only build connections where this target will be target in connection
+					int missing_target_connecting_node =
+							_gg.connections.at(
+									_gg.targets.at(missing_target).connections.front()).connecting_node;
 					bool found_existing_connection = false;
-					for (auto frontier_connection : frontier_connections) { //check if a connection between the connecting nodes of both frontiers was already found and reuse it
-						if (frontier_connection.connecting_node_one
-								== std::max(frontier_connecting_node,
-										missing_frontier_connecting_node)
-								&& frontier_connection.connecting_node_two
-										== std::min(frontier_connecting_node,
-												missing_frontier_connecting_node)) {
+					for (auto target_connection : target_connections) { //check if a connection between the connecting nodes of both targets was already found and reuse it
+						if (target_connection.connecting_node_one
+								== std::max(target_connecting_node,
+										missing_target_connecting_node)
+								&& target_connection.connecting_node_two
+										== std::min(target_connecting_node,
+												missing_target_connecting_node)) {
 							found_existing_connection = true;
-							buildMissingPathBetweenFrontiers(frontier,
-									missing_frontier,
-									frontier_connection.path_length,
-									frontier_connection.path, rrg);
+							buildMissingPathBetweenFrontiers(target,
+									missing_target,
+									target_connection.path_length,
+									target_connection.path, rrg);
 							break;
 						}
 					}
 					if (!found_existing_connection) {
-						missing_frontier_connections.push_back(
-								std::make_pair(missing_frontier,
-										missing_frontier_connecting_node));
+						missing_target_connections.push_back(
+								std::make_pair(missing_target,
+										missing_target_connecting_node));
 						findShortestPathThroughMutualNode(
-								frontier_connecting_node,
-								missing_frontier_connecting_node,
+								target_connecting_node,
+								missing_target_connecting_node,
 								max_distance_threshold, rrg);
 					}
 				}
 			}
-			if (!missing_frontier_connections.empty()) { // only find shortest routes if a connection is missing
-				std::vector<ShortestFrontierConnectionStruct> local_paths;
-				std::map<int, int> missing_frontier_local_path_map =
-						_graph_path_calculator->findShortestRoutes(rrg,
-								frontier_connecting_node,
-								missing_frontier_connections, local_paths,
+			if (!missing_target_connections.empty()) { // only find shortest routes if a connection is missing
+				std::vector<ShortestFrontierConnectionStruct> local_connections;
+				std::map<int, int> missing_target_local_connection_map =
+						_graph_connection_calculator->findShortestRoutes(rrg,
+								target_connecting_node,
+								missing_target_connections, local_connections,
 								max_distance_threshold);
-				frontier_connections.insert(frontier_connections.end(),
-						local_paths.begin(), local_paths.end()); // add local paths to frontier connections
-				for (auto missing_frontier_local_path : missing_frontier_local_path_map) { // iterate over map (first=missing frontier index, second=local path index)
-					buildMissingPathBetweenFrontiers(frontier,
-							missing_frontier_local_path.first,
-							local_paths.at(missing_frontier_local_path.second).path_length,
-							local_paths.at(missing_frontier_local_path.second).path,
+				target_connections.insert(target_connections.end(),
+						local_connections.begin(), local_connections.end()); // add local connections to target connections
+				for (auto missing_target_local_connection : missing_target_local_connection_map) { // iterate over map (first=missing target index, second=local connection index)
+					buildMissingPathBetweenFrontiers(target,
+							missing_target_local_connection.first,
+							local_connections.at(missing_target_local_connection.second).path_length,
+							local_connections.at(missing_target_local_connection.second).path,
 							rrg);
 				}
 			}
@@ -1185,131 +1185,131 @@ void GlobalGraphHandler::establishMissingFrontierToFrontierConnections(
 }
 
 std::set<int> GlobalGraphHandler::getMissingFrontierConnections(
-		std::vector<int> &active_frontiers,
-		rrg_nbv_exploration_msgs::GlobalFrontier &frontier) {
-	std::set<int> missing_frontiers(active_frontiers.begin(),
-			active_frontiers.end()); // one path to every other frontier + 1 to RRG required
-	missing_frontiers.erase(frontier.index);
-	for (int path : frontier.paths) {
-		if (_gg.paths.at(path).connection
-				!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH)
-			missing_frontiers.erase(
-					frontier.index == _gg.paths.at(path).frontier ?
-							_gg.paths.at(path).connection :
-							_gg.paths.at(path).frontier);
+		std::vector<int> &active_targets,
+		rrg_nbv_exploration_msgs::GlobalTarget &target) {
+	std::set<int> missing_targets(active_targets.begin(),
+			active_targets.end()); // one connection to every other target + 1 to RRG required
+	missing_targets.erase(target.index);
+	for (int connection : target.connections) {
+		if (_gg.connections.at(connection).second_target
+				!= rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH)
+			missing_targets.erase(
+					target.index == _gg.connections.at(connection).first_target ?
+							_gg.connections.at(connection).second_target :
+							_gg.connections.at(connection).first_target);
 	}
-	return missing_frontiers;
+	return missing_targets;
 }
 
 void GlobalGraphHandler::findShortestPathThroughMutualNode(
-		int frontier_connecting_node, int missing_frontier_connecting_node,
+		int target_connecting_node, int missing_target_connecting_node,
 		double &max_distance_threshold, rrg_nbv_exploration_msgs::Graph &rrg) {
-	int first_mutual_node_in_path = rrg.nearest_node;
-	double minimum_local_path_length =
-			rrg.nodes.at(frontier_connecting_node).distance_to_robot
-					+ rrg.nodes.at(missing_frontier_connecting_node).distance_to_robot;
-	std::vector<int> mutual_node_local_path; // the shortest possible path between the two frontiers using a mutual node in both connecting node's paths to robot
+	int first_mutual_node_in_connection = rrg.nearest_node;
+	double minimum_local_connection_length =
+			rrg.nodes.at(target_connecting_node).distance_to_robot
+					+ rrg.nodes.at(missing_target_connecting_node).distance_to_robot;
+	std::vector<int> mutual_node_local_connection; // the shortest possible connection between the two targets using a mutual node in both connecting node's connections to robot
 	for (auto rit =
-			rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin();
+			rrg.nodes.at(target_connecting_node).path_to_robot.rbegin();
 			rit
 					!= std::prev(
-							rrg.nodes.at(frontier_connecting_node).path_to_robot.rend());
+							rrg.nodes.at(target_connecting_node).path_to_robot.rend());
 			++rit) { // reverse end is connecting node
 		auto it =
 				std::find(
 						std::next(
-								rrg.nodes.at(missing_frontier_connecting_node).path_to_robot.begin()), // first node is connecting node
-						rrg.nodes.at(missing_frontier_connecting_node).path_to_robot.end(),
-						*rit); // find occurence of node in both paths
+								rrg.nodes.at(missing_target_connecting_node).path_to_robot.begin()), // first node is connecting node
+						rrg.nodes.at(missing_target_connecting_node).path_to_robot.end(),
+						*rit); // find occurence of node in both connections
 		if (it
-				!= rrg.nodes.at(missing_frontier_connecting_node).path_to_robot.end()) { // found mutual node in paths
-			first_mutual_node_in_path = *it;
-			mutual_node_local_path.insert(mutual_node_local_path.end(),
-					rrg.nodes.at(frontier_connecting_node).path_to_robot.rbegin(),
+				!= rrg.nodes.at(missing_target_connecting_node).path_to_robot.end()) { // found mutual node in connections
+			first_mutual_node_in_connection = *it;
+			mutual_node_local_connection.insert(mutual_node_local_connection.end(),
+					rrg.nodes.at(target_connecting_node).path_to_robot.rbegin(),
 					rit);
-			mutual_node_local_path.insert(mutual_node_local_path.end(), it,
-					rrg.nodes.at(missing_frontier_connecting_node).path_to_robot.end());
+			mutual_node_local_connection.insert(mutual_node_local_connection.end(), it,
+					rrg.nodes.at(missing_target_connecting_node).path_to_robot.end());
 			std::string rempa = "";
-			for (int rem : mutual_node_local_path) {
+			for (int rem : mutual_node_local_connection) {
 				rempa += std::to_string(rem) + ",";
 			}
 			double length = 0;
-			for (int i = 0; i < mutual_node_local_path.size() - 1; i++) { // iterate over edges in remaining path to calculate length
-				int edge = _graph_path_calculator->findExistingEdge(rrg,
-						mutual_node_local_path.at(i),
-						mutual_node_local_path.at(i + 1));
+			for (int i = 0; i < mutual_node_local_connection.size() - 1; i++) { // iterate over edges in remaining connection to calculate length
+				int edge = _graph_connection_calculator->findExistingEdge(rrg,
+						mutual_node_local_connection.at(i),
+						mutual_node_local_connection.at(i + 1));
 				if (edge != -1) {
 					length += rrg.edges.at(edge).length;
 				} else {
 					ROS_WARN_STREAM(
-							"Unable to calculate minimum local path, node " << mutual_node_local_path.at(i) << " has no edge to " << mutual_node_local_path.at(i + 1));
+							"Unable to calculate minimum local connection, node " << mutual_node_local_connection.at(i) << " has no edge to " << mutual_node_local_connection.at(i + 1));
 					length = 0;
 					break;
 				}
 			}
 			if (length > 0) {
-				minimum_local_path_length = length;
+				minimum_local_connection_length = length;
 				break;
 			}
 		}
 	}
-	if (mutual_node_local_path.empty()) {
+	if (mutual_node_local_connection.empty()) {
 		max_distance_threshold = std::numeric_limits<double>::infinity(); // cannot use distance threshold
 	}
 	max_distance_threshold = std::max(max_distance_threshold,
-			minimum_local_path_length);
+			minimum_local_connection_length);
 }
 
 void GlobalGraphHandler::buildMissingPathBetweenFrontiers(
-		rrg_nbv_exploration_msgs::GlobalFrontier_<std::allocator<void>> &frontier,
-		int missing_frontier, double path_length, std::vector<int> &local_path,
+		rrg_nbv_exploration_msgs::GlobalTarget_<std::allocator<void>> &target,
+		int missing_target, double connection_length, std::vector<int> &local_connection,
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	rrg_nbv_exploration_msgs::GlobalPath path_between_frontiers;
-	path_between_frontiers.index = availablePathIndex();
-	path_between_frontiers.frontier = frontier.index;
-	path_between_frontiers.connection = missing_frontier;
-	path_between_frontiers.waypoints.insert(
-			path_between_frontiers.waypoints.begin(),
-			_gg.paths.at(_gg.frontiers.at(frontier.index).paths.front()).waypoints.begin(),
-			_gg.paths.at(_gg.frontiers.at(frontier.index).paths.front()).waypoints.end());
-	for (int i = 1; i < local_path.size() - 1; i++) { // omit begin and end, connecting nodes are already present in path
-		path_between_frontiers.waypoints.push_back(
-				rrg.nodes.at(local_path.at(i)).position);
+	rrg_nbv_exploration_msgs::GlobalConnection connection_between_targets;
+	connection_between_targets.index = availablePathIndex();
+	connection_between_targets.first_target = target.index;
+	connection_between_targets.second_target = missing_target;
+	connection_between_targets.waypoints.insert(
+			connection_between_targets.waypoints.begin(),
+			_gg.connections.at(_gg.targets.at(target.index).connections.front()).waypoints.begin(),
+			_gg.connections.at(_gg.targets.at(target.index).connections.front()).waypoints.end());
+	for (int i = 1; i < local_connection.size() - 1; i++) { // omit begin and end, connecting nodes are already present in connection
+		connection_between_targets.waypoints.push_back(
+				rrg.nodes.at(local_connection.at(i)).position);
 	}
-	path_between_frontiers.waypoints.insert(
-			path_between_frontiers.waypoints.end(),
-			_gg.paths.at(_gg.frontiers.at(missing_frontier).paths.front()).waypoints.rbegin(),
-			_gg.paths.at(_gg.frontiers.at(missing_frontier).paths.front()).waypoints.rend());
-	path_between_frontiers.length =
-			_gg.paths.at(_gg.frontiers.at(frontier.index).paths.front()).length
-					+ path_length
-					+ _gg.paths.at(
-							_gg.frontiers.at(missing_frontier).paths.front()).length;
-	path_between_frontiers.connecting_node = -1;
-	_gg.frontiers.at(frontier.index).paths.push_back(
-			path_between_frontiers.index);
-	_gg.frontiers.at(frontier.index).paths_counter++;
-	_gg.frontiers.at(missing_frontier).paths.push_back(
-			path_between_frontiers.index);
-	_gg.frontiers.at(missing_frontier).paths_counter++;
-	insertPathInGg(path_between_frontiers);
+	connection_between_targets.waypoints.insert(
+			connection_between_targets.waypoints.end(),
+			_gg.connections.at(_gg.targets.at(missing_target).connections.front()).waypoints.rbegin(),
+			_gg.connections.at(_gg.targets.at(missing_target).connections.front()).waypoints.rend());
+	connection_between_targets.length =
+			_gg.connections.at(_gg.targets.at(target.index).connections.front()).length
+					+ connection_length
+					+ _gg.connections.at(
+							_gg.targets.at(missing_target).connections.front()).length;
+	connection_between_targets.connecting_node = -1;
+	_gg.targets.at(target.index).connections.push_back(
+			connection_between_targets.index);
+	_gg.targets.at(target.index).connections_counter++;
+	_gg.targets.at(missing_target).connections.push_back(
+			connection_between_targets.index);
+	_gg.targets.at(missing_target).connections_counter++;
+	insertPathInGg(connection_between_targets);
 }
 
 void GlobalGraphHandler::connectPathsToLocalGraphToNearestNode(
 		rrg_nbv_exploration_msgs::Graph &rrg) {
-	for (auto &path : _gg.paths) { // connect all frontiers directly to the nearest node to the robot
-		if (!path.inactive
-				&& path.connection
-						== rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) { // add path to robot from connecting node
-			for (int i = rrg.nodes.at(path.connecting_node).path_to_robot.size()
+	for (auto &connection : _gg.connections) { // connect all targets directly to the nearest node to the robot
+		if (!connection.inactive
+				&& connection.second_target
+						== rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH) { // add connection to robot from connecting node
+			for (int i = rrg.nodes.at(connection.connecting_node).path_to_robot.size()
 					- 2; i >= 0; i--) { // skip node itself, as it already is in waypoints
-				path.waypoints.push_back(
+				connection.waypoints.push_back(
 						rrg.nodes.at(
-								rrg.nodes.at(path.connecting_node).path_to_robot.at(
+								rrg.nodes.at(connection.connecting_node).path_to_robot.at(
 										i)).position);
 			}
-			path.length += rrg.nodes.at(path.connecting_node).distance_to_robot;
-			path.connecting_node = rrg.nearest_node;
+			connection.length += rrg.nodes.at(connection.connecting_node).distance_to_robot;
+			connection.connecting_node = rrg.nearest_node;
 		}
 	}
 }
@@ -1317,29 +1317,29 @@ void GlobalGraphHandler::connectPathsToLocalGraphToNearestNode(
 bool GlobalGraphHandler::checkIfNextFrontierWithPathIsValid() {
 	return _next_global_goal >= 0 && _next_global_goal < _global_route.size()
 			&& _global_route.at(_next_global_goal).first >= 0
-			&& _global_route.at(_next_global_goal).first < _gg.frontiers_counter
+			&& _global_route.at(_next_global_goal).first < _gg.targets_counter
 			&& _global_route.at(_next_global_goal).second >= 0
-			&& _global_route.at(_next_global_goal).second < _gg.paths_counter;
+			&& _global_route.at(_next_global_goal).second < _gg.connections_counter;
 }
 
 bool GlobalGraphHandler::getFrontierGoal(geometry_msgs::Point &goal,
 		double &yaw, geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
 		goal =
-				_gg.frontiers.at(_global_route.at(_next_global_goal).first).viewpoint;
-		if (_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.size()
+				_gg.targets.at(_global_route.at(_next_global_goal).first).viewpoint;
+		if (_gg.connections.at(_global_route.at(_next_global_goal).second).waypoints.size()
 				> 1) {
 			yaw =
 					(int) (atan2(
 							goal.y
-									- _gg.paths.at(
+									- _gg.connections.at(
 											_global_route.at(_next_global_goal).second).waypoints.at(
 											1).y,
 							goal.x
-									- _gg.paths.at(
+									- _gg.connections.at(
 											_global_route.at(_next_global_goal).second).waypoints.at(
 											1).x) * 180 / M_PI);
-		} else { // frontier directly next to robot, define yaw from robot position
+		} else { // target directly next to robot, define yaw from robot position
 			yaw = (int) (atan2(goal.y - robot_pos.y, goal.x - robot_pos.x) * 180
 					/ M_PI);
 		}
@@ -1350,138 +1350,138 @@ bool GlobalGraphHandler::getFrontierGoal(geometry_msgs::Point &goal,
 }
 
 bool GlobalGraphHandler::getFrontierPath(
-		std::vector<geometry_msgs::PoseStamped> &path,
+		std::vector<geometry_msgs::PoseStamped> &connection,
 		geometry_msgs::Point &robot_pos) {
 	if (checkIfNextFrontierWithPathIsValid()) {
 		ROS_INFO_STREAM(
-				"Get path to target " << _global_route.at(_next_global_goal).first);
+				"Get connection to target " << _global_route.at(_next_global_goal).first);
 		std::vector<geometry_msgs::Point> waypoints;
 		if (_previous_global_goal_failed >= 0) {
-			// Add path from local graph to next frontier but skip last waypoint as it is always present in the path
+			// Add connection from local graph to next target but skip last waypoint as it is always present in the connection
 			ROS_INFO_STREAM(
-					"Start with path to " << _global_route.at(_next_global_goal).first);
+					"Start with connection to " << _global_route.at(_next_global_goal).first);
 			waypoints.insert(waypoints.end(),
-					_gg.paths.at(
-							_gg.frontiers.at(
-									_global_route.at(_next_global_goal).first).paths.front()).waypoints.begin(),
+					_gg.connections.at(
+							_gg.targets.at(
+									_global_route.at(_next_global_goal).first).connections.front()).waypoints.begin(),
 					std::prev(
-							_gg.paths.at(
-									_gg.frontiers.at(
-											_global_route.at(_next_global_goal).first).paths.front()).waypoints.end()));
-			// go back to former local graph to start navigation to next frontier from there
+							_gg.connections.at(
+									_gg.targets.at(
+											_global_route.at(_next_global_goal).first).connections.front()).waypoints.end()));
+			// go back to former local graph to start navigation to next target from there
 			ROS_INFO_STREAM(
-					"Add reversed path from " << _previous_global_goal_failed);
+					"Add reversed connection from " << _previous_global_goal_failed);
 			waypoints.insert(waypoints.end(),
-					_gg.paths.at(
-							_gg.frontiers.at(_previous_global_goal_failed).paths.front()).waypoints.rbegin(),
-					_gg.paths.at(
-							_gg.frontiers.at(_previous_global_goal_failed).paths.front()).waypoints.rend());
-			// prune waypoints from the path back to the local graph up to the nearest one to the robot
-			rrg_nbv_exploration_msgs::GlobalPath path_to_next_goal_from_failed_goal;
-			path_to_next_goal_from_failed_goal.waypoints = waypoints;
+					_gg.connections.at(
+							_gg.targets.at(_previous_global_goal_failed).connections.front()).waypoints.rbegin(),
+					_gg.connections.at(
+							_gg.targets.at(_previous_global_goal_failed).connections.front()).waypoints.rend());
+			// prune waypoints from the connection back to the local graph up to the nearest one to the robot
+			rrg_nbv_exploration_msgs::GlobalConnection connection_to_next_goal_from_failed_goal;
+			connection_to_next_goal_from_failed_goal.waypoints = waypoints;
 			//rebuild waypoint searcher to update closest waypoint
-			_global_path_waypoint_searcher->rebuildIndex(
-					path_to_next_goal_from_failed_goal);
+			_global_connection_waypoint_searcher->rebuildIndex(
+					connection_to_next_goal_from_failed_goal);
 			double min_distance;
 			int nearest_waypoint_index = -1;
-			_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
+			_global_connection_waypoint_searcher->findNearestNeighbour(robot_pos,
 					min_distance, nearest_waypoint_index);
-//			ROS_INFO_STREAM(path_to_next_goal_from_failed_goal);
+//			ROS_INFO_STREAM(connection_to_next_goal_from_failed_goal);
 			ROS_INFO_STREAM(
 					sqrt(min_distance) << "m to nearest waypoint  " << nearest_waypoint_index << " at (" << waypoints.at(nearest_waypoint_index).x << ","<< waypoints.at(nearest_waypoint_index).y << ")");
 			//update closest waypoint
-			_active_paths_closest_waypoint = std::make_pair(
+			_active_connections_closest_waypoint = std::make_pair(
 					_global_route.at(_next_global_goal).second,
 					nearest_waypoint_index); // start at waypoint at nearest node in RRG
 		} else {
 			waypoints.insert(waypoints.end(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
-					_gg.paths.at(_global_route.at(_next_global_goal).second).waypoints.end());
+					_gg.connections.at(_global_route.at(_next_global_goal).second).waypoints.begin(),
+					_gg.connections.at(_global_route.at(_next_global_goal).second).waypoints.end());
 			ROS_INFO_STREAM(
-					"Inserted waypoints of path " << _global_route.at(_next_global_goal).second);
+					"Inserted waypoints of connection " << _global_route.at(_next_global_goal).second);
 		}
 		ROS_INFO_STREAM(
-				"Waypoints: " << waypoints.size() << ", closest wp: " << _active_paths_closest_waypoint.second);
+				"Waypoints: " << waypoints.size() << ", closest wp: " << _active_connections_closest_waypoint.second);
 		if (waypoints.size() == 0) {
-			ROS_INFO_STREAM("Waypoints empty, insert frontier waypoint");
+			ROS_INFO_STREAM("Waypoints empty, insert target waypoint");
 			waypoints.push_back(
-					_gg.frontiers.at(_global_route.at(_next_global_goal).first).viewpoint);
+					_gg.targets.at(_global_route.at(_next_global_goal).first).viewpoint);
 		}
-		_graph_path_calculator->getNavigationPath(path, waypoints, robot_pos,
-				_active_paths_closest_waypoint.second);
+		_graph_connection_calculator->getNavigationPath(connection, waypoints, robot_pos,
+				_active_connections_closest_waypoint.second);
 		return true;
 	} else {
 		return false;
 	}
 }
 
-std::vector<int> GlobalGraphHandler::frontierReached(
+std::vector<int> GlobalGraphHandler::targetReached(
 		geometry_msgs::Point &position) {
-	std::vector<int> connected_paths;
+	std::vector<int> connected_connections;
 	if (checkIfNextFrontierWithPathIsValid()) {
-		int frontier = _global_route.at(_next_global_goal).first;
-		if(_auto_homing && frontier == 0) { //reached home
-			return connected_paths;
+		int target = _global_route.at(_next_global_goal).first;
+		if(_auto_homing && target == 0) { //reached home
+			return connected_connections;
 		}
-		position = _gg.frontiers.at(frontier).viewpoint;
+		position = _gg.targets.at(target).viewpoint;
 		_next_global_goal = -1;
 		_global_route.clear();
 		_previous_global_goal_failed = -1;
-		std::set<int> pruned_frontiers;
-		std::set<int> pruned_paths;
-		pruned_frontiers.insert(frontier);
-		for (auto path : _gg.frontiers.at(frontier).paths) {
-			pruned_paths.insert(path);
-			overwritePathToLocalGraph(path, frontier, connected_paths);
+		std::set<int> pruned_targets;
+		std::set<int> pruned_connections;
+		pruned_targets.insert(target);
+		for (auto connection : _gg.targets.at(target).connections) {
+			pruned_connections.insert(connection);
+			overwritePathToLocalGraph(connection, target, connected_connections);
 		}
-		if (pruned_frontiers.size() > 0) {
-			handlePrunedFrontiers(pruned_frontiers);
-			handlePrunedPaths(pruned_paths);
+		if (pruned_targets.size() > 0) {
+			handlePrunedFrontiers(pruned_targets);
+			handlePrunedPaths(pruned_connections);
 		}
 	}
-	return connected_paths;
+	return connected_connections;
 }
 
-bool GlobalGraphHandler::frontierFailed() {
-	if (_next_global_goal >= _global_route.size() - 1) { // last frontier in route, exploration finished
+bool GlobalGraphHandler::targetFailed() {
+	if (_next_global_goal >= _global_route.size() - 1) { // last target in route, exploration finished
 		return true;
 	} else {
 		_previous_global_goal_failed =
 				_global_route.at(_next_global_goal).first;
 		_next_global_goal++;
 		ROS_INFO_STREAM(
-				"Frontier " << _global_route.at(_next_global_goal - 1).first << " failed, try next frontier " << _global_route.at(_next_global_goal).first);
+				"Frontier " << _global_route.at(_next_global_goal - 1).first << " failed, try next target " << _global_route.at(_next_global_goal).first);
 		return false;
 	}
 }
 
-void GlobalGraphHandler::overwritePathToLocalGraph(int path, int frontier,
-		std::vector<int> &connected_paths) {
-	if (_gg.paths.at(path).connection
-			!= rrg_nbv_exploration_msgs::GlobalPath::LOCAL_GRAPH) {
-		int other_frontier =
-				_gg.paths.at(path).frontier == frontier ?
-						_gg.paths.at(path).connection :
-						_gg.paths.at(path).frontier;
-		int other_frontiers_path_to_local_graph = _gg.frontiers.at(
-				other_frontier).paths.front();
-		// overwrite path between other frontier and local graph with details from the path between those two
-		_gg.paths.at(other_frontiers_path_to_local_graph).connecting_node = 0; // root at new RRG
-		_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.clear();
-		if (other_frontier > frontier) {
-			_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.insert(
-					_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.end(),
-					_gg.paths.at(path).waypoints.begin(),
-					_gg.paths.at(path).waypoints.end());
-		} else { // path was from frontier to other frontier, must be reversed
-			_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.insert(
-					_gg.paths.at(other_frontiers_path_to_local_graph).waypoints.end(),
-					_gg.paths.at(path).waypoints.rbegin(),
-					_gg.paths.at(path).waypoints.rend());
+void GlobalGraphHandler::overwritePathToLocalGraph(int connection, int target,
+		std::vector<int> &connected_connections) {
+	if (_gg.connections.at(connection).second_target
+			!= rrg_nbv_exploration_msgs::GlobalConnection::LOCAL_GRAPH) {
+		int other_target =
+				_gg.connections.at(connection).first_target == target ?
+						_gg.connections.at(connection).second_target :
+						_gg.connections.at(connection).first_target;
+		int other_targets_connection_to_local_graph = _gg.targets.at(
+				other_target).connections.front();
+		// overwrite connection between other target and local graph with details from the connection between those two
+		_gg.connections.at(other_targets_connection_to_local_graph).connecting_node = 0; // root at new RRG
+		_gg.connections.at(other_targets_connection_to_local_graph).waypoints.clear();
+		if (other_target > target) {
+			_gg.connections.at(other_targets_connection_to_local_graph).waypoints.insert(
+					_gg.connections.at(other_targets_connection_to_local_graph).waypoints.end(),
+					_gg.connections.at(connection).waypoints.begin(),
+					_gg.connections.at(connection).waypoints.end());
+		} else { // connection was from target to other target, must be reversed
+			_gg.connections.at(other_targets_connection_to_local_graph).waypoints.insert(
+					_gg.connections.at(other_targets_connection_to_local_graph).waypoints.end(),
+					_gg.connections.at(connection).waypoints.rbegin(),
+					_gg.connections.at(connection).waypoints.rend());
 		}
-		_gg.paths.at(other_frontiers_path_to_local_graph).length = _gg.paths.at(
-				path).length;
-		connected_paths.push_back(other_frontiers_path_to_local_graph);
+		_gg.connections.at(other_targets_connection_to_local_graph).length = _gg.connections.at(
+				connection).length;
+		connected_connections.push_back(other_targets_connection_to_local_graph);
 	}
 }
 
@@ -1489,16 +1489,16 @@ bool GlobalGraphHandler::updateClosestWaypoint(
 		geometry_msgs::Point &robot_pos) {
 	double min_distance;
 	int nearest_node;
-	_global_path_waypoint_searcher->findNearestNeighbour(robot_pos,
+	_global_connection_waypoint_searcher->findNearestNeighbour(robot_pos,
 			min_distance, nearest_node);
-	if (nearest_node == 0) { // frontier reached
+	if (nearest_node == 0) { // target reached
 		ROS_INFO_STREAM("Frontier waypoint reached " << nearest_node);
-		_active_paths_closest_waypoint = std::make_pair(-1, -1);
+		_active_connections_closest_waypoint = std::make_pair(-1, -1);
 		return true;
 	}
-	if (nearest_node != _active_paths_closest_waypoint.second) {
+	if (nearest_node != _active_connections_closest_waypoint.second) {
 		ROS_INFO_STREAM("New closest waypoint " << nearest_node);
-		_active_paths_closest_waypoint.second = nearest_node;
+		_active_connections_closest_waypoint.second = nearest_node;
 	}
 	return false;
 }

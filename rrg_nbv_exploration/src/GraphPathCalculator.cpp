@@ -517,7 +517,7 @@ void GraphPathCalculator::getNavigationPath(
 		addInterNodes(path, robot_pos, waypoints.at(waypoints.size() - 1),
 				tf2::toMsg(quaternion), yaw, distance);
 	}
-	for (int i = closest_waypoint; i >= 0; i--) { // waypoints start at frontier (index 0) and end at closest waypoint to robot
+	for (int i = closest_waypoint; i >= 0; i--) { // waypoints start at target (index 0) and end at closest waypoint to robot
 		geometry_msgs::PoseStamped path_pose;
 		path_pose.header.frame_id = "map";
 		path_pose.header.stamp = timestamp;
@@ -531,7 +531,7 @@ void GraphPathCalculator::getNavigationPath(
 					pow(waypoints.at(i).x - waypoints.at(i - 1).x, 2)
 							+ pow(waypoints.at(i).y - waypoints.at(i - 1).y,
 									2));
-		} else { // waypoint at frontier
+		} else { // waypoint at target
 			yaw = atan2(waypoints.at(i).y - waypoints.at(i + 1).y,
 					waypoints.at(i).x - waypoints.at(i + 1).x);
 		}
@@ -609,8 +609,8 @@ bool GraphPathCalculator::neighbourNodes(rrg_nbv_exploration_msgs::Graph &rrg,
 }
 
 std::map<int, int> GraphPathCalculator::findShortestRoutes(
-		rrg_nbv_exploration_msgs::Graph &rrg, int frontier_connecting_node,
-		std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node,
+		rrg_nbv_exploration_msgs::Graph &rrg, int target_connecting_node,
+		std::vector<std::pair<int, int>> &missing_targets_with_connecting_node,
 		std::vector<ShortestFrontierConnectionStruct> &local_paths,
 		double max_distance_threshold) {
 	std::vector<LocalNode> local_nodes; // copy of all RRG nodes including only relevant information
@@ -618,11 +618,11 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 		local_nodes.emplace_back(node.index,
 				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
 	}
-	std::set<std::pair<double, int>> node_queue; // node's distance to frontier connected node (first) and index (second)
-	local_nodes.at(frontier_connecting_node).path_length = 0;
-	local_nodes.at(frontier_connecting_node).path_to_frontier.push_back(
-			frontier_connecting_node);
-	node_queue.insert(std::make_pair(0, frontier_connecting_node));
+	std::set<std::pair<double, int>> node_queue; // node's distance to target connected node (first) and index (second)
+	local_nodes.at(target_connecting_node).path_length = 0;
+	local_nodes.at(target_connecting_node).path_to_target.push_back(
+			target_connecting_node);
+	node_queue.insert(std::make_pair(0, target_connecting_node));
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
 		node_queue.erase(node_queue.begin());
@@ -639,47 +639,47 @@ std::map<int, int> GraphPathCalculator::findShortestRoutes(
 								< local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
 					local_nodes.at(neighbor_node_index).path_length =
 							new_length;
-					local_nodes.at(neighbor_node_index).path_to_frontier =
-							local_nodes.at(current_node).path_to_frontier;
-					local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+					local_nodes.at(neighbor_node_index).path_to_target =
+							local_nodes.at(current_node).path_to_target;
+					local_nodes.at(neighbor_node_index).path_to_target.push_back(
 							neighbor_node_index);
 					addToNodeQueue(node_queue, neighbor_node_index, new_length);
 				}
 			}
 		}
 	}
-	return extractLocalPaths(frontier_connecting_node, local_nodes, local_paths,
-			missing_frontiers_with_connecting_node);
+	return extractLocalPaths(target_connecting_node, local_nodes, local_paths,
+			missing_targets_with_connecting_node);
 }
 
 std::map<int, int> GraphPathCalculator::extractLocalPaths(
-		int frontier_connecting_node, std::vector<LocalNode> &local_nodes,
+		int target_connecting_node, std::vector<LocalNode> &local_nodes,
 		std::vector<ShortestFrontierConnectionStruct> &local_paths,
-		std::vector<std::pair<int, int>> &missing_frontiers_with_connecting_node) {
+		std::vector<std::pair<int, int>> &missing_targets_with_connecting_node) {
 	std::map<int, int> node_local_path_map;	// node index (key) mapped to local path index (value)
-	std::map<int, int> missing_frontier_local_path_map; // missing frontier index (key) mapped to local path index (value)
-	for (auto missing_frontier_with_connecting_node : missing_frontiers_with_connecting_node) { // link node copies with connected missing frontiers
+	std::map<int, int> missing_target_local_path_map; // missing target index (key) mapped to local path index (value)
+	for (auto missing_target_with_connecting_node : missing_targets_with_connecting_node) { // link node copies with connected missing targets
 		auto it = node_local_path_map.find(
-				missing_frontier_with_connecting_node.second);
+				missing_target_with_connecting_node.second);
 		if (it == node_local_path_map.end()) { // no local path for node index
-			local_paths.emplace_back(frontier_connecting_node,
-					missing_frontier_with_connecting_node.second,
-					local_nodes.at(missing_frontier_with_connecting_node.second).path_to_frontier,
-					local_nodes.at(missing_frontier_with_connecting_node.second).path_length);
+			local_paths.emplace_back(target_connecting_node,
+					missing_target_with_connecting_node.second,
+					local_nodes.at(missing_target_with_connecting_node.second).path_to_target,
+					local_nodes.at(missing_target_with_connecting_node.second).path_length);
 			int local_path_index = local_paths.size() - 1;
 			node_local_path_map.insert(
-					std::make_pair(missing_frontier_with_connecting_node.second,
+					std::make_pair(missing_target_with_connecting_node.second,
 							local_path_index));
-			missing_frontier_local_path_map.insert(
-					std::make_pair(missing_frontier_with_connecting_node.first,
+			missing_target_local_path_map.insert(
+					std::make_pair(missing_target_with_connecting_node.first,
 							local_path_index));
 		} else { // local path is value in node_local_path_map (second)
-			missing_frontier_local_path_map.insert(
-					std::make_pair(missing_frontier_with_connecting_node.first,
+			missing_target_local_path_map.insert(
+					std::make_pair(missing_target_with_connecting_node.first,
 							it->second));
 		}
 	}
-	return missing_frontier_local_path_map;
+	return missing_target_local_path_map;
 }
 void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 		rrg_nbv_exploration_msgs::Graph &rrg, int node) {
@@ -690,7 +690,7 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 				node.status == rrg_nbv_exploration_msgs::Node::INACTIVE);
 	}
 	local_nodes.at(node).path_length = 0;
-	local_nodes.at(node).path_to_frontier.push_back(node);
+	local_nodes.at(node).path_to_target.push_back(node);
 	node_queue.insert(std::make_pair(0, node));
 	while (!node_queue.empty()) {
 		int current_node = node_queue.begin()->second;
@@ -707,9 +707,9 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 						< local_nodes.at(neighbor_node_index).path_length) { // improved path to neighbor node
 					local_nodes.at(neighbor_node_index).path_length =
 							new_length;
-					local_nodes.at(neighbor_node_index).path_to_frontier =
-							local_nodes.at(current_node).path_to_frontier;
-					local_nodes.at(neighbor_node_index).path_to_frontier.push_back(
+					local_nodes.at(neighbor_node_index).path_to_target =
+							local_nodes.at(current_node).path_to_target;
+					local_nodes.at(neighbor_node_index).path_to_target.push_back(
 							neighbor_node_index);
 					addToNodeQueue(node_queue, neighbor_node_index, new_length);
 				}
@@ -727,13 +727,13 @@ void GraphPathCalculator::findPathToNearestNodeThroughFailedNodes(
 					rrg.nodes.at(current_node).path_to_robot.push_back(
 							current_node);
 					for (int i =
-							local_nodes.at(current_node).path_to_frontier.size()
+							local_nodes.at(current_node).path_to_target.size()
 									- 2; i >= 0; i--) { //iterate over local nodes(current node) path without the current node
 						int update_node =
-								local_nodes.at(current_node).path_to_frontier.at(
+								local_nodes.at(current_node).path_to_target.at(
 										i);
 						int last_node =
-								local_nodes.at(current_node).path_to_frontier.at(
+								local_nodes.at(current_node).path_to_target.at(
 										i + 1);
 						int connecting_edge = findExistingEdge(rrg, update_node,
 								last_node);

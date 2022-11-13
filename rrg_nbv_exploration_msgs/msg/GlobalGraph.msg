@@ -2,7 +2,7 @@
 std_msgs/Header header
 string ns
 
-GlobalFrontier[] frontiers		  				# Array of all frontiers in this global graph with the first entry being the origin
-GlobalPath[] paths								# Array of all paths connecting frontiers with each other and the local graph in this global graph
-int32 frontiers_counter				   			# Number of frontiers in the frontiers array
-int32 paths_counter   							# Number of paths in the paths array
+GlobalTarget[] targets		  					# Array of all targets in this global graph with the first entry being the origin
+GlobalConnection[] connections						# Array of all connections between targets and from targets to the local graph in this global graph
+int32 targets_counter				   			# Number of targets in the targets array
+int32 connections_counter   					# Number of connections in the connections array

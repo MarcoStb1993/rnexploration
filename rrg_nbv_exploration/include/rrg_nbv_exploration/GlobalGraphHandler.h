@@ -14,7 +14,7 @@
 #include <rrg_nbv_exploration_msgs/Graph.h>
 #include <rrg_nbv_exploration/GraphPathCalculator.h>
 #include <rrg_nbv_exploration/GlobalGraphSearcher.h>
-#include <rrg_nbv_exploration/GlobalPathWaypointSearcher.h>
+#include <rrg_nbv_exploration/GlobalGraphWaypointSearcher.h>
 #include <rrg_nbv_exploration/GraphSearcher.h>
 #include <rrg_nbv_exploration/CollisionChecker.h>
 
@@ -32,14 +32,14 @@ public:
 
 	/**
 	 * @brief Initialize the global graph with the origin at the local graph's root node as the first
-	 * frontier and the corresponding path
+	 * target and the corresponding connection
 	 * @param The local graph's root node
-	 * @param Helper class for path calculation in the RRG
+	 * @param Helper class for connection calculation in the RRG
 	 * @param Helper class for radius and nearest neighbor search in RRG
 	 * @param Helper class for collision checks on traversability map
 	 */
 	void initialize(rrg_nbv_exploration_msgs::Node &root,
-			std::shared_ptr<GraphPathCalculator> graph_path_calculator,
+			std::shared_ptr<GraphPathCalculator> graph_connection_calculator,
 			std::shared_ptr<GraphSearcher> graph_searcher,
 			std::shared_ptr<CollisionChecker> collision_checker);
 
@@ -49,24 +49,24 @@ public:
 	void publishGlobalGraph();
 
 	/**
-	 * @brief Adds the given node from the local graph as a new frontier and connect it to the
-	 * local graph and other frontiers by a path
-	 * @param Index of the node that will become a frontier
+	 * @brief Adds the given node from the local graph as a new target and connect it to the
+	 * local graph and other targets by a connection
+	 * @param Index of the node that will become a target
 	 * @param Reference to the RRG
 	 */
 	void addFrontier(int node, rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Continues the path to a frontier for the given node that it was connected to and connects
-	 * to other frontiers with a new path if applicable
-	 * @param Index of the node that was removed from the local graph and had at least one connection to a path
+	 * @brief Continues the connection to a target for the given node that it was connected to and connects
+	 * to other targets with a new connection if applicable
+	 * @param Index of the node that was removed from the local graph and had at least one connection to a connection
 	 * @param Reference to the RRG
 	 */
 	void continuePath(int node, rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Checks for all frontiers in the max sensor range around the robot if they can be connected
-	 * to a node in the local graph and deactivates them and their respective paths
+	 * @brief Checks for all targets in the max sensor range around the robot if they can be connected
+	 * to a node in the local graph and deactivates them and their respective connections
 	 * @param Reference to the RRG
 	 * @param Current robot position
 	 */
@@ -74,71 +74,71 @@ public:
 			geometry_msgs::Point robot_position);
 
 	/**
-	 * @brief Checks if a new node in the RRG can reduce the global paths, if their nearest respective
-	 * waypoint would be connected to the new node. If the new node is very close to the frontier itself,
-	 * remove the frontier from the global graph, if it is in a connectable range, return the frontier's
+	 * @brief Checks if a new node in the RRG can reduce the global connections, if their nearest respective
+	 * waypoint would be connected to the new node. If the new node is very close to the target itself,
+	 * remove the target from the global graph, if it is in a connectable range, return the target's
 	 * position
 	 * @param Reference to the RRG
 	 * @param Index of the new node
-	 * @return List of positions where to place a new node to prune frontiers
+	 * @return List of positions where to place a new node to prune targets
 	 */
 	std::vector<geometry_msgs::Point> pruneFrontiersAndPathsAroundNewNode(
 			rrg_nbv_exploration_msgs::Graph &rrg, int new_node);
 
 	/**
-	 * @brief Calculates and stores the frontier to be explored next when the local graph has no more goals
+	 * @brief Calculates and stores the target to be explored next when the local graph has no more goals
 	 * @param Reference to the RRG
-	 * @return If a frontier goal could be calculated, false if no frontier available, exploration finished
+	 * @return If a target goal could be calculated, false if no target available, exploration finished
 	 */
 	bool calculateNextFrontierGoal(rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Gets the position of the next frontier and the yaw orientation derived from the incoming
-	 * waypoint or the robot position if there is only one waypoint in the path to this frontier
-	 * @param Reference to the frontier position which will be inserted
-	 * @param Reference to the desired yaw at the frontier position which will be calculated
+	 * @brief Gets the position of the next target and the yaw orientation derived from the incoming
+	 * waypoint or the robot position if there is only one waypoint in the connection to this target
+	 * @param Reference to the target position which will be inserted
+	 * @param Reference to the desired yaw at the target position which will be calculated
 	 * @param Reference to the robot position
-	 * @return If a valid next frontier and path to this frontier are available
+	 * @return If a valid next target and connection to this target are available
 	 */
 	bool getFrontierGoal(geometry_msgs::Point &goal, double &yaw,
 			geometry_msgs::Point &robot_pos);
 
 	/**
-	 * @brief Get the waypoints from the path to the next frontier and the node in the local graph
-	 * connected to the path and return a navigation path along those waypoints
-	 * @param Reference to the navigation path which will be filled
+	 * @brief Get the waypoints from the connection to the next target and the node in the local graph
+	 * connected to the connection and return a navigation connection along those waypoints
+	 * @param Reference to the navigation connection which will be filled
 	 * @param Reference to robot position
-	 * @return If a valid next frontier and path to this frontier are available
+	 * @return If a valid next target and connection to this target are available
 	 */
-	bool getFrontierPath(std::vector<geometry_msgs::PoseStamped> &path,
+	bool getFrontierPath(std::vector<geometry_msgs::PoseStamped> &connection,
 			geometry_msgs::Point &robot_pos);
 
 	/**
-	 * @brief Deactivate next frontier and its paths from global graph and use the frontier as the new root
-	 * location for the RRG and its paths to other frontiers as new paths to the local graph for the
-	 * particular frontiers
-	 * @param Reference to the frontier's viewpoint which will be inserted
-	 * @param Returns a list of all paths which are connected to the new local graph's root node
+	 * @brief Deactivate next target and its connections from global graph and use the target as the new root
+	 * location for the RRG and its connections to other targets as new connections to the local graph for the
+	 * particular targets
+	 * @param Reference to the target's viewpoint which will be inserted
+	 * @param Returns a list of all connections which are connected to the new local graph's root node
 	 */
-	std::vector<int> frontierReached(geometry_msgs::Point &position);
+	std::vector<int> targetReached(geometry_msgs::Point &position);
 
 	/**
-	 * @brief Initiates navigation to the next frontier if the current frontier goal is not the last
+	 * @brief Initiates navigation to the next target if the current target goal is not the last
 	 * in the global route
-	 * @return If the exploration is finished because no more frontiers are available
+	 * @return If the exploration is finished because no more targets are available
 	 */
-	bool frontierFailed();
+	bool targetFailed();
 
 	/**
-	 * @brief Updates the waypoint in the active path that is closest to the robot's current position
+	 * @brief Updates the waypoint in the active connection that is closest to the robot's current position
 	 * @param Reference to the robot position
-	 * @return Return if the frontier is the closest waypoint
+	 * @return Return if the target is the closest waypoint
 	 */
 	bool updateClosestWaypoint(geometry_msgs::Point &robot_pos);
 
 	/**
-	 * @brief Checks if the next frontier and the respective path exist
-	 * @return If the next frontier and path are valid
+	 * @brief Checks if the next target and the respective connection exist
+	 * @return If the next target and connection are valid
 	 */
 	bool checkIfNextFrontierWithPathIsValid();
 
@@ -149,18 +149,18 @@ public:
 private:
 
 	/**
-	 * @brief Structure to store information crucial to decide which frontier will be pruned and which
-	 * remains when merging frontiers
+	 * @brief Structure to store information crucial to decide which target will be pruned and which
+	 * remains when merging targets
 	 */
 	struct MergeableFrontierStruct {
-		int frontier;
-		double path_length_to_local_graph;
-		double distance_between_frontiers;
+		int target;
+		double connection_length_to_local_graph;
+		double distance_between_targets;
 
-		MergeableFrontierStruct(int f, double path, double distance) {
-			frontier = f;
-			path_length_to_local_graph = path;
-			distance_between_frontiers = distance;
+		MergeableFrontierStruct(int f, double connection, double distance) {
+			target = f;
+			connection_length_to_local_graph = connection;
+			distance_between_targets = distance;
 		}
 	};
 
@@ -168,28 +168,28 @@ private:
 	ros::Publisher _global_graph_publisher;
 
 	/**
-	 * @brief Global graph object with frontiers and paths
+	 * @brief Global graph object with targets and connections
 	 */
 	rrg_nbv_exploration_msgs::GlobalGraph _gg;
 	/**
-	 * @brief Helper class for calculating path, heading and traversability between any two nodes in
+	 * @brief Helper class for calculating connection, heading and traversability between any two nodes in
 	 * the graph
 	 */
-	std::shared_ptr<GraphPathCalculator> _graph_path_calculator;
+	std::shared_ptr<GraphPathCalculator> _graph_connection_calculator;
 	/**
 	 * @brief Helper class for kd-tree radius and nearest neighbor search in global graph
 	 */
 	std::shared_ptr<GlobalGraphSearcher> _global_graph_searcher;
 	/**
-	 * @brief Helper class for kd-tree radius and nearest neighbor search in a path's waypoints
+	 * @brief Helper class for kd-tree radius and nearest neighbor search in a connection's waypoints
 	 */
-	std::shared_ptr<GlobalPathWaypointSearcher> _global_path_waypoint_searcher;
+	std::shared_ptr<GlobalGraphWaypointSearcher> _global_connection_waypoint_searcher;
 	/**
 	 * @brief Helper class for radius and nearest neighbor search in kd-tree based on RRG
 	 */
 	std::shared_ptr<GraphSearcher> _graph_searcher;
 	/**
-	 * @brief Helper class for checking if a path between two nodes is collision free
+	 * @brief Helper class for checking if a connection between two nodes is collision free
 	 */
 	std::shared_ptr<CollisionChecker> _collision_checker;
 
@@ -212,7 +212,7 @@ private:
 	/**
 	 * Half the minimum required distance between two nodes for a box collision object to be inserted
 	 */
-	double _half_path_box_distance_thres;
+	double _half_connection_box_distance_thres;
 	/**
 	 * @brief Squared max distance between two nodes in the graph
 	 */
@@ -222,20 +222,20 @@ private:
 	 */
 	double _min_edge_distance_squared;
 	/**
-	 * @brief Ordered list of frontier indices where the frontiers are inactive and can be replaced with a new frontier
+	 * @brief Ordered list of target indices where the targets are inactive and can be replaced with a new target
 	 */
-	std::set<int> _available_frontiers;
+	std::set<int> _available_targets;
 	/**
-	 * @set Ordered list of path indices where the paths are inactive and can be replaced with a new path
+	 * @set Ordered list of connection indices where the connections are inactive and can be replaced with a new connection
 	 */
-	std::set<int> _available_paths;
+	std::set<int> _available_connections;
 	/**
 	 * @brief Radius of the RRG around the robot in m
 	 */
 	double _local_graph_radius;
 	/**
-	 * @brief Indices of frontiers (first) in the order of global exploration and the indices of paths
-	 * leading to them from the previous frontier (second)
+	 * @brief Indices of targets (first) in the order of global exploration and the indices of connections
+	 * leading to them from the previous target (second)
 	 */
 	std::vector<std::pair<int, int>> _global_route;
 	/**
@@ -243,26 +243,26 @@ private:
 	 */
 	int _next_global_goal;
 	/**
-	 * @brief While global navigation is active, holds the index of the followed path and the closest waypoint
+	 * @brief While global navigation is active, holds the index of the followed connection and the closest waypoint
 	 */
-	std::pair<int, int> _active_paths_closest_waypoint;
+	std::pair<int, int> _active_connections_closest_waypoint;
 	/**
-	 * @brief Return to the origin node when all nodes frontiers were explored
+	 * @brief Return to the origin node when all nodes targets were explored
 	 */
 	bool _auto_homing;
 	/**
-	 * @brief If the navigation to the previous global goal failed this contains the index of the frontier that failed
+	 * @brief If the navigation to the previous global goal failed this contains the index of the target that failed
 	 */
 	int _previous_global_goal_failed;
 
 	/**
-	 * @brief Returns the second to last node in the given node's path to the robot in the local graph
+	 * @brief Returns the second to last node in the given node's connection to the robot in the local graph
 	 * as the new connecting node, adds its position to the list of waypoints and the edge's length
 	 * between both nodes
 	 * @param Index of the node at which to start
 	 * @param Reference to the RRG
 	 * @param Reference to the list of waypoints where the new connecting node's position will be added
-	 * @param Reference to the connecting node for a path
+	 * @param Reference to the connecting node for a connection
 	 * @param Reference to a length to which the edge length will be added
 	 * @return If a connection to an active node of the local graph could be made from this node
 	 */
@@ -271,300 +271,300 @@ private:
 			double &length);
 
 	/**
-	 * @brief Retrieve the lowest available frontier index for a new frontier (uses inactive frontiers if available)
-	 * @return Frontier index for new frontier
+	 * @brief Retrieve the lowest available target index for a new target (uses inactive targets if available)
+	 * @return Frontier index for new target
 	 */
 	int availableFrontierIndex();
 
 	/**
-	 * @brief Retrieve the lowest available path index for a new path (uses inactive paths if available)
-	 * @return Path index for new path
+	 * @brief Retrieve the lowest available connection index for a new connection (uses inactive connections if available)
+	 * @return Path index for new connection
 	 */
 	int availablePathIndex();
 
 	/**
-	 * @brief Deactivate all pruned frontiers and remove them from the list of frontiers if they are at the end
-	 * @param Reference to the set of pruned frontiers
+	 * @brief Deactivate all pruned targets and remove them from the list of targets if they are at the end
+	 * @param Reference to the set of pruned targets
 	 */
-	void handlePrunedFrontiers(const std::set<int> &pruned_frontiers);
+	void handlePrunedFrontiers(const std::set<int> &pruned_targets);
 
 	/**
-	 * @brief Deactivate all pruned paths and remove them from the list of paths if they are at the end
-	 * @param Reference to the set of pruned paths
+	 * @brief Deactivate all pruned connections and remove them from the list of connections if they are at the end
+	 * @param Reference to the set of pruned connections
 	 */
-	void handlePrunedPaths(const std::set<int> &pruned_paths);
+	void handlePrunedPaths(const std::set<int> &pruned_connections);
 
 	/**
-	 * @brief Deactivate the frontier with the given index by setting it to inactive and removing its paths
-	 * @param Index of frontier to deactivate
+	 * @brief Deactivate the target with the given index by setting it to inactive and removing its connections
+	 * @param Index of target to deactivate
 	 */
-	void deactivateFrontier(int pruned_frontier);
+	void deactivateFrontier(int pruned_target);
 
 	/**
-	 * @brief Deactivate the path with the given index by setting it to inactive and removing its waypoints
-	 * @param Index of path to deactivate
+	 * @brief Deactivate the connection with the given index by setting it to inactive and removing its waypoints
+	 * @param Index of connection to deactivate
 	 */
-	void deactivatePath(int pruned_path);
+	void deactivatePath(int pruned_connection);
 
 	/**
-	 * @brief Add the given frontier to the global graph by inserting it at an available position marked
+	 * @brief Add the given target to the global graph by inserting it at an available position marked
 	 * by the given index or by adding it to the end of the list if none is available
-	 * @param Reference of the frontier to be inserted
+	 * @param Reference of the target to be inserted
 	 */
 	void insertFrontierInGg(
-			const rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
+			const rrg_nbv_exploration_msgs::GlobalTarget &target);
 
 	/**
-	 * @brief Add the given path to the global graph by inserting it at an available position marked
+	 * @brief Add the given connection to the global graph by inserting it at an available position marked
 	 * by the given index or by adding it to the end of the list if none is available
-	 * @param Reference of the path to be inserted
+	 * @param Reference of the connection to be inserted
 	 */
 	void insertPathInGg(
-			const rrg_nbv_exploration_msgs::GlobalPath &path_between_frontiers);
+			const rrg_nbv_exploration_msgs::GlobalConnection &connection_between_targets);
 
 	/**
-	 * @brief Add the given frontier index to the list of frontiers to be pruned from the global graph
-	 * including all paths connected to it and remove their connection from the nodes in the RRG
-	 * @param Index of the frontier to be pruned
-	 * @param Reference to the set of frontiers to be pruned
-	 * @param Reference to the set of paths to be pruned
+	 * @brief Add the given target index to the list of targets to be pruned from the global graph
+	 * including all connections connected to it and remove their connection from the nodes in the RRG
+	 * @param Index of the target to be pruned
+	 * @param Reference to the set of targets to be pruned
+	 * @param Reference to the set of connections to be pruned
 	 * @param Reference to the RRG
 	 */
-	void addFrontierToBePruned(int frontier_to_prune,
-			std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
+	void addFrontierToBePruned(int target_to_prune,
+			std::set<int> &pruned_targets, std::set<int> &pruned_connections,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Create a new path connecting the first and second frontier at a connecting node
-	 *  and add it to the global graph with the waypoints being a union from both paths
-	 * @param Index of the first frontier with a path to a node in the local graph
-	 * @param Index of the second frontier with a path to a node in the local graph
-	 * @param Index of the path of the first node
-	 * @param Index of the path of the second node
-	 * @param If the connection is made at frontier one's viewpoint
+	 * @brief Create a new connection connecting the first and second target at a connecting node
+	 *  and add it to the global graph with the waypoints being a union from both connections
+	 * @param Index of the first target with a connection to a node in the local graph
+	 * @param Index of the second target with a connection to a node in the local graph
+	 * @param Index of the connection of the first node
+	 * @param Index of the connection of the second node
+	 * @param If the connection is made at target one's viewpoint
 	 */
-	void connectFrontiers(int frontier_one, int frontier_two, int path_one,
-			int path_two, bool connection_at_frontier_one);
+	void connectFrontiers(int target_one, int target_two, int connection_one,
+			int connection_two, bool connection_at_target_one);
 
 	/**
-	 * @brief Check if there are any paths to existing frontiers at the node or connecting node of a
-	 * new frontier and merge them if there are, the frontier with the shortest distance to the local
-	 * graph remains, all others are deactivated (including their paths)
-	 * @param Index of the node in the local graph at which the new frontier should be placed
-	 * @param Reference to the path of the new frontier
+	 * @brief Check if there are any connections to existing targets at the node or connecting node of a
+	 * new target and merge them if there are, the target with the shortest distance to the local
+	 * graph remains, all others are deactivated (including their connections)
+	 * @param Index of the node in the local graph at which the new target should be placed
+	 * @param Reference to the connection of the new target
 	 * @param Reference to the RRG
-	 * @param Reference to the new frontier
-	 * @return True if the new frontier was merged into an existing frontier, false if it can be
+	 * @param Reference to the new target
+	 * @return True if the new target was merged into an existing target, false if it can be
 	 * placed in the global graph
 	 */
 	bool tryToMergeAddedFrontiers(int node,
-			rrg_nbv_exploration_msgs::GlobalPath &path,
+			rrg_nbv_exploration_msgs::GlobalConnection &connection,
 			rrg_nbv_exploration_msgs::Graph &rrg,
-			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
+			rrg_nbv_exploration_msgs::GlobalTarget &target);
 
 	/**
-	 * @brief Determine the waypoint closest to the frontier of the given path which can be connected to
-	 * the new node, the closest waypoint cannot be directly at the frontier
-	 * @param Index of the path
+	 * @brief Determine the waypoint closest to the target of the given connection which can be connected to
+	 * the new node, the closest waypoint cannot be directly at the target
+	 * @param Index of the connection
 	 * @param Index of the new node in the RRG
-	 * @param List of waypoints of the given path that could potentially be connected to the new node
+	 * @param List of waypoints of the given connection that could potentially be connected to the new node
 	 * ordered ascending by distance to the new node (first=index of the waypoint, second=squared distance)
 	 * @param Reference to the RRG
-	 * @return Index of a connectable waypoint closest to the frontier (defaults to last index if no
+	 * @return Index of a connectable waypoint closest to the target (defaults to last index if no
 	 * suitable waypoint was found)
 	 */
-	int getClosestWaypointToFrontier(int path, int new_node,
+	int getClosestWaypointToFrontier(int connection, int new_node,
 			std::vector<std::pair<int, double>> &waypoints_near_new_node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Calculate the resulting path length if the given path would be connected to the new node
+	 * @brief Calculate the resulting connection length if the given connection would be connected to the new node
 	 * from the provided closest waypoint
-	 * @param Index of the path
+	 * @param Index of the connection
 	 * @param Index of the new node in the RRG
-	 * @param Index of the closest waypoint to the frontier of the given path that can be connected
+	 * @param Index of the closest waypoint to the target of the given connection that can be connected
 	 * to the new node
 	 * @param Reference to the RRG
-	 * @return Resulting path length when rewiring the path	 *
+	 * @return Resulting connection length when rewiring the connection	 *
 	 */
-	double calculateNewPathLength(int path, int new_node,
-			int closest_waypoint_to_frontier,
+	double calculateNewPathLength(int connection, int new_node,
+			int closest_waypoint_to_target,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Rewires the given path to the provided new node using the given waypoint
-	 * @param Index of the path
-	 * @param Index of the closest waypoint to the frontier of the given path that can be connected
+	 * @brief Rewires the given connection to the provided new node using the given waypoint
+	 * @param Index of the connection
+	 * @param Index of the closest waypoint to the target of the given connection that can be connected
 	 * to the new node
-	 * @param New path length when rewiring the path
+	 * @param New connection length when rewiring the connection
 	 * @param Index of the new node in the RRG
 	 * @param Reference to the RRG
 	 */
-	void rewirePathToNewNode(int path, int closest_waypoint_to_frontier,
-			double new_path_length, int new_node,
+	void rewirePathToNewNode(int connection, int closest_waypoint_to_target,
+			double new_connection_length, int new_node,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Attempts to improve existing connections between frontiers, because the frontiers from the
-	 * given path was rewired to a new node in the RRG, by checking if a connection via the new node would
-	 * reduce the path length and also creates new connections if a path to a frontier is found that did
+	 * @brief Attempts to improve existing connections between targets, because the targets from the
+	 * given connection was rewired to a new node in the RRG, by checking if a connection via the new node would
+	 * reduce the connection length and also creates new connections if a connection to a target is found that did
 	 * not exist before
 	 * @param Index of the new node in the RRG
-	 * @param Index of the path
+	 * @param Index of the connection
 	 * @param Reference to the RRG
 	 */
-	void tryToImproveConnectionsToOtherFrontiers(int new_node, int path,
+	void tryToImproveConnectionsToOtherFrontiers(int new_node, int connection,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Improves an existing connection between two frontiers because one of the frontiers
-	 * was rewired to a new node in the RRG and the rewiring leads to a shorter path
-	 * @param Index of the path connecting the frontiers
-	 * @param Index of the path to the local graph that was rewired
-	 * @param Index of the other frontier which connection will be improved
-	 * @param Index of the other frontier's path to the local graph
+	 * @brief Improves an existing connection between two targets because one of the targets
+	 * was rewired to a new node in the RRG and the rewiring leads to a shorter connection
+	 * @param Index of the connection connecting the targets
+	 * @param Index of the connection to the local graph that was rewired
+	 * @param Index of the other target which connection will be improved
+	 * @param Index of the other target's connection to the local graph
 	 */
-	void improvePathToConnectedFrontier(int frontier_path, int path,
-			int other_frontier, int other_path);
+	void improvePathToConnectedFrontier(int target_connection, int connection,
+			int other_target, int other_connection);
 
 	/**
-	 * @brief Store the given path from the provided frontier to another frontier as the other frontier's
-	 * path to local graph (in a reverse order of the provided frontier has a higher index then the other)
-	 * @param Index of the path connecting both frontiers
-	 * @param Index of the frontier which will be removed and where the local graph will begin
-	 * @param Reference to a list of path indices which will be connected to the root node of the new
-	 * local graph (Indices of the other frontier's paths to the local graph)
+	 * @brief Store the given connection from the provided target to another target as the other target's
+	 * connection to local graph (in a reverse order of the provided target has a higher index then the other)
+	 * @param Index of the connection connecting both targets
+	 * @param Index of the target which will be removed and where the local graph will begin
+	 * @param Reference to a list of connection indices which will be connected to the root node of the new
+	 * local graph (Indices of the other target's connections to the local graph)
 	 */
-	void overwritePathToLocalGraph(int path, int frontier,
-			std::vector<int> &connected_paths);
+	void overwritePathToLocalGraph(int connection, int target,
+			std::vector<int> &connected_connections);
 
 	/**
-	 * @brief Connect all frontier paths to the local graph directly to the nearest node to the robot
-	 * by attaching the connecting node's path and distance to robot to the frontier path
+	 * @brief Connect all target connections to the local graph directly to the nearest node to the robot
+	 * by attaching the connecting node's connection and distance to robot to the target connection
 	 * @param Reference to the RRG
 	 */
 	void connectPathsToLocalGraphToNearestNode(
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Find the shortest connection between active frontiers in the local graph that do not have a
-	 * connecting path yet
-	 * @param List of active frontiers that must be connected to all other frontiers
+	 * @brief Find the shortest connection between active targets in the local graph that do not have a
+	 * connecting connection yet
+	 * @param List of active targets that must be connected to all other targets
 	 * @param Reference to the RRG
 	 */
 	void establishMissingFrontierToFrontierConnections(
-			std::vector<int> active_frontiers,
+			std::vector<int> active_targets,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @Build a global path between the given frontier and the missing frontier with the provided length
+	 * @Build a global connection between the given target and the missing target with the provided length
 	 * and nodes in the local graph and store it in the global graph
-	 * @param Reference to the frontier for which missing paths are added
-	 * @param Index of the other frontier that currently has no connection to the frontier
-	 * @param Length of the path through the local graph connecting both frontiers in m
-	 * @param List of nodes in the local graph connecting both frontiers
+	 * @param Reference to the target for which missing connections are added
+	 * @param Index of the other target that currently has no connection to the target
+	 * @param Length of the connection through the local graph connecting both targets in m
+	 * @param List of nodes in the local graph connecting both targets
 	 * @param Reference to the RRG
 	 */
 	void buildMissingPathBetweenFrontiers(
-			rrg_nbv_exploration_msgs::GlobalFrontier_<std::allocator<void>> &frontier,
-			int missing_frontier, double path_length,
-			std::vector<int> &local_path, rrg_nbv_exploration_msgs::Graph &rrg);
+			rrg_nbv_exploration_msgs::GlobalTarget_<std::allocator<void>> &target,
+			int missing_target, double connection_length,
+			std::vector<int> &local_connection, rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Iterate over the paths to the node nearest to the robot in the RRG of the connecting nodes
-	 * of the frontier and the missing frontier and find a mutual node in both paths that leads to a path
-	 * connecting both frontiers with minimal length
-	 * @param Index of the local node connected to the frontier
-	 * @param Index of the local node connected to the frontier with a missing connection to the former
-	 * @param Reference to the max distance threshold that will be updated with the minimal path length
+	 * @brief Iterate over the connections to the node nearest to the robot in the RRG of the connecting nodes
+	 * of the target and the missing target and find a mutual node in both connections that leads to a connection
+	 * connecting both targets with minimal length
+	 * @param Index of the local node connected to the target
+	 * @param Index of the local node connected to the target with a missing connection to the former
+	 * @param Reference to the max distance threshold that will be updated with the minimal connection length
 	 * @param Reference to the RRG
 	 */
-	void findShortestPathThroughMutualNode(int frontier_connecting_node,
-			int missing_frontier_connecting_node,
+	void findShortestPathThroughMutualNode(int target_connecting_node,
+			int missing_target_connecting_node,
 			double &max_distance_threshold,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Get a set of all frontiers the given frontier is not yet connected with through a global
-	 * path
-	 * @param Reference to the list of active frontier indices
-	 * @param Reference to the frontier for which missing connections are determined
-	 * @return A set of indices of frontier which do not have a global path to the given frontier
+	 * @brief Get a set of all targets the given target is not yet connected with through a global
+	 * connection
+	 * @param Reference to the list of active target indices
+	 * @param Reference to the target for which missing connections are determined
+	 * @return A set of indices of target which do not have a global connection to the given target
 	 */
 	std::set<int> getMissingFrontierConnections(
-			std::vector<int> &active_frontiers,
-			rrg_nbv_exploration_msgs::GlobalFrontier &frontier);
+			std::vector<int> &active_targets,
+			rrg_nbv_exploration_msgs::GlobalTarget &target);
 
 	/**
-	 * @brief Calculate the route length by summing up all path lengths from one frontier to the next
-	 * @param Reference to the route including frontier indices (first) and indices of the paths to the
-	 * next frontier in the route (second)
+	 * @brief Calculate the route length by summing up all connection lengths from one target to the next
+	 * @param Reference to the route including target indices (first) and indices of the connections to the
+	 * next target in the route (second)
 	 * @return The route length in m
 	 */
 	double calculateRouteLength(std::vector<std::pair<int, int>> &route);
 
 	/**
-	 * @brief Reverse the order of the frontiers in the route between and including indices i and k
-	 * and update the paths to the next frontier if necessary
+	 * @brief Reverse the order of the targets in the route between and including indices i and k
+	 * and update the connections to the next target if necessary
 	 * @param Reference to the current route
 	 * @param Reference to the new route that this method builds
 	 * @param Index of the route index where the reversing begins
 	 * @param Index of the route index where the reversing stops
-	 * @return If there are paths from every frontier to the next in the new route
+	 * @return If there are connections from every target to the next in the new route
 	 */
 	bool twoOptSwap(std::vector<std::pair<int, int>> &route,
 			std::vector<std::pair<int, int>> &new_route, int i, int k);
 
 	/**
-	 * @brief Retrieve the global path index connecting the current and the next frontier
-	 * @param Current frontier index
-	 * @param Next frontier index
-	 * @return Index of the global path connecting both frontiers, -1 if none was found
+	 * @brief Retrieve the global connection index connecting the current and the next target
+	 * @param Current target index
+	 * @param Next target index
+	 * @return Index of the global connection connecting both targets, -1 if none was found
 	 */
-	int findPathToNextFrontier(int current_frontier, int next_frontier);
+	int findPathToNextFrontier(int current_target, int next_target);
 
 	/**
-	 * @brief Use the 2-opt method to solve the TSP of visiting every frontier starting at the local
+	 * @brief Use the 2-opt method to solve the TSP of visiting every target starting at the local
 	 * graph where the robot is
-	 * @param A list of active frontiers which will be regarded for the TSP
-	 * @return The indices of the next frontier (first) and path to next frontier (second) or -1 for
+	 * @param A list of active targets which will be regarded for the TSP
+	 * @return The indices of the next target (first) and connection to next target (second) or -1 for
 	 * both if no solution was found
 	 */
 	std::pair<int, int> findBestFrontierWithTspTwoOpt(
-			std::vector<int> &active_frontiers);
+			std::vector<int> &active_targets);
 
 	/**
-	 * @brief Sort frontiers by the length of the global paths from the robot's positions to
+	 * @brief Sort targets by the length of the global connections from the robot's positions to
 	 * the respective viewpoint
-	 * @param First frontier index
-	 * @param Second frontier index
-	 * @return Return true if the path to frontier one is shorter than the one to frontier two
+	 * @param First target index
+	 * @param Second target index
+	 * @return Return true if the connection to target one is shorter than the one to target two
 	 */
-	bool sortByPathLengthToFrontier(int frontier_one, int frontier_two);
+	bool sortByPathLengthToFrontier(int target_one, int target_two);
 
 	/**
 	 * @brief Iterate over all possible 2-opt swaps in the global route and return if one of them
-	 * improved the route's path length
+	 * improved the route's connection length
 	 * @param Reference to the current route
-	 * @return If the route's path length was improved
+	 * @return If the route's connection length was improved
 	 */
 	bool iterateOverTwoOptSwaps(std::vector<std::pair<int, int>> &route);
 
 	/**
-	 * @brief Check if the new node is very close to a frontier, then remove the frontier from the
-	 * global graph or if it is in a connectable range, return the frontier's position
+	 * @brief Check if the new node is very close to a target, then remove the target from the
+	 * global graph or if it is in a connectable range, return the target's position
 	 * @param Index of the new node
-	 * @param Reference to the set of frontiers to be pruned
-	 * @param Reference to the set of paths to be pruned
+	 * @param Reference to the set of targets to be pruned
+	 * @param Reference to the set of connections to be pruned
 	 * @param Reference to the RRG
-	 * @return List of positions where to place a new node to prune frontiers
+	 * @return List of positions where to place a new node to prune targets
 	 */
 	std::vector<geometry_msgs::Point> pruneFrontiersAroundNewNode(int new_node,
-			std::set<int> &pruned_frontiers, std::set<int> &pruned_paths,
+			std::set<int> &pruned_targets, std::set<int> &pruned_connections,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Checks if a new node in the RRG can reduce the global paths, if their nearest respective
+	 * @brief Checks if a new node in the RRG can reduce the global connections, if their nearest respective
 	 * waypoint would be connected to the new node.
 	 * @param Index of the new node
 	 * @param Reference to the RRG
@@ -573,62 +573,62 @@ private:
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Checks if frontiers which have a connection to the frontier to be pruned can be connected
-	 * to the local graph through this frontier and the new node that replaces it with a shorter length
-	 * than their current path to the local graph and replaces the path if it does
-	 * @param Index of the frontier to be pruned
-	 * @param Index of the new node that will prune the frontier
-	 * @param Distance between the new node and the frontier to be pruned in m
+	 * @brief Checks if targets which have a connection to the target to be pruned can be connected
+	 * to the local graph through this target and the new node that replaces it with a shorter length
+	 * than their current connection to the local graph and replaces the connection if it does
+	 * @param Index of the target to be pruned
+	 * @param Index of the new node that will prune the target
+	 * @param Distance between the new node and the target to be pruned in m
 	 * @param Reference to the RRG
 	 */
-	void tryToRewirePathsToLocalGraphOverPrunedFrontier(int pruned_frontier,
+	void tryToRewirePathsToLocalGraphOverPrunedFrontier(int pruned_target,
 			int new_node, double distance,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 
 	/**
-	 * @brief Check if the two frontier's with the given paths leading to them fulfill the criteria
+	 * @brief Check if the two target's with the given connections leading to them fulfill the criteria
 	 * to potentially merge them with each other also considering if one of them was already merged
-	 * @param Reference to the path leading to the first frontier
-	 * @param Index of the path leading to the second frontier
-	 * @param Reference to the first frontier
-	 * @param Reference to the closest mergeable frontier that was already merged and is unprunable
-	 * @param Reference to a list of mergeable frontiers
-	 * @param If the path length of the path to the first frontier is added to the complete length
+	 * @param Reference to the connection leading to the first target
+	 * @param Index of the connection leading to the second target
+	 * @param Reference to the first target
+	 * @param Reference to the closest mergeable target that was already merged and is unprunable
+	 * @param Reference to a list of mergeable targets
+	 * @param If the connection length of the connection to the first target is added to the complete length
 	 * (optional, defaults to true)
 	 */
 	void checkFrontierMergeability(
-			rrg_nbv_exploration_msgs::GlobalPath &path_one, int path_two,
-			rrg_nbv_exploration_msgs::GlobalFrontier &frontier_one,
-			MergeableFrontierStruct &closest_mergeable_unprunable_frontier,
-			std::vector<MergeableFrontierStruct> &mergeable_frontiers,
-			double add_path_one_length = true);
+			rrg_nbv_exploration_msgs::GlobalConnection &connection_one, int connection_two,
+			rrg_nbv_exploration_msgs::GlobalTarget &target_one,
+			MergeableFrontierStruct &closest_mergeable_unprunable_target,
+			std::vector<MergeableFrontierStruct> &mergeable_targets,
+			double add_connection_one_length = true);
 
 	/**
-	 * @brief Removes a frontier from map and set of connectable frontiers
+	 * @brief Removes a target from map and set of connectable targets
 	 * @param Frontier index to remove
-	 * @param Reference to map with frontier and path to local graph indices
-	 * @param Reference to set of frontiers the given frontier could be connected to
+	 * @param Reference to map with target and connection to local graph indices
+	 * @param Reference to set of targets the given target could be connected to
 	 */
-	void removeFrontierFromConnectableFrontierList(int frontier,
-			std::map<int, int> &connecting_node_frontiers,
-			std::set<int> &new_frontier_connections);
+	void removeFrontierFromConnectableFrontierList(int target,
+			std::map<int, int> &connecting_node_targets,
+			std::set<int> &new_target_connections);
 
 	/**
-	 * @brief Try to merge the given current frontier and other frontiers that can be connected at a
-	 * newly continued path, removes merged and therefore pruned frontiers from the list of possible
-	 * new frontier connections and returns if the current frontier was merged into another frontier
-	 * @param Index of the current frontier
-	 * @param Index of the current frontier's path to the local graph
-	 * @param Reference to a map of frontier indices (first) with their respective path to the
+	 * @brief Try to merge the given current target and other targets that can be connected at a
+	 * newly continued connection, removes merged and therefore pruned targets from the list of possible
+	 * new target connections and returns if the current target was merged into another target
+	 * @param Index of the current target
+	 * @param Index of the current target's connection to the local graph
+	 * @param Reference to a map of target indices (first) with their respective connection to the
 	 * local graph indices (second)
-	 * @param Reference to a set of frontiers to which the current frontier has no connection but which
-	 * have a path to the connecting node of this frontier
+	 * @param Reference to a set of targets to which the current target has no connection but which
+	 * have a connection to the connecting node of this target
 	 * @param Reference to the RRG
-	 * @return If the current frontier was merged into another existing frontier
+	 * @return If the current target was merged into another existing target
 	 */
-	bool tryToMergeContinuedPaths(int current_frontier, int path,
-			std::map<int, int> &connecting_node_frontiers,
-			std::set<int> &new_frontier_connections,
+	bool tryToMergeContinuedPaths(int current_target, int connection,
+			std::map<int, int> &connecting_node_targets,
+			std::set<int> &new_target_connections,
 			rrg_nbv_exploration_msgs::Graph &rrg);
 	void debugRoute(std::vector<std::pair<int, int> > &route, std::string prefix, double length);
 };
