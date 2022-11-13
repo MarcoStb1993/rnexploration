@@ -199,12 +199,10 @@ void GraphConstructor::runExploration() {
 	if (_running) {
 		_robot_pose = _graph_path_calculator->getRobotPose();
 		if (_local_running) {
-			ROS_INFO_STREAM("Run local");
 			bool new_nearest_node = determineNearestNodeToRobot(
 					_robot_pose.position); // check if nearest node to robot changed which means robot moved
 			expandGraph(!new_nearest_node);
 			if (new_nearest_node) {	// robot moved, update paths
-				ROS_INFO_STREAM("New nearest node " << new_nearest_node);
 				_graph_path_calculator->updatePathsToRobot(_rrg.nearest_node,
 						_rrg, _robot_pose, true, _nodes_to_update,
 						_sort_nodes_to_update);
@@ -762,17 +760,6 @@ void GraphConstructor::publishExplorationGoalObsolete(bool obsolete) {
 							|| _local_goal_obsolete))
 			|| (_pursuing_global_goal && !_reached_frontier_goal
 					&& _current_goal_node != -1)) {
-		if (obsolete) {
-			ROS_INFO_STREAM("Goal obsolete: set to obsolete");
-		}
-		if (_pursuing_local_goal) {
-			ROS_INFO_STREAM(
-					"Local goal obsolete: best node: " << _node_comparator->getBestNode() << " current goal: " << _current_goal_node << " local obs: " << _local_goal_obsolete ? "true":"false");
-		}
-		if (_pursuing_global_goal) {
-			ROS_INFO_STREAM(
-					"Global goal obsolete: reached frontier: " << _reached_frontier_goal << " current goal: " << _current_goal_node);
-		}
 		msg.goal_obsolete = true;
 	} else {
 		msg.goal_obsolete = false;
