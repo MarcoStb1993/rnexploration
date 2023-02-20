@@ -1,0 +1,59 @@
+<!-- Gazebo launch files for world and robot -->
+
+<launch>
+	<arg name="world_file"
+		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+	<arg name="velodyne" default="true" />
+	<arg name="use_ekf" default="false" />
+	<arg name="robot_frame" default="base_footprint" />
+	<arg name="gui" default="true" />	
+
+	<!-- World launch -->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="world_name" value="$(arg world_file)" />
+		<arg name="paused" value="false" />
+		<arg name="use_sim_time" value="true" />
+		<arg name="gui" value="$(arg gui)" />
+		<arg name="debug" value="false" />
+		<arg name="extra_gazebo_args" value="--verbose" />
+	</include>
+
+	<arg name="robot_namespace" default="/" />
+
+	<!-- Robot starting position in world -->
+	<arg name="x" default="0.0" />
+	<arg name="y" default="0.0" />
+	<arg name="z" default="0.0" />
+	<arg name="yaw" default="1.5707963" />
+
+	<group ns="$(arg robot_namespace)">
+
+		<!-- Load robot description -->
+		<param if="$(arg velodyne)" name="robot_description"
+			command="$(find xacro)/xacro '$(find rsb_nbv_exploration_plugins)/urdf/ideal_robot.urdf.xacro'
+		    realsense_enabled:=false
+		    laser_enabled:=false
+		    velodyne_enabled:=true" />
+		<param unless="$(arg velodyne)" name="robot_description"
+			command="$(find xacro)/xacro '$(find rsb_nbv_exploration_plugins)/urdf/ideal_robot.urdf.xacro'
+		    realsense_enabled:=true
+		    laser_enabled:=true
+		    velodyne_enabled:=false" />
+
+		<node name="robot_state_publisher" pkg="robot_state_publisher"
+			type="robot_state_publisher" />
+
+		<!-- Spawn robot in gazebo -->
+		<node name="spawn_robot_model" pkg="gazebo_ros"
+			type="spawn_model"
+			args="-x $(arg x)
+		      -y $(arg y)
+		      -z $(arg z)
+		      -Y $(arg yaw)
+		      -unpause
+		      -urdf
+		      -param robot_description
+		      -model $(arg robot_namespace)" />
+
+	</group>
+</launch>

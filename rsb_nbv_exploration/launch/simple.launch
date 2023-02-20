@@ -1,0 +1,111 @@
+<!-- Launch all nodes of RNE -->
+
+<launch>
+	<arg name="update_frequency" default="1" />
+	<arg name="sensor_max_range" default="5" />
+	<arg name="sensor_min_range" default="0.5" />
+	<arg name="sensor_height" default="0.5" />
+	<arg name="sensor_size" default="0.1" />
+	<arg name="robot_frame" default="base_footprint" />
+	<arg name="robot_width" default="1.0" />
+	<arg name="robot_radius" default="1.0" />
+	<arg name="delta_radius" default="0.1" />
+	<arg name="delta_phi" default="10" />
+	<arg name="delta_theta" default="10" />
+	<arg name="sensor_horizontal_fov" default="360" /> 
+	<arg name="sensor_vertical_fov_bottom" default="180" />
+	<arg name="sensor_vertical_fov_top" default="0" />
+	<arg name="min_view_score" default="0.1" />
+	<arg name="octomap_topic" default="octomap_binary" />
+	<arg name="occupancy_grid_topic" default="map" />	
+	<arg name="local_exploration_finished_timer_duration" default="10.0" />
+	<arg name="oc_resolution" default="0.1" />
+	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="grid_map_occupied" default="100" />
+	<arg name="grid_map_unknown" default="-1" />
+	<arg name="local_graph_radius" default="true" />	
+	<arg name="local_sampling_radius" default="5" />
+	<arg name="min_edge_distance" default="1.0" />
+	<arg name="max_edge_distance" default="2.0" />	
+	<arg name="max_node_height_difference" default="1.0" />	
+	<arg name="radius_factor_active" default="true" />
+	<arg name="max_consecutive_failed_goals" default="5" />
+	<arg name="distance_factor" default="1.0" />	
+	<arg name="heading_factor" default="1.0" />	
+	<arg name="traversability_factor" default="1.0" />	
+	<arg name="radius_factor" default="1.0" />	
+	<arg name="inflation_active" default="true" />	
+	<arg name="move_nodes" default="true" />		
+	<arg name="auto_homing" default="false" />	
+	<arg name="reupdate_nodes" default="true" />	
+	<arg name="samples_per_loop" default="10" />
+	<arg name="global_exploration_active" default="true" />
+	<arg name="measure_algorithm_runtime" default="false" />
+	<arg name="add_inter_nodes" default="false" />
+	<arg name="initialization_node_distance" default="0.0" />
+
+	<node pkg="rsb_nbv_exploration" type="rneNode" name="rneNode" output="screen" >
+		<param name="update_frequency" type="double" value="$(arg update_frequency)" />
+		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
+		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
+		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />		
+		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
+		<param name="robot_width" type="double" value="$(arg robot_width)" />
+		<param name="local_exploration_finished_timer_duration" type="double" value="$(arg local_exploration_finished_timer_duration)" />
+		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
+		<param name="occupancy_grid_topic" type="string" value="$(arg occupancy_grid_topic)" />
+		<param name="robot_frame" type="string" value="$(arg robot_frame)" />
+		<param name="grid_map_resolution" type="double" value="$(arg grid_map_resolution)" />
+		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
+		<param name="grid_map_unknown" type="int" value="$(arg grid_map_unknown)" />
+		<param name="local_sampling_radius" type="double" value="$(arg local_sampling_radius)" />
+		<param name="local_graph_radius" type="double" value="$(arg local_graph_radius)" />	
+		<param name="max_consecutive_failed_goals" type="int" value="$(arg max_consecutive_failed_goals)" />		
+		<param name="distance_factor" type="double" value="$(arg distance_factor)" />
+		<param name="heading_factor" type="double" value="$(arg heading_factor)" />
+		<param name="traversability_factor" type="double" value="$(arg traversability_factor)" />
+		<param name="radius_factor" type="double" value="$(arg radius_factor)" />
+		<param name="min_edge_distance" type="double" value="$(arg min_edge_distance)" />		
+		<param name="max_edge_distance" type="double" value="$(arg max_edge_distance)" />
+		<param name="inflation_active" type="bool" value="$(arg inflation_active)" />
+		<param name="move_nodes" type="bool" value="$(arg move_nodes)" />		
+		<param name="auto_homing" type="bool" value="$(arg auto_homing)" />	
+		<param name="reupdate_nodes" type="bool" value="$(arg reupdate_nodes)" />	
+		<param name="samples_per_loop" type="int" value="$(arg samples_per_loop)" />
+		<param name="add_inter_nodes" type="bool" value="$(arg add_inter_nodes)" />		
+		<param name="global_exploration_active" type="bool" value="$(arg global_exploration_active)" />
+		<param name="measure_algorithm_runtime" type="bool" value="$(arg measure_algorithm_runtime)" />
+		<param name="initialization_node_distance" type="double" value="$(arg initialization_node_distance)" />							
+	</node>
+	
+	<node pkg="rsb_nbv_exploration" type="gainCalcNode" name="gainCalcNode"
+		output="screen" >
+		<param name="sensor_max_range" type="double" value="$(arg sensor_max_range)" />
+		<param name="sensor_min_range" type="double" value="$(arg sensor_min_range)" />
+		<param name="sensor_height" type="double" value="$(arg sensor_height)" />
+		<param name="sensor_size" type="double" value="$(arg sensor_size)" />
+		<param name="delta_phi" type="int" value="$(arg delta_phi)" />
+		<param name="delta_theta" type="int" value="$(arg delta_theta)" />
+		<param name="delta_radius" type="double" value="$(arg delta_radius)" />
+		<param name="sensor_horizontal_fov" type="int" value="$(arg sensor_horizontal_fov)" />
+		<param name="sensor_vertical_fov_bottom" type="int" value="$(arg sensor_vertical_fov_bottom)" />
+		<param name="sensor_vertical_fov_top" type="int" value="$(arg sensor_vertical_fov_top)" />
+		<param name="min_view_score" type="double" value="$(arg min_view_score)" />
+		<param name="octomap_topic" type="string" value="$(arg octomap_topic)" />
+		<param name="oc_resolution" type="double" value="$(arg oc_resolution)" />
+		<param name="max_node_height_difference" type="double" value="$(arg max_node_height_difference)" />
+		<param name="measure_algorithm_runtime" type="bool" value="$(arg measure_algorithm_runtime)" />
+	</node>
+	
+	<node pkg="rsb_nbv_exploration" type="rneVisualizationNode"
+		name="rneVisualizationNode" output="screen" >
+		<param name="robot_radius" type="double" value="$(arg robot_radius)" />
+		<param name="grid_map_occupied" type="int" value="$(arg grid_map_occupied)" />
+		<param name="show_gain_info" type="bool" value="false" />
+		<param name="show_distance_info" type="bool" value="false" />
+		<param name="show_traversability_info" type="bool" value="false" />
+		<param name="show_heading_info" type="bool" value="false" />
+		<param name="show_radius_info" type="bool" value="false" />
+		<param name="show_cost_info" type="bool" value="false" />
+		</node>
+</launch>

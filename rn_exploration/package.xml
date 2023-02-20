@@ -11,9 +11,9 @@
 	<author email="marco.stb1993@gmail.de">Marco Steinbrink</author>
 
 	<buildtool_depend>catkin</buildtool_depend>
-	<exec_depend>rrg_nbv_exploration</exec_depend>
-	<exec_depend>rrg_nbv_exploration_msgs</exec_depend>
-	<exec_depend>rrg_nbv_exploration_plugins</exec_depend>
+	<exec_depend>rsb_nbv_exploration</exec_depend>
+	<exec_depend>rsb_nbv_exploration_msgs</exec_depend>
+	<exec_depend>rsb_nbv_exploration_plugins</exec_depend>
 
 	<export>
 		<metapackage />

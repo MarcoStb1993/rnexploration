@@ -1,0 +1,7 @@
+<library path="lib/librne_global_planner">
+	<class type="rsb_nbv_exploration::RneGlobalPlanner"
+		base_class_type="nav_core::BaseGlobalPlanner">
+		<description>This is a global planner plugin for the RN Exploration.
+		</description>
+	</class>
+</library>
