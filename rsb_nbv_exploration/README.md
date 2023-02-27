@@ -22,11 +22,11 @@ If activated, the Node Area Inflation (NAI) allows to increase the radius of eac
 
 The reward function $R$ for each node $n$ is based on the particular node's gain $G$, path distance to the robot $D$, traversability of this path $T$, heading change along this path $H$ and radii of the nodes along this path $I$. These values are weighted with user-defined factors $d$, $t$, $h$ and $r$. The latter are bundled in the cost function $C$.
 
-```math
-R(n) &= G(n)\cdot C(n)
-C(n) &= e^{-\frac{d \cdot D(n) + h \cdot H(n) + t \cdot T(n)}{1 + r \cdot I(n)} \label{eq:radius_cost}} \\
-C_b(n) &= e^{-(d \cdot D(n) + h \cdot H(n) + t \cdot T(n)) \label{eq:inf_cost}}
-```
+$$R(n) = G(n)\cdot C(n)$$  
+
+$$C(n) = e^-\frac{d \cdot D(n) + h \cdot H(n) + t \cdot T(n)}{1 + r \cdot I(n)}$$  
+
+$$C_b(n) = e^-(d \cdot D(n) + h \cdot H(n) + t \cdot T(n))$$
 
 The gain $G$ is the number of unknown voxels identified by SRP at the node's position divided by the maximum number of voxels that are evaluated by SRP. Distance $D$ is the distance along the edges from the robot to a particular node in meters. The heading change $H$ is the added up change in heading along the edges from the robot to a particular node in degrees divided by 180. This means, 1m of distance has the same impact on the cost function as completely turning the robot around. Traversability $T$ is calculated using the cost of each tile inside every node's radius and edge box along the path from the robot to a particular node divided by the value at which a tile counts as an obstacle. This cost is divided by the amount of tiles to have a normalized cost per tile. The radius $I$ is the average radius of all nodes along the path from the robot to a particular node divided by the robot radius.
 
