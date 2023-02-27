@@ -1,4 +1,4 @@
-# RRG NBV Exploration Plugins
+# RSB NBV Exploration Plugins
 
 This package bundles plugins for the [RRG NBV Exploration package](../rrg_nbv_exploration#rrg-nbv-exploration) that can be used to run the package together with the [Robot Statemachine (RSM) package](http://wiki.ros.org/robot_statemachine) and the [ROS navigation stack](http://wiki.ros.org/navigation).
 
