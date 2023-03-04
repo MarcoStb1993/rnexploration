@@ -11,7 +11,7 @@ Below two screenshots from gazebo and RViz are shown with RNE running in a simul
 
 The RNE contains a plugin to use it as an exploration algorithm in the [Robot Statemachine (RSM) package](http://wiki.ros.org/robot_statemachine) and a global planner plugin for the [ROS navigation stack](http://wiki.ros.org/navigation).
 
-Details about the RNE's implementation can be found in the [RRG NBV Exploration package](rrg_nbv_exploration#rrg-nbv-exploration) and about the plugins in the [RRG NBV Exploration Plugins package](rrg_nbv_exploration_plugins#rrg-nbv-exploration-plugins). The messages and services defined for RNE are in the [RRG NBV Exploration Msgs package](rrg_nbv_exploration_msgs#rrg-nbv-exploration-messages). The plugins package also contains convenient config and launch files to run a simulation with RNE in gazebo.
+Details about the RNE's implementation can be found in the [RSG NBV Exploration package](rsb_nbv_exploration#rsb-nbv-exploration) and about the plugins in the [RSG NBV Exploration Plugins package](rsb_nbv_exploration_plugins#rsb-nbv-exploration-plugins). The messages and services defined for RNE are in the [RSG NBV Exploration Msgs package](rsb_nbv_exploration_msgs#rsb-nbv-exploration-messages). The plugins package also contains convenient config and launch files to run a simulation with RNE in gazebo.
 
 ## Citing
 
