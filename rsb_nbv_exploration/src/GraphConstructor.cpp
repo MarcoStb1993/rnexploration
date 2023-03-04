@@ -36,7 +36,7 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 
 	ros::NodeHandle nh("rne");
 	_rrg_publisher = nh.advertise<rsb_nbv_exploration_msgs::Graph>("rrg", 1);
-	_rrg_state_publisher = nh.advertise<std_msgs::Bool>("state", 1);
+	_rne_state_publisher = nh.advertise<std_msgs::Bool>("state", 1);
 	_node_to_update_publisher = nh.advertise<
 			rsb_nbv_exploration_msgs::NodeToUpdate>("node_to_update", 1);
 	_updated_node_subscriber = nh.subscribe("updated_node", 1,
@@ -60,11 +60,11 @@ void GraphConstructor::initialization(geometry_msgs::Point seed) {
 			&GraphConstructor::localExplorationFinishedTimerCallback, this,
 			false, false);
 
-	_set_rrg_state_service = nh.advertiseService("setRrgState",
+	_set_rne_state_service = nh.advertiseService("setRneState",
 			&GraphConstructor::setRrgState, this);
-	_get_rrg_state_service = nh.advertiseService("getRrgState",
+	_get_rne_state_service = nh.advertiseService("getRneState",
 			&GraphConstructor::getRrgState, this);
-	_reset_rrg_state_service = nh.advertiseService("resetRrgState",
+	_reset_rne_state_service = nh.advertiseService("resetRneState",
 			&GraphConstructor::resetRrgState, this);
 
 	std::string octomap_topic;
@@ -265,7 +265,7 @@ void GraphConstructor::runExploration() {
 	}
 	std_msgs::Bool rne_state;
 	rne_state.data = _running;
-	_rrg_state_publisher.publish(rne_state);
+	_rne_state_publisher.publish(rne_state);
 }
 
 void GraphConstructor::expandGraph(bool update_paths) {

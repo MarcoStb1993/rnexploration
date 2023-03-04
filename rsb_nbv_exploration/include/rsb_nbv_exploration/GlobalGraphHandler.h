@@ -13,11 +13,11 @@
 #include <rsb_nbv_exploration_msgs/GlobalGraph.h>
 #include <rsb_nbv_exploration_msgs/Graph.h>
 #include <stdexcept>
-#include "../../../rsb_nbv_exploration/include/rsb_nbv_exploration/CollisionChecker.h"
-#include "../../../rsb_nbv_exploration/include/rsb_nbv_exploration/GlobalGraphSearcher.h"
-#include "../../../rsb_nbv_exploration/include/rsb_nbv_exploration/GlobalGraphWaypointSearcher.h"
-#include "../../../rsb_nbv_exploration/include/rsb_nbv_exploration/GraphPathCalculator.h"
-#include "../../../rsb_nbv_exploration/include/rsb_nbv_exploration/GraphSearcher.h"
+#include <rsb_nbv_exploration/CollisionChecker.h>
+#include <rsb_nbv_exploration/GlobalGraphSearcher.h>
+#include <rsb_nbv_exploration/GlobalGraphWaypointSearcher.h>
+#include <rsb_nbv_exploration/GraphPathCalculator.h>
+#include <rsb_nbv_exploration/GraphSearcher.h>
 
 namespace rsb_nbv_exploration {
 

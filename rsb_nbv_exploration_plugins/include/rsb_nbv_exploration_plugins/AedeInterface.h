@@ -62,7 +62,7 @@ private:
 	ros::ServiceClient _request_path_service;
 	ros::ServiceClient _request_goal_service;
 	ros::ServiceClient _update_current_goal_service;
-	ros::ServiceClient _set_rrt_state_service;
+	ros::ServiceClient _set_rne_state_service;
 	ros::Subscriber _exploration_goal_obsolete_subscriber;
 	ros::Publisher _way_point_publisher;
 	ros::Publisher _path_publisher;

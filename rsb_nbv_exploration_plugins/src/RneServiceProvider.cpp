@@ -21,7 +21,7 @@ RneServiceProvider::RneServiceProvider() {
 	_update_current_goal_service = rne_nh.serviceClient<
 			rsb_nbv_exploration_msgs::UpdateCurrentGoal>("updateCurrentGoal");
 	_set_rrt_state_service = rne_nh.serviceClient<std_srvs::SetBool>(
-			"setRrgState");
+			"setRneState");
 
 	_exploration_mode = 0;
 	_goal_obsolete = false;

@@ -69,15 +69,15 @@ private:
 	ros::Publisher _exploration_goal_obsolete_publisher;
 	ros::Publisher _node_to_update_publisher;
 	ros::Publisher _rne_runtime_publisher;
-	ros::Publisher _rrg_state_publisher;
+	ros::Publisher _rne_state_publisher;
 	ros::Subscriber _updated_node_subscriber;
 	ros::Subscriber _octomap_sub;
 	ros::ServiceServer _request_goal_service;
 	ros::ServiceServer _request_path_service;
 	ros::ServiceServer _update_current_goal_service;
-	ros::ServiceServer _set_rrg_state_service;
-	ros::ServiceServer _get_rrg_state_service;
-	ros::ServiceServer _reset_rrg_state_service;
+	ros::ServiceServer _set_rne_state_service;
+	ros::ServiceServer _get_rne_state_service;
+	ros::ServiceServer _reset_rne_state_service;
 	ros::Timer _local_exploration_finished_timer;
 
 	std::default_random_engine _generator;
@@ -288,7 +288,7 @@ private:
 	 */
 	std::vector<geometry_msgs::Point> _new_node_positions;
 	/**
-	 * @brief If global and RRG exploration are active or only RRG exploration
+	 * @brief If global and local exploration are active or only local exploration
 	 */
 	bool _global_exploration_active;
 	/**

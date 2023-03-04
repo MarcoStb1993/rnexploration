@@ -18,7 +18,7 @@ The NBV is determined by choosing the node with the best reward function. The ga
 
 The RNE can be run in *finish* or *interrupt* mode. In the former each exploration goal must be reached or reaching it must fail before the next goal is chosen. The latter mode allows a current goal to be aborted when a better goal was found. Since the graph construction and gain calculation are decoupled, a new goal is already selected while some node's gains are still being computed. Therefore, the *interrupt* mode allows for changing the goal when a node with a better gain becomes available.
 
-If activated, the Node Area Inflation (NAI) allows to increase the radius of each node above the robot radius up to the maximum sensor range. In this mode, nodes are connected if they have an intersection large enough to fit the robot's width. Furthermore, when nodes are being placed and inflated, they will be moved away from obstacles and existing nodes to allow for larger radii. If NAI halts due to a collision with unknown space, it can continue at a later iteration. Larger radii are associated with a safer traversal of the particular node and a more observable space because of a larger distance to obstacles.
+If activated, the Node Area Inflation (NAI) allows to increase the radius of each node above the robot radius up to the maximum sensor range. In this mode, nodes are connected if they have an intersection large enough to fit the robot's width. Furthermore, when nodes are being placed and inflated, they will be moved away from obstacles and existing nodes to allow for larger radii. If NAI halts due to a collision with unknown space, it can continue at a later iteration. Larger radii are associated with a safer traversal of the particular node and a more observable space because of a larger distance to obstacles. If an inflated node completely encircles another node's area, the encircled node is removed.
 
 The reward function $R$ for each node $n$ is based on the particular node's gain $G$, path distance to the robot $D$, traversability of this path $T$, heading change along this path $H$ and radii of the nodes along this path $I$. These values are weighted with user-defined factors $d$, $t$, $h$ and $r$. The latter are bundled in the cost function $C$.
 
@@ -34,18 +34,21 @@ These factors and their visualization can be adjusted using Dynamic Reconfigure 
 
 A distinction between local and global exploration to reduce the computation overhead of maintaining a constantly growing graph is introduced. The previously described algorithm becomes the local part of this hybrid RNE implementation. Its graph is limited to a local area around the robot while a global exploration graph keeps track of unexplored nodes from the local exploration. These nodes must be visited to complete the global exploration. A shortest route has to be found which goes through every node exactly once to efficiently visit all of them. This is implemented with a Traveling Salesman Problem (TSP) solver.
 
-To remove and add nodes in the local graph as well as to integrate unexplored, removed nodes into the global exploration. 
+Local unexplored nodes that fall outside of the local exploration area are added as global targets to the global graph. The edges from the local graph are used to create global connections between the targets and the local graph which are maintained and updated while the local exploration area moves with the robot. Global targets that are close to each other are merged using a heuristic that regards their Euclidean distance to each other, the distance along the edges connecting them and the distance to global targets that might have already been merged into them. The goal is to cluster all targets that are inside the local exploration area of the remaining target, so that no unexplored node is lost.
 
-A clustering of global nodes is also implemented to reduce the number of nodes that have to be connected by the TSP solver.
+When no explorable nodes are left in the local exploration area, the global exploration is started, the local graph is discarded and sampling is stopped. Therefore, all missing target to target connections are established through the local graph and a 2-opt TSP solver is deployed to order the targets for exploration. The first global target is selected and the robot will navigate towards it along the global connection starting from the local graph. Upon reaching the global target, the local exploration is re-initialized at its position. When no explorable nodes are inside its area, this process is repeated until no global targets are left. Then, the exploration is finished.
 
+Optionally, the origin of the exploration can be added as a global target which always has to be the last target to navigate to. After exploring all other targets, the robot will return to it which implements a homing behavior.
 
 ## Documentation
 
-This package contains the RNE's core logic which is divided into the classes presented below.
+This package contains the RNE's core logic which is divided into the classes presented below and shown in the class diagram.
+
+![Class Diagram](../images/class_diagram.png)
 
 ### GraphConstructor
 
-The class GraphConstructor includes the RRG algorithm which builds the graph in sample space defined by the given OctoMap's dimensions. It manages and publishes the graph's current state and maintains a list of all node's which gain must be recalculated, ordered by their distance to the robot. When a goal was explored, it triggers the update of all node's in two times the sensor's range. These updates can also be executed while the robot traverses the graph to enable more accurate goal selection. The nodes to be updated are published in a topic and the updated nodes are subscribed to. The GraphConstructor also includes services to start and stop the exploration. It publishes the current goal node and the node with the best gain.
+The class GraphConstructor includes the sampling algorithm which builds the graph in sample space defined by the given OctoMap's dimensions. It manages and publishes the local graph's current state and maintains a list of all node's whose gain must be recalculated, ordered by their distance to the robot. When a goal was explored, it triggers the update of all node's in two times the sensor's range. These updates can also be executed while the robot traverses the graph to enable more accurate goal selection. The nodes to be updated are published in a topic and the updated nodes are subscribed to. The GraphConstructor also includes services to start and stop the exploration. It publishes the current goal node and the node with the best gain.
 
 ### GraphSearcher
 
@@ -53,11 +56,11 @@ The GraphSearcher is an interface to [nanoflann](https://github.com/jlblancoc/na
 
 ### CollisionChecker
 
-The CollisonChecker subscribes to an occupancy grid map topic and checks if a new node can be connected to the existing graph. Therefore, a circular area at the new node and a rectangular area between the new node and the nearest neighbor in the graph are checked for obstacles in the grid map. If they are obstacle free, the node can be added, if not it is discarded. During this check, the traversability is calculated as well. If NAI is active, the nodes' circular areas are connected directly. For inflating a node, traversability is checked in increasing rings around the node's current radius. Also, moving the node away from obstacles and existing nodes is done using these rings at shifted positions. Recovery of previously failed nodes is also possible by checking the circular area again to verify if it contains obstacles.
+The CollisonChecker subscribes to an occupancy grid map topic and checks if a new node can be connected to the existing graph. Therefore, a circular area at the new node and a rectangular area between the new node and the nearest neighbor in the graph are checked for obstacles in the grid map. If they are obstacle free, the node can be added, if not it is discarded. During this check, the traversability is calculated as well. If NAI is active, the nodes' circular areas are connected directly. For inflating a node area, the traversability is checked in increasing rings around the node's current radius. Also, moving the node away from obstacles and existing nodes is done using these rings at shifted positions. Recovery of previously failed nodes is also possible by checking the circular area again to verify if it contains obstacles.
 
 ### GraphPathCalculator
 
-The GraphPathCalculator monitors the robot's position in the map, so that the node closest to the robot is always known. When the robot moves from one node to the next, the GraphPathCalculator updates the path from each particular node to the robot which is maintained in the node. This path can be retrieved for a global navigation planner. Furthermore, the heading changes and the traversability along this path are calculated and added up for each node for the cost function. The path is based on Dijkstra's algorithm using the cost function for each node which includes the distance, traversability, heading change and radii to the robot.
+The GraphPathCalculator monitors the robot's position in the map, so that the node closest to the robot is always known. When the robot moves from one node to the next, the GraphPathCalculator updates the path from each particular node to the robot which is maintained in the node. This path can be retrieved for a global navigation planner. Furthermore, the distance, heading changes, traversability and node radii along this path are calculated and added up for each node for the cost function. The path is based on Dijkstra's algorithm using the cost function for each node.
 
 ### NodeComparator
 
@@ -67,26 +70,46 @@ The NodeComparator stores a list of all nodes which can still be explored. This 
 
 The GainCalculator calculates each node's gain by SRP. Therefore, sampling points are pre-calculated on initialization which are defined by parameters set by the user. The gain is the number of unknown sample points that can be observed from the node. It also sets the nodes' height by obtaining the ground's height from raytracing in the OctoMap. Nodes to be updated are subscribed to and updated nodes are published.
 
+### GlobalGraphHandler
+
+The GlobalGraphHandler is responsible for adding and merging global targets as well as their respective global connections. It includes the 2-opt TSP solver to determine the next global goal and the global path towards it. 
+
+### GlobalGraphSearcher
+
+This class also employs the [nanoflann](https://github.com/jlblancoc/nanoflann#nanoflann) header-only library to store and access the global targets in a k-d tree for nearest neighbor and radius searches.
+
+### GlobalGraphWaypointSearcher
+
+The GlobalGraphWaypointSearcher uses the [nanoflann](https://github.com/jlblancoc/nanoflann#nanoflann) header-only library on global connection waypoints for pruning the connections and determining the closest waypoint to the robot.
+
 ### RneVisualizer
 
 The RneVisualizer subscribes to the published RRG and visualizes it for RViz, showing nodes as spheres colored according to the particular node's state (no gain: white, initial: light blue - lower reward - to dark blue - higher reward, active: yellow, visited: light green, active visited: orange, explored: dark green, failed: red) and edges as lines between the nodes. It also publishes text visualization that shows the nodes' number and reward function. If activated, all parts of the reward and cost function can be shown as well.
+
+Furthermore, the global targets are depicted as cubes with a unique, random color. Their index is visualized above them with curly brackets around if the target has other targets merged into it. Global connections are shown as lines and share the color of the target with the highest index that they are connected to.
 
 ## Nodes
 
 ### RneNode
 
-Controls the RRG construction and offers interfaces to it.
+Controls the RNE construction and offers interfaces to it.
 
 #### Published Topics
 
-**rrg** ([rrg_nbv_exploration_msgs/Graph](../rrg_nbv_exploration_msgs/msg/Graph.msg))  
-Current RRG graph with list of all nodes and edges
+**rrg** ([rsb_nbv_exploration_msgs/Graph](../rsb_nbv_exploration_msgs/msg/Graph.msg))  
+Local graph with lists of all nodes and edges
 
-**node_to_update** ([rrg_nbv_exploration_msgs/NodeToUpdate](../rrg_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
-Node which gain should be calculated and a flag if it must be recalculated
+**globalgraph** ([rsb_nbv_exploration_msgs/GlobalGraph](../rsb_nbv_exploration_msgs/msg/GlobalGraph.msg))  
+Global graph with lists of all global targets and connections
 
-**bestAndCurrentGoal** ([rrg_nbv_exploration_msgs/BestAndCurrentNode](../rrg_nbv_exploration_msgs/msg/BestAndCurrentNode.msg))  
+**node_to_update** ([rsb_nbv_exploration_msgs/NodeToUpdate](../rsb_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
+Node whose gain should be calculated and a flag if it must be recalculated
+
+**bestAndCurrentGoal** ([rsb_nbv_exploration_msgs/BestAndCurrentNode](../rsb_nbv_exploration_msgs/msg/BestAndCurrentNode.msg))  
 Current exploration goal and node with best reward function
+
+**explorationGoalObsolete** ([rsb_nbv_exploration_msgs/ExplorationGoalObsolete](../rsb_nbv_exploration_msgs/msg/ExplorationGoalObsolete.msg)) 
+If the current goal is still the best goal and if it was already requested by navigation
 
 **rrg_collision_map** ([nav_msgs/OccupancyGrid](http://docs.ros.org/en/melodic/api/nav_msgs/html/msg/OccupancyGrid.html))  
 Obstacle free areas around nodes and edges checked by the RRG
@@ -94,12 +117,15 @@ Obstacle free areas around nodes and edges checked by the RRG
 **rrg_collision_vis** ([visualization_msgs/MarkerArray](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/MarkerArray.html))  
 Visualization of the rectangles and circles which must be checked for traversability
 
+**rne_runtime**  ([std_msgs/Duration](http://docs.ros.org/en/melodic/api/std_msgs/html/msg/Duration.html))
+The time that RNE has been running since start
+
 #### Subscribed Topics
 
 **<octomap_topic>** ([octomap_msgs/Octomap](http://docs.ros.org/en/melodic/api/octomap_msgs/html/msg/Octomap.html))  
 OctoMap voxel grid for sampling space dimensions
 
-**updated_node** ([rrg_nbv_exploration_msgs/Node](../rrg_nbv_exploration_msgs/msg/Node.msg))  
+**updated_node** ([rsb_nbv_exploration_msgs/Node](../rsb_nbv_exploration_msgs/msg/Node.msg))  
 Node which gain was recently calculated
 
 **<occupancy_grid_topic>** ([nav_msgs/OccupancyGrid](http://docs.ros.org/en/melodic/api/nav_msgs/html/msg/OccupancyGrid.html))  
@@ -107,28 +133,31 @@ Grid map to check for traversability
 
 #### Services
 
-**requestGoal** ([rrg_nbv_exploration_msgs/RequestGoal](../rrg_nbv_exploration_msgs/srv/RequestGoal.srv))  
+**requestGoal** ([rsb_nbv_exploration_msgs/RequestGoal](../rsb_nbv_exploration_msgs/srv/RequestGoal.srv))  
 Returns the current goal's position and orientation if available
 
-**requestPath** ([rrg_nbv_exploration_msgs/RequestPath](../rrg_nbv_exploration_msgs/srv/RequestPath.srv))  
+**requestPath** ([rsb_nbv_exploration_msgs/RequestPath](../rsb_nbv_exploration_msgs/srv/RequestPath.srv))  
 Returns the path from the robot to the current goal
 
-**updateCurrentGoal** ([rrg_nbv_exploration_msgs/UpdateCurrentGoal](../rrg_nbv_exploration_msgs/srv/UpdateCurrentGoal.srv))  
+**updateCurrentGoal** ([rsb_nbv_exploration_msgs/UpdateCurrentGoal](../rsb_nbv_exploration_msgs/srv/UpdateCurrentGoal.srv))  
 Sends the status of the current goal
 
-**setRrgState** ([std_srvs/SetBool](http://docs.ros.org/api/std_srvs/html/srv/SetBool.html))  
+**setRneState** ([std_srvs/SetBool](http://docs.ros.org/api/std_srvs/html/srv/SetBool.html))  
 Start or stop exploration (true to start, false to stop)
 
-**getRrgState** ([std_srvs/Trigger](http://docs.ros.org/en/melodic/api/std_srvs/html/srv/Trigger.html))  
+**getRneState** ([std_srvs/Trigger](http://docs.ros.org/en/melodic/api/std_srvs/html/srv/Trigger.html))  
 Returns if the exploration is currently running
 
-**resetRrgState** ([std_srvs/Trigger](http://docs.ros.org/en/melodic/api/std_srvs/html/srv/Trigger.html))  
+**resetRneState** ([std_srvs/Trigger](http://docs.ros.org/en/melodic/api/std_srvs/html/srv/Trigger.html))  
 Stops the exploration and resets the graph
 
 #### Parameters
 
 **~update_frequency** (float, default: 20)  
 Update rate in Hz
+
+**~samples_per_loop** (int, default: 10)
+The number of attempted samples each loop
 
 **~sensor_max_range** (float, default: 5.0)  
 Max sensor range
@@ -205,11 +234,20 @@ If the inflation of nodes past the robot radius up to the maximum sensor range i
 **~move_nodes** (bool, default: true)  
 If nodes can be moved away from obstacles and nearby nodes during inflation to try to achieve a larger radius
 
+**~reupdate_nodes** (bool, default: true)  
+If initial nodes' gain should be recalculated when the robot's nearest neighbors changes and the GainCalculator is currently idle
+
+**~initialization_node_distance** (float, default: 0.0)
+The distance of an initialization node added without a traversability check at the given distance in front of the robot when starting the exploration, no node is added if it equals 0
+
+**global_exploration_active** (bool, default: true)
+If global and local exploration are active or only local exploration
+
 **~auto_homing** (bool, default: false)  
 Return to the root node if all nodes were either explored or failed (exploration is finished)
 
-**~reupdate_nodes** (bool, default: true)  
-If initial nodes' gain should be recalculated when the robot's nearest neighbors changes and the GainCalculator is currently idle
+**~measure_algorithm_runtime** (bool, default: false)
+Measure the total time the algorithm is running since the current exploration started
 
 #### Required tf Transforms
 
@@ -218,22 +256,25 @@ Usually provided by SLAM
 
 ### GainCalcNode
 
-Calculates the gain of given nodes by SRP in the OctoMap and the height of the node by raytracing to find the ground. It places the node at sensor height above the ground.
+Calculates the gain of given nodes by SRP in the OctoMap and the height of the node by ray tracing to find the ground. It places the node at sensor height above the ground.
 
 #### Published Topics
 
 **raysample_visualization** ([visualization_msgs/Marker](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/Marker.html))  
 Visualization of the previous SRP
 
-**updated_node** ([rrg_nbv_exploration_msgs/Node](../rrg_nbv_exploration_msgs/msg/Node.msg))  
+**updated_node** ([rsb_nbv_exploration_msgs/Node](../rsb_nbv_exploration_msgs/msg/Node.msg))  
 Node which gain was recently calculated
+
+**gaincalc_runtime**  ([std_msgs/Duration](http://docs.ros.org/en/melodic/api/std_msgs/html/msg/Duration.html))
+The time that RNE gain calculation has been running since start
 
 #### Subscribed Topics
 
 **<octomap_topic>** ([octomap_msgs/Octomap](http://docs.ros.org/en/melodic/api/octomap_msgs/html/msg/Octomap.html))  
 OctoMap voxel grid for gain calculation
 
-**node_to_update** ([rrg_nbv_exploration_msgs/NodeToUpdate](../rrg_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
+**node_to_update** ([rsb_nbv_exploration_msgs/NodeToUpdate](../rsb_nbv_exploration_msgs/msg/NodeToUpdate.msg))  
 Node which gain should be calculated and a flag if it must be recalculated
 
 #### Parameters
@@ -280,22 +321,34 @@ Resolution of octomap (edge length of voxels in m)
 **~max_node_height_difference** (float, default: 1.0)  
 Max plausible/acceptable height difference between the node's initial height and the measured height by raytracing
 
+**measure_algorithm_runtime** (bool, default: false)
+Measure the total time the algorithm is running since the current exploration started
+
 ### RneVisualizationNode
 
-Visualizes the RRG for RViz by publishing it as markers (nodes as sphere and edges as lines). The nodes are colored corresponding to their particular state (see RneVisualize).
+Visualizes the local and global graphs for RViz by publishing it as markers.
 
 #### Published Topics
 
 **rrg_vis** ([visualization_msgs/Marker](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/Marker.html))  
-Visualization of the RRG with nodes as spheres and edges as lines
+Visualization of the local graph with nodes as spheres and edges as lines
 
 **rrg_vis_info** ([visualization_msgs/MarkerArray](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/MarkerArray.html))  
-Visualization of the RRG's node's numbers plus gain as text (published only every 2s)
+Visualization of the local graph nodes' numbers plus gain as text (published only every second)
+
+**globalgraph_vis** ([visualization_msgs/Marker](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/Marker.html))  
+Visualization of the global graph with targets as cubes and connections as lines
+
+**globalgraph_vis_info** ([visualization_msgs/MarkerArray](http://docs.ros.org/en/melodic/api/visualization_msgs/html/msg/MarkerArray.html))  
+Visualization of the global graph target's numbers, in curly brackets if the target has been clustered (published only every second)
 
 #### Subscribed Topics
 
-**rrg** ([rrg_nbv_exploration_msgs/Graph](../rrg_nbv_exploration_msgs/msg/Graph.msg))  
+**rrg** ([rsb_nbv_exploration_msgs/Graph](../rsb_nbv_exploration_msgs/msg/Graph.msg))  
 Current RRG graph with list of all nodes
+
+**globalgraph** ([rsb_nbv_exploration_msgs/GlobalGraph](../rsb_nbv_exploration_msgs/msg/GlobalGraph.msg))  
+Global graph with lists of all global targets and connections
 
 ####Parameters
 

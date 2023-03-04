@@ -30,7 +30,7 @@ AedeInterface::AedeInterface() :
 			rsb_nbv_exploration_msgs::RequestPath>("requestPath");
 	_update_current_goal_service = nh.serviceClient<
 			rsb_nbv_exploration_msgs::UpdateCurrentGoal>("updateCurrentGoal");
-	_set_rrt_state_service = nh.serviceClient<std_srvs::SetBool>("setRrgState");
+	_set_rne_state_service = nh.serviceClient<std_srvs::SetBool>("setRrgState");
 	_exploration_goal_obsolete_subscriber = nh.subscribe(
 			"explorationGoalObsolete", 1,
 			&AedeInterface::explorationGoalObsoleteCallback, this);
