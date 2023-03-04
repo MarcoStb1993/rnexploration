@@ -1,0 +1,144 @@
+<?xml version="1.0"?>
+<robot name="ideal_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+
+	<xacro:arg name="robot_namespace" default="/" />
+	<xacro:arg name="laser_enabled" default="false" />
+	<xacro:arg name="realsense_enabled" default="false" />
+	<xacro:arg name="velodyne_enabled" default="false" />
+
+	<xacro:include
+		filename="$(find velodyne_description)/urdf/VLP-16.urdf.xacro" />
+	<xacro:include
+		filename="$(find rsb_nbv_exploration_plugins)/urdf/intel_realsense.urdf.xacro" />
+	<xacro:include
+		filename="$(find husky_description)/urdf/accessories/sick_lms1xx_mount.urdf.xacro" />
+	<xacro:include
+		filename="$(find rsb_nbv_exploration_plugins)/urdf/sensor_arch.urdf.xacro" />
+
+
+	<xacro:property name="M_PI" value="3.14159" />
+
+	<material name="black000">
+		<color rgba="0 0 0 1" />
+	</material>
+
+	<!-- root link, on the ground just below the model origin -->
+	<link name="base_footprint">
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0" />
+			<geometry>
+				<box size="0.001 0.001 0.001" />
+			</geometry>
+		</visual>
+	</link>
+
+	<joint name="base_link_joint" type="fixed">
+		<origin xyz="0.0 0 0.21" rpy="0 0 0" />
+		<parent link="base_footprint" />
+		<child link="base_link" />
+	</joint>
+
+	<!-- the model -->
+	<link name="base_link">
+		<inertial>
+			<mass value="50" />
+			<origin xyz="0 0 0" />
+			<inertia ixx="50.0" ixy="0.0" ixz="0.0" iyy="50.0" iyz="0.0"
+				izz="50.0" />
+		</inertial>
+		<visual>
+			<geometry>
+				<box size="0.8 0.6 0.4" /> <!-- does not need to match collision -->
+			</geometry>
+			<material name="black000" />
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" />
+			<geometry>
+				<box size="0.8 0.6 0.4" /> <!-- does not need to match collision -->
+			</geometry>
+		</collision>
+	</link>
+
+	<xacro:if value="$(arg laser_enabled)">
+
+		<xacro:sick_lms1xx_mount prefix="base" />
+
+		<xacro:sick_lms1xx frame="base_laser" topic="scan"
+			robot_namespace="$(arg robot_namespace)" />
+
+		<joint name="laser_mount_joint" type="fixed">
+			<origin xyz="0.3 0 0.2" rpy="0 0 0" />
+			<parent link="base_link" />
+			<child link="base_laser_mount" />
+		</joint>
+
+	</xacro:if>
+
+	<xacro:if value="$(arg realsense_enabled)">
+
+		<xacro:sensor_arch prefix="" parent="base_link">
+			<origin xyz="0 0 0.71" rpy="0 0 0" />
+		</xacro:sensor_arch>
+
+		<xacro:intel_realsense_mount
+			prefix="camera" topic="camera" parent_link="sensor_arch_mount_link" />
+	</xacro:if>
+
+	<xacro:if value="$(arg velodyne_enabled)">
+		<link name="velodyne_mount">
+			<visual>
+				<geometry>
+					<box size="0.1 0.1 0.1" />
+				</geometry>
+				<material name="black000" />
+			</visual>
+			<collision>
+				<geometry>
+					<box size="0.1 0.1 0.1" />
+				</geometry>
+			</collision>
+			<inertial>
+				<mass value="0.3" />
+				<inertia ixx="1e-3" ixy="1e-3" ixz="1e-3" iyy="1e-3"
+					iyz="1e-3" izz="1e-3" />
+			</inertial>
+		</link>
+
+		<joint name="velodyne_mount_joint" type="fixed">
+			<origin xyz="0 0 0.25" rpy="0 0 0" />
+			<parent link="base_link" />
+			<child link="velodyne_mount" />
+		</joint>
+
+		<xacro:VLP-16 parent="velodyne_mount" name="velodyne"
+			topic="velodyne_points" hz="10" samples="1875" gpu="true">
+			<origin xyz="0 0 0.05" rpy="0 0 0" />
+		</xacro:VLP-16>
+	</xacro:if>
+
+	<gazebo>
+		<plugin name="object_controller"
+			filename="libgazebo_ros_planar_move.so">
+			<commandTopic>cmd_vel</commandTopic>
+			<odometryTopic>odom</odometryTopic>
+			<odometryFrame>odom</odometryFrame>
+			<odometryRate>20.0</odometryRate>
+			<robotBaseFrame>base_footprint</robotBaseFrame>
+		</plugin>
+	</gazebo>
+	
+	<gazebo>
+		<plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+			<alwaysOn>true</alwaysOn>
+			<updateRate>50.0</updateRate>
+			<bodyName>base_footprint</bodyName>
+			<topicName>ground_truth/state</topicName>
+			<gaussianNoise>0.0</gaussianNoise>
+			<frameName>world</frameName>
+			<xyzOffsets>0 0 0</xyzOffsets>
+			<rpyOffsets>0 0 0</rpyOffsets>
+		</plugin>
+	</gazebo>
+
+</robot>

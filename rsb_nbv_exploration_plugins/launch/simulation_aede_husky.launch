@@ -1,0 +1,303 @@
+<!-- Simulation of Husky UGV with RealSense camera in Gazebo running  
+	GMapping, AEDE local planner and RNE -->
+
+<launch>
+	<arg name="world"
+		default="$(find husky_gazebo)/worlds/clearpath_playpen.world" />
+	<arg name="robot_frame" default="base_footprint" />
+	<arg name="gui" default="true" />
+	<arg name="min_edge_distance" default="1.0" />
+	<arg name="max_edge_distance" default="2.0" />
+	<arg name="oc_resolution" default="0.1" />
+	<arg name="delta_phi" default="10" />
+	<arg name="delta_theta" default="10" />
+	<arg name="grid_map_resolution" default="0.05" />
+	<arg name="robot_radius" default="0.5" />
+	<arg name="min_view_score" default="0.03" />
+	<arg name="local_sampling_radius" default="5" />
+	<arg name="local_graph_radius" default="20" />
+	<arg name="inflation_active" default="true" />
+	<arg name="move_nodes" default="true" />
+	<arg name="global_exploration_active" default="true" />
+	<arg name="distance_factor" default="1.0" />
+	<arg name="heading_factor" default="1.0" />
+	<arg name="traversability_factor" default="1.0" />
+	<arg name="radius_factor" default="1.0" />
+	<arg name="auto_homing" default="true" />
+	<arg name="reupdate_nodes" default="true" />
+	<!-- Robot starting position in world -->
+	<arg name="x" default="0.0" />
+	<arg name="y" default="0.0" />
+	<arg name="z" default="0.0" />
+	<arg name="yaw" default="0.0" />
+
+	<include
+		file="$(find rsb_nbv_exploration_plugins)/launch/gazebo_husky.launch">
+		<arg name="world_file" value="$(arg world)" />
+		<arg name="x" default="$(arg x)" />
+		<arg name="y" default="$(arg y)" />
+		<arg name="z" default="$(arg z)" />
+		<arg name="yaw" default="$(arg yaw)" />
+		<arg name="laser_enabled" value="false" />
+		<arg name="velodyne_enabled" value="true" />
+		<arg name="robot_frame" value="$(arg robot_frame)" />
+		<arg name="use_ekf" value="false" />
+		<arg name="gui" default="$(arg gui)" />
+	</include>
+
+	<node name="velodyne_laserscan_node" pkg="velodyne_laserscan"
+		type="velodyne_laserscan_node">
+		<param name="ring" value="-1" />
+		<param name="resolution" value="0.007" />
+	</node>
+
+	<!-- GMapping -->
+	<node pkg="gmapping" type="slam_gmapping" name="slam_gmapping"
+		output="screen">
+		<param name="base_frame" value="base_footprint" />
+		<param name="delta" value="$(arg grid_map_resolution)" />
+		<param name="maxRange" value="100.0" />
+		<param name="map_update_interval" value="1.0" />
+	</node>
+
+	<!-- Navigation (just for the cost map) -->
+	<node pkg="move_base" type="move_base" respawn="false"
+		name="move_base" output="screen">
+		<rosparam
+			file="$(find rsb_nbv_exploration_plugins)/config/costmap_common.yaml"
+			command="load" ns="global_costmap" />
+		<rosparam
+			file="$(find rsb_nbv_exploration_plugins)/config/costmap_common.yaml"
+			command="load" ns="local_costmap" />
+		<rosparam
+			file="$(find rsb_nbv_exploration_plugins)/config/costmap_local.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsb_nbv_exploration_plugins)/config/costmap_global.yaml"
+			command="load" />
+		<rosparam
+			file="$(find rsb_nbv_exploration_plugins)/config/planner.yaml"
+			command="load" />
+		<param name="global_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="local_costmap/resolution"
+			value="$(arg grid_map_resolution)" />
+		<param name="global_costmap/robot_base_frame"
+			value="$(arg 
+		robot_frame)" />
+		<param name="local_costmap/robot_base_frame"
+			value="$(arg 
+		robot_frame)" />
+		<param name="base_global_planner"
+			value="global_planner/GlobalPlanner" />
+		<param name="local_costmap/obstacle_layer/laser/sensor_frame"
+			value="velodyne" />
+		<remap from="/cmd_vel" to="/unused_cmd_vel" />
+	</node>
+
+	<node pkg="terrain_analysis" type="terrainAnalysis"
+		name="terrainAnalysis" output="screen" required="true">
+		<remap from="/registered_scan" to="/registered_velodyne_points" />
+		<remap from="/state_estimation" to="/ground_truth/state" />
+		<param name="scanVoxelSize" type="double" value="0.05" />
+		<param name="decayTime" type="double" value="2.0" />
+		<param name="noDecayDis" type="double" value="4.0" />
+		<param name="clearingDis" type="double" value="8.0" />
+		<param name="useSorting" type="bool" value="false" />
+		<param name="quantileZ" type="double" value="0.25" />
+		<param name="considerDrop" type="bool" value="true" />
+		<param name="limitGroundLift" type="bool" value="false" />
+		<param name="maxGroundLift" type="double" value="0.15" />
+		<param name="clearDyObs" type="bool" value="true" />
+		<param name="minDyObsDis" type="double" value="0.3" />
+		<param name="minDyObsAngle" type="double" value="0" />
+		<param name="minDyObsRelZ" type="double" value="-0.5" />
+		<param name="minDyObsVFOV" type="double" value="-16.0" />
+		<param name="maxDyObsVFOV" type="double" value="16.0" />
+		<param name="minDyObsPointNum" type="int" value="1" />
+		<param name="noDataObstacle" type="bool" value="false" />
+		<param name="noDataBlockSkipNum" type="int" value="0" />
+		<param name="minBlockPointNum" type="int" value="10" />
+		<param name="vehicleHeight" type="double" value="0.548" />
+		<param name="voxelPointUpdateThre" type="int" value="100" />
+		<param name="voxelTimeUpdateThre" type="double" value="2.0" />
+		<param name="minRelZ" type="double" value="-2.5" />
+		<param name="maxRelZ" type="double" value="1.0" />
+		<param name="disRatioZ" type="double" value="0.2" />
+	</node>
+
+	<node pkg="tf" type="static_transform_publisher"
+		name="base_footprint_vehicle"
+		args="0 0 0 0 0 0             $(arg robot_frame)        vehicle		10" />
+
+
+	<node pkg="local_planner" type="localPlanner" name="localPlanner"
+		output="screen" required="true">
+		<param name="pathFolder" type="string"
+			value="$(find local_planner)/paths" />
+		<remap from="/registered_scan" to="/registered_velodyne_points" />
+		<remap from="/state_estimation" to="/ground_truth/state" />
+		<param name="vehicleLength" type="double" value="0.8" />
+		<param name="vehicleWidth" type="double" value="0.6" />
+		<param name="sensorOffsetX" value="0" />
+		<param name="sensorOffsetY" value="0" />
+		<param name="twoWayDrive" value="false" />
+		<param name="laserVoxelSize" type="double" value="0.05" />
+		<param name="terrainVoxelSize" type="double" value="0.2" />
+		<param name="useTerrainAnalysis" type="bool" value="true" />
+		<param name="checkObstacle" type="bool" value="false" />
+		<param name="checkRotObstacle" type="bool" value="false" />
+		<param name="adjacentRange" type="double" value="4.25" />
+		<param name="obstacleHeightThre" type="double" value="0.15" />
+		<param name="groundHeightThre" type="double" value="0.1" />
+		<param name="costHeightThre" type="double" value="0.1" />
+		<param name="costScore" type="double" value="0.02" />
+		<param name="useCost" type="bool" value="false" />
+		<param name="pointPerPathThre" type="int" value="2" />
+		<param name="minRelZ" type="double" value="-0.5" />
+		<param name="maxRelZ" type="double" value="0.25" />
+		<param name="maxSpeed" value="2.0" />
+		<param name="dirWeight" type="double" value="0.02" />
+		<param name="dirThre" type="double" value="90.0" />
+		<param name="dirToVehicle" type="bool" value="false" />
+		<param name="pathScale" type="double" value="1.25" />
+		<param name="minPathScale" type="double" value="0.75" />
+		<param name="pathScaleStep" type="double" value="0.25" />
+		<param name="pathScaleBySpeed" type="bool" value="true" />
+		<param name="minPathRange" type="double" value="1.0" />
+		<param name="pathRangeStep" type="double" value="0.5" />
+		<param name="pathRangeBySpeed" type="bool" value="true" />
+		<param name="pathCropByGoal" type="bool" value="true" />
+		<param name="autonomyMode" value="true" />
+		<param name="autonomySpeed" value="2.0" />
+		<param name="joyToSpeedDelay" value="2.0" />
+		<param name="joyToCheckObstacleDelay" type="double" value="5.0" />
+		<param name="goalClearRange" type="double" value="0.5" />
+		<param name="goalX" type="double" value="$(arg x)" />
+		<param name="goalY" type="double" value="$(arg y)" />
+	</node>
+
+	<node pkg="local_planner" type="pathFollower" name="pathFollower"
+		output="screen" required="true">
+		<remap from="/cmd_vel" to="/cmd_vel_stamped" />
+		<remap from="/state_estimation" to="/ground_truth/state" />
+		<param name="sensorOffsetX" value="0" />
+		<param name="sensorOffsetY" value="0" />
+		<param name="pubSkipNum" type="int" value="1" />
+		<param name="twoWayDrive" value="true" />
+		<param name="lookAheadDis" type="double" value="0.5" />
+		<param name="yawRateGain" type="double" value="7.5" />
+		<param name="stopYawRateGain" type="double" value="7.5" />
+		<param name="maxYawRate" type="double" value="90.0" />
+		<param name="maxSpeed" value="2.0" />
+		<param name="maxAccel" type="double" value="2.5" />
+		<param name="switchTimeThre" type="double" value="1.0" />
+		<param name="dirDiffThre" type="double" value="0.1" />
+		<param name="stopDisThre" type="double" value="0.2" />
+		<param name="slowDwnDisThre" type="double" value="0.85" />
+		<param name="useInclRateToSlow" type="bool" value="false" />
+		<param name="inclRateThre" type="double" value="120.0" />
+		<param name="slowRate1" type="double" value="0.25" />
+		<param name="slowRate2" type="double" value="0.5" />
+		<param name="slowTime1" type="double" value="2.0" />
+		<param name="slowTime2" type="double" value="2.0" />
+		<param name="useInclToStop" type="bool" value="false" />
+		<param name="inclThre" type="double" value="45.0" />
+		<param name="stopTime" type="double" value="5.0" />
+		<param name="noRotAtStop" type="bool" value="false" />
+		<param name="noRotAtGoal" type="bool" value="true" />
+		<param name="autonomyMode" value="true" />
+		<param name="autonomySpeed" value="2.0" />
+		<param name="joyToSpeedDelay" value="2.0" />
+	</node>
+
+	<node pkg="tf" type="static_transform_publisher"
+		name="base_footprint_reverse"
+		args="0 0 0 3.1415 0 0             $(arg robot_frame)         $(arg robot_frame)_reverse		10" />
+
+	<node pkg="hector_trajectory_server"
+		type="hector_trajectory_server" name="hector_trajectory_server"
+		output="screen">
+		<param name="target_frame_name" value="map" />
+		<param name="source_frame_name" value="$(arg robot_frame)" />
+	</node>
+
+	<!-- Octomap -->
+	<node pkg="octomap_server" type="octomap_server_node"
+		name="octomap_server">
+		<param name="resolution" value="$(arg oc_resolution)" />
+		<param name="frame_id" type="string" value="map" />
+		<param name="sensor_model/min_range" value="0.5" />
+		<param name="sensor_model/max_range" value="100.0" />
+		<param name="latch" value="false" />
+		<param name="filter_ground" value="false" />
+		<remap from="cloud_in" to="/velodyne_points" />
+		<param name="publish_free_space" value="true" />
+	</node>
+
+	<!-- RN Exploration -->
+	<include
+		file="$(find rsb_nbv_exploration)/launch/simple.launch">
+		<arg name="update_frequency" value="1" />
+		<arg name="robot_radius" value="$(arg robot_radius)" />
+		<arg name="robot_width" value="0.7" />
+		<arg name="sensor_height" value="0.515" />
+		<arg name="sensor_size" value="0.05" />
+		<arg name="sensor_max_range" value="100.0" />
+		<arg name="sensor_min_range" value="0.5" />
+		<arg name="delta_radius" value="$(arg oc_resolution)" />
+		<arg name="delta_phi" value="$(arg delta_phi)" />
+		<arg name="delta_theta" value="$(arg delta_theta)" />
+		<arg name="sensor_horizontal_fov" value="360" />
+		<arg name="sensor_vertical_fov_bottom" value="105" /> <!-- range from 180 to 0 as the highest angle -->
+		<arg name="sensor_vertical_fov_top" value="75" />
+		<arg name="min_view_score" value="$(arg min_view_score)" />
+		<arg name="occupancy_grid_topic"
+			value="/move_base/global_costmap/costmap" />
+		<arg name="local_exploration_finished_timer_duration" value="10.0" />
+		<arg name="oc_resolution" default="$(arg oc_resolution)" />
+		<arg name="grid_map_resolution"
+			default="$(arg grid_map_resolution)" />
+		<arg name="grid_map_occupied" default="99" />
+		<arg name="grid_map_unknown" default="-1" />
+		<arg name="local_sampling_radius"
+			value="$(arg local_sampling_radius)" />
+		<arg name="local_graph_radius" value="$(arg local_graph_radius)" />
+		<arg name="min_edge_distance" default="$(arg min_edge_distance)" />
+		<arg name="max_edge_distance" default="$(arg max_edge_distance)" />
+		<arg name="max_node_height_difference" default="1.0" />
+		<arg name="distance_factor" default="$(arg distance_factor)" />
+		<arg name="heading_factor" default="$(arg heading_factor)" />
+		<arg name="traversability_factor"
+			default="$(arg traversability_factor)" />
+		<arg name="radius_factor" default="$(arg radius_factor)" />
+		<arg name="inflation_active" default="$(arg inflation_active)" />
+		<arg name="move_nodes" default="$(arg move_nodes)" />
+		<arg name="auto_homing" default="$(arg auto_homing)" />
+		<arg name="reupdate_nodes" default="$(arg reupdate_nodes)" />
+		<arg name="samples_per_loop" default="10" />
+		<arg name="global_exploration_active"
+			default="$(arg global_exploration_active)" />
+		<arg name="measure_algorithm_runtime" default="true" />
+		<arg name="add_inter_nodes" default="false" />
+		<arg name="initialization_node_distance" default="3.0" />
+	</include>
+
+	<node pkg="rsb_nbv_exploration_plugins" type="aedeInterfaceNode"
+		name="aedeInterfaceNode" output="screen">
+		<param name="update_frequency" value="20" />
+		<param name="robot_frame" value="$(arg robot_frame)" />
+		<param name="position_tolerance" value="0.25" />
+		<param name="idle_timer_duration" value="3.0" />
+	</node>
+
+	<node pkg="rsb_nbv_exploration_plugins"
+		type="aedeMessageInterfaceNode" name="aedeMessageInterfaceNode"
+		output="screen">
+		<param name="robot_frame" value="$(arg robot_frame)" />
+	</node>
+
+	<!-- RViz für Exploration -->
+	<node if="$(arg gui)" pkg="rviz" type="rviz" name="rviz"
+		args="-d $(find rsb_nbv_exploration_plugins)/config/gazebo_simulation_aede.rviz" />
+</launch>
